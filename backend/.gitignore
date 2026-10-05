@@ -1,0 +1,7 @@
+/node_modules
+/dist
+/coverage
+.env
+
+# Prisma Client gerado (recriado com `npm run prisma:generate`)
+/src/generated/
