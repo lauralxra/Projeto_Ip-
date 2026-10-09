@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ipe-primary: #9d3878;
+  --color-ipe-primary-hover: #832b62;
+  --color-ipe-bg-from: #d28ba8;
+  --color-ipe-bg-to: #9e4b7b;
+  --color-ipe-input-bg: #eef1f5;
+  --color-ipe-card: #ffffff;
+  --color-ipe-text-dark: #1e293b;
+  --color-ipe-text-muted: #64748b;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
