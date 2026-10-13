@@ -1,0 +1,99 @@
+name: projeto-ipe
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: backend/dockerfile
+      target: dev
+    container_name: nestjs-app
+    restart: unless-stopped
+    user: 'root'
+    ports:
+      - '${PORT:-3000}:3000'
+    env_file:
+      - backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-seedabit_db}?schema=public
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        npm install &&
+        npx prisma migrate deploy &&
+        npm run start:dev
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/dockerfile
+      target: dev
+    container_name: ipe-frontend
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-5173}:5173'
+    volumes:
+      - ./frontend/ipe-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - app
+    networks:
+      - nestjs-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nestjs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-seedabit_db}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-seedabit_db}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - nestjs-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nestjs-pgadmin
+    restart: unless-stopped
+    profiles:
+      - tools
+    environment:
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    ports:
+      - '5050:80'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  nestjs-network:
+    driver: bridge
