@@ -19,11 +19,11 @@ datasource db {
 // ENUMS
 // ==========================================================
 
-enum PerfilAcesso {
-  ADM
-  DN
-  EG
-  EC
+enum Role {
+  ADMINISTRADOR
+  DIRETORES_NUCLEOS
+  EQUIPE_GESTAO
+  EQUIPE_COMUNICACAO
 
   @@map("perfil_acesso")
 }
@@ -145,7 +145,7 @@ model User {
   senhaHash    String        @map("senha_hash") @db.VarChar(255)
   fotoUrl      String?       @map("foto_url")
   // Sem perfil e inativo até a Administradora liberar (RF17/RF18).
-  perfil       PerfilAcesso?
+  perfil       Role?
   ativo        Boolean       @default(false)
   ultimoAcesso DateTime?     @map("ultimo_acesso") @db.Timestamptz(6)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -547,7 +547,7 @@ model FaqItem {
   categoriaId String        @map("categoria_id") @db.Uuid
   pergunta    String        @db.VarChar(255)
   resposta    String
-  perfilAlvo  PerfilAcesso? @map("perfil_alvo")
+  perfilAlvo  Role? @map("perfil_alvo")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
