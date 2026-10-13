@@ -24,7 +24,8 @@ RUN npx prisma generate && npm run build
 FROM base AS runner
 ENV NODE_ENV=production
 COPY backend/package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+# bcrypt é módulo nativo: --ignore-scripts pula o download do binário, então reconstruímos
+RUN npm ci --omit=dev --ignore-scripts && npm rebuild bcrypt
 # O Prisma Client gerado (src/generated/prisma) já vai compilado dentro de dist/
 COPY --from=builder /app/dist ./dist
 USER node
