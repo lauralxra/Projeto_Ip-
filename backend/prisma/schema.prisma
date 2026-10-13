@@ -8,6 +8,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  USER 
+  
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
