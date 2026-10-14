@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
+import { AuditModule } from '../audit/audit.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 
 @Module({
   imports: [
+    AuditModule,
     JwtModule.registerAsync({
       useFactory: (): JwtModuleOptions => {
         const secret = process.env.JWT_SECRET;

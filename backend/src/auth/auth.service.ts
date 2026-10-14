@@ -10,6 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interface/jwt-payload.interface';
+import { AuditService } from '../audit/audit.service';
+
+export interface MetaRequisicao {
+  ip: string;
+  userAgent?: string;
+}
 
 const BCRYPT_ROUNDS = 12;
 
@@ -31,6 +37,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly audit: AuditService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -60,7 +67,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, meta: MetaRequisicao) {
     const { email, password } = loginDto;
 
     const user = await this.prisma.user.findFirst({
@@ -72,34 +79,48 @@ export class AuthService {
       user?.senhaHash ?? DUMMY_HASH,
     );
 
+    // Todas as saídas passam por aqui, então sucesso e falha são auditados no mesmo ponto
+    let falha: UnauthorizedException | ForbiddenException | null = null;
     if (!user || !senhaValida) {
-      throw new UnauthorizedException('Email ou senha inválidos.');
-    }
-
-    if (!user.ativo || !user.perfil) {
-      throw new ForbiddenException(
+      falha = new UnauthorizedException('Email ou senha inválidos.');
+    } else if (!user.ativo || !user.perfil) {
+      falha = new ForbiddenException(
         'Sua conta ainda não foi liberada pela administração.',
       );
     }
 
+    await this.audit.registrarTentativaLogin({
+      email,
+      sucesso: !falha,
+      userId: user?.id ?? null,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+
+    if (falha) throw falha;
+
+    // Non-null: a falha acima cobre user ausente e perfil nulo
+    const usuario = user!;
+    const perfil = usuario.perfil!;
+
     await this.prisma.user.update({
-      where: { id: user.id },
+      where: { id: usuario.id },
       data: { ultimoAcesso: new Date() },
     });
 
-    const payload: JwtPayload = { sub: user.id, role: user.perfil };
+    const payload: JwtPayload = { sub: usuario.id, role: perfil };
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
       accessToken,
       tokenType: 'Bearer',
       user: {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        perfil: user.perfil,
-        ativo: user.ativo,
-        createdAt: user.createdAt,
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        perfil,
+        ativo: usuario.ativo,
+        createdAt: usuario.createdAt,
       },
     };
   }
