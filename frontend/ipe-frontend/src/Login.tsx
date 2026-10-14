@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
+import {Imagens} from './config/assets';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -39,7 +41,7 @@ export default function Login() {
           <div className="bg-white rounded-[32px] p-8 sm:p-10 md:p-12 shadow-2xl w-full max-w-md border border-white/20">
             <div className="flex justify-start mb-4">
               <div className="w-12 h-12 rounded-full bg-[#fce8f3] flex items-center justify-center text-xl">
-                🌸
+                <img alt="" className="relative h-[135.8%] left-0 max-w-none top-[-0.07%] w-[135.8%]" src={Imagens.LogoIPE}/>
               </div>
             </div>
 

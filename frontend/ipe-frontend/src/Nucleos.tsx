@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Imagens } from './config/assets';
 import { 
   LayoutDashboard, 
   Layers, 
@@ -24,7 +25,7 @@ interface Nucleo {
   corBg: string;
   corIcone: string;
   logoTexto?: string;
-  iconeEmoji?: string;
+  icone?: string;
 }
 
 const dadosIniciais: Nucleo[] = [
@@ -62,7 +63,7 @@ const dadosIniciais: Nucleo[] = [
     descricao: 'Gestão e acompanhamento das iniciativas do IPÊ',
     corBg: 'bg-[#fcf2f7]',
     corIcone: 'text-[#832b62]',
-    iconeEmoji: '🌸'
+    icone: Imagens.LogoIPE
   }
 ];
 
@@ -263,8 +264,10 @@ export default function Nucleos() {
 
               {/* Avatar do Núcleo */}
               <div className={`w-24 h-24 rounded-full ${nucleo.corBg} ${nucleo.corIcone} flex flex-col items-center justify-center shrink-0 border-2 border-white shadow-inner`}>
-                {nucleo.iconeEmoji ? (
-                  <span className="text-3xl">{nucleo.iconeEmoji}</span>
+                {nucleo.icone ? (
+                  <div>
+                  <img alt="" className="relative h-24 left-0 max-w-none top-[-0.07%] w-24" src={Imagens.LogoIPE}/>
+                  </div>
                 ) : (
                   <span className="font-bold text-lg tracking-wider">{nucleo.logoTexto}</span>
                 )}

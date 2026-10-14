@@ -27,6 +27,8 @@ import {
   Legend 
 } from 'recharts';
 
+import {Imagens} from './config/assets';
+
 // Dados MOCK para os gráficos
 const dadosEvolucao = [
   { mes: 'Jan', atendimentos: 500 },
@@ -61,7 +63,7 @@ export default function Dashboard() {
           {/* Logo IPÊ */}
           <div className="flex items-center gap-3 mb-10 px-2">
             <div className="w-10 h-10 rounded-full bg-[#fce8f3]/20 flex items-center justify-center text-xl">
-              🌸
+              <img alt="" className="relative h-[135.8%] left-0 max-w-none top-[-0.07%] w-[135.8%]" src={Imagens.LogoIPE}/>
             </div>
             <span className="font-bold text-xl tracking-wide">IPÊ</span>
           </div>
