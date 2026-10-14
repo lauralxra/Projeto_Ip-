@@ -67,6 +67,8 @@ const dadosIniciais: Nucleo[] = [
   }
 ];
 
+import { NavBar } from './NavBar';
+
 export default function Nucleos() {
   const [nucleos, setNucleos] = useState<Nucleo[]>(dadosIniciais);
   const [termoPesquisa, setTermoPesquisa] = useState('');
@@ -148,47 +150,7 @@ export default function Nucleos() {
     <div className="flex min-h-screen bg-[#f8fafc]">
       
       {/* Sidebar */}
-      <aside className="w-64 bg-[#3a182d] text-white flex flex-col justify-between p-6 hidden md:flex">
-        <div>
-          <div className="flex items-center gap-3 mb-10 px-2">
-            <div className="w-10 h-10 rounded-full bg-[#fce8f3]/20 flex items-center justify-center text-xl">
-              🌸
-            </div>
-            <span className="font-bold text-xl tracking-wide">IPÊ</span>
-          </div>
-
-          <nav className="space-y-2">
-            <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-              <LayoutDashboard size={20} />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/nucleos" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white font-medium transition-colors">
-              <Layers size={20} />
-              <span>Núcleos</span>
-            </Link>
-            <a href="#programas" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-              <FolderKanban size={20} />
-              <span>Programas</span>
-            </a>
-            <a href="#indicadores" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-              <BarChart3 size={20} />
-              <span>Indicadores</span>
-            </a>
-            <a href="#forum" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-              <MessageSquare size={20} />
-              <span>Fórum</span>
-            </a>
-            <a href="#historico" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-              <History size={20} />
-              <span>Histórico</span>
-            </a>
-          </nav>
-        </div>
-
-        <div className="text-xs text-white/50 px-2">
-          Instituto IPÊ • UFRPE
-        </div>
-      </aside>
+      <NavBar></NavBar>
 
       {/* Conteúdo Principal */}
       <main className="flex-1 p-6 md:p-10 overflow-y-auto">
