@@ -1,6 +1,8 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -74,6 +76,13 @@ export class AuthService {
       where: { email, deletedAt: null },
     });
 
+    if (user?.bloqueioAte && user.bloqueioAte > new Date()) {
+      throw new HttpException(
+        'Esta conta está temporariamente bloqueada. Tente novamente mais tarde',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const senhaValida = await bcrypt.compare(
       password,
       user?.senhaHash ?? DUMMY_HASH,
@@ -81,6 +90,7 @@ export class AuthService {
 
     // Todas as saídas passam por aqui, então sucesso e falha são auditados no mesmo ponto
     let falha: UnauthorizedException | ForbiddenException | null = null;
+
     if (!user || !senhaValida) {
       falha = new UnauthorizedException('Email ou senha inválidos.');
     } else if (!user.ativo || !user.perfil) {
@@ -97,6 +107,10 @@ export class AuthService {
       userAgent: meta.userAgent,
     });
 
+    if (user && !senhaValida) {
+      await this.registrarTentativaInvalida(user.id, user.tentativas ?? 0);
+    }
+
     if (falha) throw falha;
 
     // Non-null: a falha acima cobre user ausente e perfil nulo
@@ -104,8 +118,12 @@ export class AuthService {
     const perfil = usuario.perfil!;
 
     await this.prisma.user.update({
-      where: { id: usuario.id },
-      data: { ultimoAcesso: new Date() },
+      where: { id: user?.id },
+      data: {
+        tentativas: 0,
+        bloqueioAte: null,
+        ultimoAcesso: new Date(),
+      },
     });
 
     const payload: JwtPayload = { sub: usuario.id, role: perfil };
@@ -123,5 +141,43 @@ export class AuthService {
         createdAt: usuario.createdAt,
       },
     };
+  }
+
+  async registrarTentativaInvalida(
+    usuarioId: string,
+    tentativasAtuais: number,
+  ) {
+    const PROXIMA_TENTATIVA = tentativasAtuais + 1;
+    const MAX_TENTATIVAS = 5;
+
+    if (PROXIMA_TENTATIVA >= MAX_TENTATIVAS) {
+      // Calcula o tempo de bloqueio (ex: 15 minutos a partir de agora)
+      const tempoBloqueio = new Date();
+      tempoBloqueio.setMinutes(tempoBloqueio.getMinutes() + 15);
+
+      // Incrementa e bloqueia a conta em uma única operação
+      await this.prisma.user.update({
+        where: { id: usuarioId },
+        data: {
+          tentativas: { increment: 1 },
+          bloqueioAte: tempoBloqueio,
+        },
+      });
+
+      throw new HttpException(
+        'Muitas tentativas incorretas. Sua conta foi bloqueada por 15 minutos.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Caso contrário, apenas incrementa o contador de erros
+    await this.prisma.user.update({
+      where: { id: usuarioId },
+      data: {
+        tentativas: { increment: 1 },
+      },
+    });
+
+    throw new UnauthorizedException('Credenciais inválidas.');
   }
 }
