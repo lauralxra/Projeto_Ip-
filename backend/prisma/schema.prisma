@@ -1,29 +1,561 @@
+// ==========================================================
+// SISTEMA IPÊ (NAUTILUS) — SCHEMA PRISMA (PostgreSQL)
+// - Todos os ids são UUID (@db.Uuid)
+// - Sem refresh token: autenticação somente com JWT de acesso
+// - Regras que o Prisma não expressa (índices únicos parciais,
+//   CHECKs, trigger de auditoria) estão em migration_extra.sql
+// ==========================================================
+
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider = "prisma-client-js"
 }
 
+// A URL de conexão fica em prisma.config.ts (Prisma 7)
 datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String?
-  name      String?
-  posts     Post[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ==========================================================
+// ENUMS
+// ==========================================================
+
+enum Role {
+  ADMINISTRADOR
+  DIRETORES_NUCLEOS
+  EQUIPE_GESTAO
+  EQUIPE_COMUNICACAO
+
+  @@map("perfil_acesso")
 }
 
-model Post {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String?
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum TipoDaltonismo {
+  NENHUM
+  PROTANOPIA
+  DEUTERANOPIA
+  TRITANOPIA
+  ACROMATOPSIA
+
+  @@map("tipo_daltonismo")
 }
+
+// RNF19: 3 níveis (padrão, grande, extra grande)
+enum TamanhoFonte {
+  PADRAO
+  GRANDE
+  EXTRA_GRANDE
+
+  @@map("tamanho_fonte")
+}
+
+enum StatusRegistro {
+  ATIVO
+  INATIVO
+  ARQUIVADO
+
+  @@map("status_registro")
+}
+
+enum TipoDadoIndicador {
+  NUMERICO
+  PERCENTUAL
+  MOEDA
+
+  @@map("tipo_dado_indicador")
+}
+
+enum EscopoIndicador {
+  INSTITUCIONAL
+  NUCLEO
+
+  @@map("escopo_indicador")
+}
+
+enum TrimestreEnum {
+  Q1
+  Q2
+  Q3
+  Q4
+
+  @@map("trimestre_enum")
+}
+
+// Mesmos 6 estados do diagrama de estados da Arquitetura
+enum StatusAprovacao {
+  PENDENTE
+  EM_PREENCHIMENTO
+  ENVIADO_REVISAO
+  NECESSITA_CORRECAO
+  APROVADO
+  PUBLICADO
+
+  @@map("status_aprovacao")
+}
+
+enum StatusPeriodo {
+  ABERTO
+  FECHADO
+
+  @@map("status_periodo")
+}
+
+enum StatusImportacao {
+  PROCESSANDO
+  CONCLUIDA
+  CONCLUIDA_COM_ERROS
+  FALHA
+
+  @@map("status_importacao")
+}
+
+enum TipoNotificacao {
+  SISTEMA
+  PRAZO_PREENCHIMENTO
+  DEVOLUCAO_INDICADOR
+  AVISO_GERAL
+
+  @@map("tipo_notificacao")
+}
+
+// Tentativas de login ficam em login_logs
+enum AcaoAuditoria {
+  CRIAR
+  ATUALIZAR
+  DESATIVAR
+  ARQUIVAR
+  EXCLUIR_LOGICO
+  RESTAURAR
+  APROVAR
+  DEVOLVER
+  PUBLICAR
+  IMPORTAR
+
+  @@map("acao_auditoria")
+}
+
+// ==========================================================
+// 1. AUTENTICAÇÃO, USUÁRIOS E ACESSIBILIDADE
+// ==========================================================
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  nome         String        @db.VarChar(150)
+  tentativas   Int           @default(0)
+  bloqueioAte  DateTime?
+  // Unicidade (apenas entre não excluídos) está em migration_extra.sql.
+  // Normalizar o e-mail para minúsculas na aplicação.
+  email        String        @db.VarChar(150)
+  senhaHash    String        @map("senha_hash") @db.VarChar(255)
+  fotoUrl      String?       @map("foto_url")
+  // Sem perfil e inativo até a Administradora liberar (RF17/RF18).
+  perfil       Role?
+  ativo        Boolean       @default(false)
+  ultimoAcesso DateTime?     @map("ultimo_acesso") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  accessibility        UserAccessibility?
+  resetTokens          PasswordResetToken[]
+  nucleos              UserNucleo[]
+  registrosResponsavel IndicadorRegistro[]  @relation("RegistroResponsavel")
+  registrosAprovador   IndicadorRegistro[]  @relation("RegistroAprovador")
+  registrosPublicador  IndicadorRegistro[]  @relation("RegistroPublicador")
+  importacoes          Importacao[]
+  notificacoesCriadas  Notificacao[]
+  notificacoes         NotificacaoUsuario[]
+  forumPosts           ForumPost[]
+  forumReplies         ForumReply[]
+  auditLogs            AuditLog[]
+  loginLogs            LoginLog[]
+
+  @@index([email])
+  @@index([perfil])
+  @@map("users")
+}
+
+model UserAccessibility {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @unique @map("user_id") @db.Uuid
+  corDaltonismo TipoDaltonismo @default(NENHUM) @map("cor_daltonismo")
+  audiodescricao Boolean       @default(false)
+  tamanhoFonte  TamanhoFonte   @default(PADRAO) @map("tamanho_fonte")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_accessibility")
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  // Guardar apenas o hash do código enviado por e-mail
+  codigoHash String   @map("codigo_hash") @db.VarChar(255)
+  expiraEm   DateTime @map("expira_em") @db.Timestamptz(6)
+  usado      Boolean  @default(false)
+  // Limita tentativas de chute do código
+  tentativas Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usado])
+  @@map("password_reset_tokens")
+}
+
+// ==========================================================
+// 2. ESTRUTURA ORGANIZACIONAL
+// ==========================================================
+
+model Nucleo {
+  id        String         @id @default(uuid()) @db.Uuid
+  // nome e sigla: unicidade apenas entre não excluídos (migration_extra.sql)
+  nome      String         @db.VarChar(150)
+  sigla     String         @db.VarChar(20)
+  descricao String?
+  corHex    String?        @map("cor_hex") @db.VarChar(7)
+  imagemUrl String?        @map("imagem_url")
+  // UC026 (desativar/arquivar) usa status; UC027 (excluir) usa deletedAt
+  status    StatusRegistro @default(ATIVO)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  users        UserNucleo[]
+  programas    Programa[]
+  indicadores  Indicador[]
+  importacoes  Importacao[]
+  notificacoes Notificacao[]
+
+  @@index([status])
+  @@map("nucleos")
+}
+
+model UserNucleo {
+  userId    String   @map("user_id") @db.Uuid
+  nucleoId  String   @map("nucleo_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nucleo Nucleo @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+
+  @@id([userId, nucleoId])
+  @@index([nucleoId])
+  @@map("user_nucleos")
+}
+
+model Programa {
+  id        String         @id @default(uuid()) @db.Uuid
+  // Nome único por núcleo/instituição: ver migration_extra.sql
+  nome      String         @db.VarChar(150)
+  descricao String?
+  // nulo = programa institucional (IPÊ)
+  nucleoId  String?        @map("nucleo_id") @db.Uuid
+  status    StatusRegistro @default(ATIVO)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  nucleo      Nucleo?     @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  acoes       Acao[]
+  indicadores Indicador[]
+
+  @@index([nucleoId])
+  @@index([status])
+  @@map("programas")
+}
+
+model Acao {
+  id         String         @id @default(uuid()) @db.Uuid
+  nome       String         @db.VarChar(150)
+  descricao  String?
+  programaId String         @map("programa_id") @db.Uuid
+  status     StatusRegistro @default(ATIVO)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  programa    Programa    @relation(fields: [programaId], references: [id], onDelete: Restrict)
+  indicadores Indicador[]
+
+  @@index([programaId])
+  @@map("acoes")
+}
+
+// ==========================================================
+// 3. INDICADORES, METAS E MEDIÇÕES TRIMESTRAIS
+// ==========================================================
+
+model Indicador {
+  id            String            @id @default(uuid()) @db.Uuid
+  // codigo: unicidade apenas entre não excluídos (migration_extra.sql)
+  codigo        String?           @db.VarChar(50)
+  nome          String            @db.VarChar(200)
+  descricao     String?
+  tipoDado      TipoDadoIndicador @default(NUMERICO) @map("tipo_dado")
+  unidadeMedida String?           @map("unidade_medida") @db.VarChar(50)
+  // INSTITUCIONAL => nucleoId nulo | NUCLEO => nucleoId obrigatório (CHECK no SQL)
+  escopo        EscopoIndicador
+  status        StatusRegistro    @default(ATIVO)
+  nucleoId      String?           @map("nucleo_id") @db.Uuid
+  programaId    String?           @map("programa_id") @db.Uuid
+  acaoId        String?           @map("acao_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  nucleo    Nucleo?             @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  programa  Programa?           @relation(fields: [programaId], references: [id], onDelete: Restrict)
+  acao      Acao?               @relation(fields: [acaoId], references: [id], onDelete: Restrict)
+  metas     Meta[]
+  registros IndicadorRegistro[]
+
+  @@index([nucleoId])
+  @@index([programaId])
+  @@index([acaoId])
+  @@index([status])
+  @@map("indicadores")
+}
+
+model Meta {
+  id         String          @id @default(uuid()) @db.Uuid
+  indicadorId String         @map("indicador_id") @db.Uuid
+  ano        Int
+  // nulo = meta anual; preenchido = meta trimestral (confirmar com a PO)
+  trimestre  TrimestreEnum?
+  valorMeta  Decimal         @map("valor_meta") @db.Decimal(15, 2)
+  descricao  String?
+  status     StatusRegistro  @default(ATIVO)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  indicador Indicador @relation(fields: [indicadorId], references: [id], onDelete: Restrict)
+
+  @@index([indicadorId, ano])
+  @@map("metas")
+}
+
+model IndicadorRegistro {
+  id                   String          @id @default(uuid()) @db.Uuid
+  indicadorId          String          @map("indicador_id") @db.Uuid
+  ano                  Int
+  trimestre            TrimestreEnum
+  valorRealizado       Decimal?        @map("valor_realizado") @db.Decimal(15, 2)
+  metaAplicada         Decimal?        @map("meta_aplicada") @db.Decimal(15, 2)
+  statusAprovacao      StatusAprovacao @default(PENDENTE) @map("status_aprovacao")
+  justificativaDevolucao String?       @map("justificativa_devolucao")
+  observacoes          String?
+  // Nulo enquanto PENDENTE (registro gerado pelo sistema ao abrir o período)
+  responsavelId        String?         @map("responsavel_id") @db.Uuid
+  aprovadorId          String?         @map("aprovador_id") @db.Uuid
+  publicadoPorId       String?         @map("publicado_por_id") @db.Uuid
+  enviadoEm            DateTime?       @map("enviado_em") @db.Timestamptz(6)
+  revisadoEm           DateTime?       @map("revisado_em") @db.Timestamptz(6)
+  publicadoEm          DateTime?       @map("publicado_em") @db.Timestamptz(6)
+  importacaoId         String?         @map("importacao_id") @db.Uuid
+  // RF11 (inativar) e RF10 (remover): status + deletedAt
+  status               StatusRegistro  @default(ATIVO)
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  indicador   Indicador    @relation(fields: [indicadorId], references: [id], onDelete: Restrict)
+  responsavel User?        @relation("RegistroResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  aprovador   User?        @relation("RegistroAprovador", fields: [aprovadorId], references: [id], onDelete: Restrict)
+  publicadoPor User?       @relation("RegistroPublicador", fields: [publicadoPorId], references: [id], onDelete: Restrict)
+  importacao  Importacao?  @relation(fields: [importacaoId], references: [id], onDelete: SetNull)
+
+  // Unicidade (indicador, ano, trimestre) entre não excluídos: migration_extra.sql
+  @@index([indicadorId, ano, trimestre])
+  @@index([statusAprovacao])
+  @@index([ano, trimestre])
+  @@index([responsavelId])
+  @@index([importacaoId])
+  @@map("indicador_registros")
+}
+
+model PeriodoColeta {
+  id         String        @id @default(uuid()) @db.Uuid
+  ano        Int
+  trimestre  TrimestreEnum
+  aberturaEm DateTime      @map("abertura_em") @db.Timestamptz(6)
+  prazoEm    DateTime      @map("prazo_em") @db.Timestamptz(6)
+  status     StatusPeriodo @default(ABERTO)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([ano, trimestre])
+  @@index([status])
+  @@map("periodos_coleta")
+}
+
+model Importacao {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  nucleoId    String?          @map("nucleo_id") @db.Uuid
+  arquivoNome String           @map("arquivo_nome") @db.VarChar(255)
+  status      StatusImportacao @default(PROCESSANDO)
+  totalLinhas Int?             @map("total_linhas")
+  linhasOk    Int?             @map("linhas_ok")
+  // Lista de erros por linha: [{ linha, coluna, mensagem }]
+  erros       Json?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  finalizadoEm DateTime?       @map("finalizado_em") @db.Timestamptz(6)
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  nucleo    Nucleo?             @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  registros IndicadorRegistro[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("importacoes")
+}
+
+// ==========================================================
+// 4. NOTIFICAÇÕES
+// ==========================================================
+
+model Notificacao {
+  id          String          @id @default(uuid()) @db.Uuid
+  titulo      String          @db.VarChar(150)
+  mensagem    String
+  tipo        TipoNotificacao @default(AVISO_GERAL)
+  linkDestino String?         @map("link_destino") @db.VarChar(255)
+  // Nulo quando criada pelo sistema (agendador de lembretes, RF27)
+  criadorId   String?         @map("criador_id") @db.Uuid
+  nucleoId    String?         @map("nucleo_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  criador       User?                @relation(fields: [criadorId], references: [id], onDelete: Restrict)
+  nucleo        Nucleo?              @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  destinatarios NotificacaoUsuario[]
+
+  @@index([tipo])
+  @@index([nucleoId])
+  @@map("notificacoes")
+}
+
+model NotificacaoUsuario {
+  notificacaoId  String    @map("notificacao_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  isRead         Boolean   @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  // Controle do envio do e-mail de lembrete (RF27)
+  emailEnviadoEm DateTime? @map("email_enviado_em") @db.Timestamptz(6)
+  emailErro      String?   @map("email_erro")
+
+  notificacao Notificacao @relation(fields: [notificacaoId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificacaoId, userId])
+  @@index([userId, isRead])
+  @@map("notificacao_usuarios")
+}
+
+// ==========================================================
+// 5. FÓRUM DE COMUNICAÇÃO
+// ==========================================================
+
+model ForumPost {
+  id        String    @id @default(uuid()) @db.Uuid
+  titulo    String    @db.VarChar(200)
+  conteudo  String
+  authorId  String    @map("author_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  author  User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  replies ForumReply[]
+
+  @@index([authorId])
+  @@map("forum_posts")
+}
+
+model ForumReply {
+  id        String    @id @default(uuid()) @db.Uuid
+  conteudo  String
+  postId    String    @map("post_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("forum_replies")
+}
+
+// ==========================================================
+// 6. AUDITORIA E CENTRAL DE AJUDA
+// ==========================================================
+
+// Imutável: trigger que bloqueia UPDATE/DELETE em migration_extra.sql
+model AuditLog {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String?       @map("user_id") @db.Uuid
+  acao        AcaoAuditoria
+  entidade    String        @db.VarChar(100)
+  entidadeId  String        @map("entidade_id") @db.Uuid
+  dadosAntigos Json?        @map("dados_antigos")
+  dadosNovos  Json?         @map("dados_novos")
+  ipOrigem    String?       @map("ip_origem") @db.VarChar(45)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([entidade, entidadeId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model LoginLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  emailTentado String   @map("email_tentado") @db.VarChar(150)
+  sucesso      Boolean
+  ipOrigem     String   @map("ip_origem") @db.VarChar(45)
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([emailTentado, createdAt])
+  @@index([ipOrigem, createdAt])
+  @@map("login_logs")
+}
+
+model FaqCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @db.VarChar(100)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items FaqItem[]
+
+  @@map("faq_categories")
+}
+
+model FaqItem {
+  id          String        @id @default(uuid()) @db.Uuid
+  categoriaId String        @map("categoria_id") @db.Uuid
+  pergunta    String        @db.VarChar(255)
+  resposta    String
+  perfilAlvo  Role? @map("perfil_alvo")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  categoria FaqCategory @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@index([categoriaId])
+  @@map("faq_items")
+}
+
