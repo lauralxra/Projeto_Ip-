@@ -139,6 +139,8 @@ enum AcaoAuditoria {
 model User {
   id           String        @id @default(uuid()) @db.Uuid
   nome         String        @db.VarChar(150)
+  tentativas   Int           @default(0)
+  bloqueioAte  DateTime?
   // Unicidade (apenas entre não excluídos) está em migration_extra.sql.
   // Normalizar o e-mail para minúsculas na aplicação.
   email        String        @db.VarChar(150)
