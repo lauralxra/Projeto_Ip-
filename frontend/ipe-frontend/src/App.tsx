@@ -11,7 +11,7 @@ export default function App() {
       <Routes>
         {/* Rota inicial redireciona para a tela de Login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
-        
+
         {/* Rotas de Autenticação */}
         <Route path="/login" element={<Login />} />
         {/*<Route path="/cadastro" element={<Cadastro />} />*/}
