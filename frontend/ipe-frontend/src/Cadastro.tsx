@@ -1,6 +1,5 @@
 //PROVISÓRIO, AVALIAR POSTERIORMENTE
 
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
@@ -29,17 +28,18 @@ export default function Cadastro() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[580px]">
-        
         {/* Apresentação */}
         <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight font-semibold tracking-tight">
             Crie sua conta na plataforma
           </h1>
           <p className="text-white/90 text-sm md:text-base leading-relaxed max-w-lg font-light">
-            Cadastre-se para gerenciar e acompanhar metas, resultados e séries históricas do seu núcleo no Instituto IPÊ.
+            Cadastre-se para gerenciar e acompanhar metas, resultados e séries
+            históricas do seu núcleo no Instituto IPÊ.
           </p>
           <div className="pt-8 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-white/80 font-medium">
-            <span>Instituto IPÊ</span> • <span>UFRPE</span> • <span>Termos</span> • <span>Contate-nos</span>
+            <span>Instituto IPÊ</span> • <span>UFRPE</span> •{' '}
+            <span>Termos</span> • <span>Contate-nos</span>
           </div>
         </div>
 
@@ -61,7 +61,9 @@ export default function Cadastro() {
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nome Completo
+                </label>
                 <input
                   type="text"
                   value={nome}
@@ -73,7 +75,9 @@ export default function Cadastro() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Institucional</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email Institucional
+                </label>
                 <input
                   type="email"
                   value={email}
@@ -85,14 +89,18 @@ export default function Cadastro() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Núcleo / Vinculação</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Núcleo / Vinculação
+                </label>
                 <select
                   value={nucleo}
                   onChange={(e) => setNucleo(e.target.value)}
                   required
                   className="w-full px-4 py-2.5 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all text-slate-700"
                 >
-                  <option value="" disabled>Selecione seu núcleo...</option>
+                  <option value="" disabled>
+                    Selecione seu núcleo...
+                  </option>
                   <option value="NEI">NEI - Núcleo de Empreendedorismo</option>
                   <option value="NURI">NURI - Relações Institucionais</option>
                   <option value="NINTA">NINTA - Internacionalização</option>
@@ -101,10 +109,12 @@ export default function Cadastro() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Senha</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Senha
+                </label>
                 <div className="relative">
                   <input
-                    type={mostrarSenha ? "text" : "password"}
+                    type={mostrarSenha ? 'text' : 'password'}
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="Digite sua senha..."
@@ -122,9 +132,11 @@ export default function Cadastro() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Confirmar Senha</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Confirmar Senha
+                </label>
                 <input
-                  type={mostrarSenha ? "text" : "password"}
+                  type={mostrarSenha ? 'text' : 'password'}
                   value={confirmarSenha}
                   onChange={(e) => setConfirmarSenha(e.target.value)}
                   placeholder="Confirme sua senha..."
@@ -143,7 +155,10 @@ export default function Cadastro() {
               <div className="text-center pt-2">
                 <span className="text-xs text-slate-500">
                   Já tem uma conta?{' '}
-                  <Link to="/login" className="text-[#9d3878] font-semibold hover:underline">
+                  <Link
+                    to="/login"
+                    className="text-[#9d3878] font-semibold hover:underline"
+                  >
                     Faça login
                   </Link>
                 </span>
@@ -151,7 +166,6 @@ export default function Cadastro() {
             </form>
           </div>
         </div>
-
       </div>
     </div>
   );

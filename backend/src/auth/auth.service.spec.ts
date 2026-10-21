@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -14,15 +15,19 @@ describe('AuthService', () => {
     user: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
   };
   let jwt: { signAsync: jest.Mock };
+  let audit: { registrarTentativaLogin: jest.Mock };
+  const meta = { ip: '203.0.113.7', userAgent: 'jest-agent' };
 
   beforeEach(() => {
     prisma = {
       user: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
     };
     jwt = { signAsync: jest.fn().mockResolvedValue('token-fake') };
+    audit = { registrarTentativaLogin: jest.fn().mockResolvedValue({}) };
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt as unknown as JwtService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -81,44 +86,63 @@ describe('AuthService', () => {
       });
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.login(dto);
+      const result = await service.login(dto, meta);
 
       expect(jwt.signAsync).toHaveBeenCalledWith({
         sub: 'uuid',
         role: 'ADMINISTRADOR',
       });
       expect(result.accessToken).toBe('token-fake');
+      expect(audit.registrarTentativaLogin).toHaveBeenCalledWith({
+        email: dto.email,
+        sucesso: true,
+        userId: 'uuid',
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+      });
       expect(result.user).not.toHaveProperty('senhaHash');
     });
 
     it('recusa senha errada com 401', async () => {
       prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
         senhaHash,
         ativo: true,
         perfil: 'EQUIPE_GESTAO',
       });
       await expect(
-        service.login({ ...dto, password: 'errada123' }),
+        service.login({ ...dto, password: 'errada123' }, meta),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(audit.registrarTentativaLogin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sucesso: false,
+          userId: 'uuid',
+          email: dto.email,
+        }),
+      );
     });
 
     it('recusa e-mail inexistente com a mesma mensagem da senha errada', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
-      await expect(service.login(dto)).rejects.toBeInstanceOf(
+      await expect(service.login(dto, meta)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
     });
 
     it('recusa conta ainda não liberada com 403, mesmo com senha correta', async () => {
       prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
         senhaHash,
         ativo: false,
         perfil: null,
       });
-      await expect(service.login(dto)).rejects.toBeInstanceOf(
+      await expect(service.login(dto, meta)).rejects.toBeInstanceOf(
         ForbiddenException,
       );
       expect(jwt.signAsync).not.toHaveBeenCalled();
+      expect(audit.registrarTentativaLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ sucesso: false, userId: 'uuid' }),
+      );
     });
   });
 });

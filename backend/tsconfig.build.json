@@ -6,6 +6,7 @@
     "test",
     "dist",
     "skills-folder",
+    "prisma",
     "**/*spec.ts"
   ]
 }
