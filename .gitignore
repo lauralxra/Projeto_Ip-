@@ -54,7 +54,8 @@ lerna-debug.log*
 .env.me
 !.env.vault
 .env.project
-
+.env.prod
+.env.staging
 # Prisma
 prisma/.env
 
@@ -79,3 +80,4 @@ skills
 #Bun
 bun.lock
 /generated/prisma
+.env.test
