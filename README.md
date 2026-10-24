@@ -29,13 +29,13 @@ A solução busca reduzir a descentralização de informações e facilitar o ac
 
 | Tecnologia | Finalidade |
 |---|---|
-| TypeScript | Linguagem de programação |
-| Node.js | Ambiente de execução |
+| TypeScript e Node.js | Linguagem e ambiente de execução |
 | NestJS | Framework do backend |
-| Prisma ORM | Acesso e modelagem dos dados |
 | PostgreSQL | Banco de dados relacional |
-| ESLint e Prettier | Qualidade e formatação do código |
-| Git e GitHub | Controle de versão e colaboração |
+| Prisma ORM | Acesso e versionamento do esquema do banco |
+| Docker e Docker Compose | Containerização e execução dos serviços |
+| Jest e Supertest | Testes automatizados |
+| Git e GitHub Actions | Versionamento e automação de integração contínua |
 
 ## Estrutura do projeto
 
