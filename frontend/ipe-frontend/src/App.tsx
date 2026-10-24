@@ -4,6 +4,7 @@ import Login from './Login';
 //import Cadastro from './Cadastro';
 import Dashboard from './Dashboard';
 import Nucleos from './Nucleos';
+import Indicadores from './Indicadores';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         {/* Rotas Internas do App */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/nucleos" element={<Nucleos />} />
+        <Route path="/indicadores" element={<Indicadores />} />
 
         {/* Fallback para evitar tela branca caso a URL não exista */}
         <Route path="*" element={<Navigate to="/login" replace />} />

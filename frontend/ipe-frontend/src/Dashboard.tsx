@@ -1,12 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { 
-  LayoutDashboard, 
   Layers, 
   FolderKanban, 
-  BarChart3, 
-  MessageSquare, 
-  History, 
+  BarChart3,
   Bell, 
   User, 
   Download, 

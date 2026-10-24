@@ -11,8 +11,9 @@ import {
 
 export function NavBar() {
     return(
-        <aside className="w-64 bg-[#3a182d] text-white flex flex-col justify-between p-6 hidden md:flex shrink-0">
-            <div>
+        <aside className="w-64 bg-[#3a182d] text-white flex flex-col justify-between p-6 hidden md:flex shrink-0 h-screen">
+            <div className="flex flex-col items-center max-w-[inherit] min-w-[inherit] size-full">
+                <div className="content-stretch flex flex-col gap-[80px] items-center max-w-[inherit] min-w-[inherit] pb-[45px] pt-[70px] px-[21px] relative size-full">
                 {/* Logo IPÊ */}
                 <div className="flex items-center gap-3 mb-10 px-2">
                 <div className="w-10 h-10 rounded-full bg-[#fce8f3]/20 flex items-center justify-center text-xl">
@@ -35,19 +36,16 @@ export function NavBar() {
                     <FolderKanban size={20} />
                     <span>Programas</span>
                 </a>
-                <a href="#indicadores" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+                <a href="/indicadores" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                     <BarChart3 size={20} />
                     <span>Indicadores</span>
-                </a>
-                <a href="#forum" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-                    <MessageSquare size={20} />
-                    <span>Fórum</span>
                 </a>
                 <a href="#historico" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                     <History size={20} />
                     <span>Histórico</span>
                 </a>
                 </nav>
+                </div>
             </div>
 
             {/* Rodapé da Sidebar */}

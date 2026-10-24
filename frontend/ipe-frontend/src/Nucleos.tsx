@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Imagens } from './config/assets';
-import { 
-  LayoutDashboard, 
-  Layers, 
-  FolderKanban, 
-  BarChart3, 
-  MessageSquare, 
-  History, 
+import { NavBar } from './NavBar';
+import {
   Bell, 
   User, 
   Search, 
@@ -16,6 +10,7 @@ import {
   Trash2, 
   Camera 
 } from 'lucide-react';
+import { BtnCriar } from './BtnCriar';
 
 interface Nucleo {
   id: string;
@@ -66,8 +61,6 @@ const dadosIniciais: Nucleo[] = [
     icone: Imagens.LogoIPE
   }
 ];
-
-import { NavBar } from './NavBar';
 
 export default function Nucleos() {
   const [nucleos, setNucleos] = useState<Nucleo[]>(dadosIniciais);
@@ -147,13 +140,13 @@ export default function Nucleos() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f8fafc]">
+    <div className="flex h-screen bg-[#f8fafc]">
       
       {/* Sidebar */}
       <NavBar></NavBar>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+      <main className="flex-1 p-6 md:p-10 h-full overflow-y-auto">
         
         {/* Cabeçalho */}
         <header className="flex items-center justify-between gap-4 mb-8">
@@ -190,13 +183,7 @@ export default function Nucleos() {
             <Search size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
-          <button 
-            onClick={abrirCriarModal}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#702052] hover:bg-[#5a1942] text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors cursor-pointer"
-          >
-            <Plus size={18} />
-            <span>Novo núcleo</span>
-          </button>
+          <BtnCriar txt="Novo núcleo" acao={abrirCriarModal}/>
         </div>
 
         {/* Lista de Núcleos (Cards) */}
