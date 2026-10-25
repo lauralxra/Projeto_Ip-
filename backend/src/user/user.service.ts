@@ -11,11 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
-
-export interface AutorAcao {
-  id: string;
-  ip?: string;
-}
+import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 

@@ -6,18 +6,39 @@ import {
   Patch,
   Param,
   Delete,
+  Ip,
+  Req,
+  UseFilters,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 import { NucleoService } from './nucleo.service';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
+import { CreateNucleoSwagger } from './swagger/nucleo.post.swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorators';
+import { PrismaExceptionFilter } from '../common/filters/prisma-exception.filter';
+import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
-@Controller('nucleo')
+@ApiTags('nucleo')
+@UseFilters(PrismaExceptionFilter)
+@Controller('nucleos')
 export class NucleoController {
   constructor(private readonly nucleoService: NucleoService) {}
 
   @Post()
-  create(@Body() createNucleoDto: CreateNucleoDto) {
-    return this.nucleoService.create(createNucleoDto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @CreateNucleoSwagger()
+  create(
+    @Body() createNucleoDto: CreateNucleoDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.create(createNucleoDto, { id: req.user.id, ip });
   }
 
   @Get()
