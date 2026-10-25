@@ -1,10 +1,11 @@
-import React from 'react';
+//import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './Login';
-//import Cadastro from './Cadastro';
-import Dashboard from './Dashboard';
-import Nucleos from './Nucleos';
-import Indicadores from './Indicadores';
+import TelaLogin from './TelaLogin';
+//import TelaCadastro from './TelaCadastro';
+import TelaDashboard from './TelaDashboard';
+import TelaNucleos from './TelaNucleos';
+import TelaIndicadores from './TelaIndicadores';
+import TelaUsuarios from './TelaUsuarios';
 
 export default function App() {
   return (
@@ -14,13 +15,14 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         
         {/* Rotas de Autenticação */}
-        <Route path="/login" element={<Login />} />
-        {/*<Route path="/cadastro" element={<Cadastro />} />*/}
+        <Route path="/login" element={<TelaLogin />} />
+        {/*<Route path="/cadastro" element={<TelaCadastro />} />*/}
 
         {/* Rotas Internas do App */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/nucleos" element={<Nucleos />} />
-        <Route path="/indicadores" element={<Indicadores />} />
+        <Route path="/dashboard" element={<TelaDashboard />} />
+        <Route path="/nucleos" element={<TelaNucleos />} />
+        <Route path="/indicadores" element={<TelaIndicadores />} />
+        <Route path="/usuarios" element={<TelaUsuarios />} />
 
         {/* Fallback para evitar tela branca caso a URL não exista */}
         <Route path="*" element={<Navigate to="/login" replace />} />

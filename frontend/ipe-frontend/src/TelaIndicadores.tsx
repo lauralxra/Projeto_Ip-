@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Svg } from "./config/assets";
 import { NavBar } from './NavBar';
+import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
+
+import type { Nucleo } from './dados/nucleos';
+import { NucleosCadastrados } from './dados/nucleos';
 
 interface Indicador {
   id: string;
@@ -11,7 +15,7 @@ interface Indicador {
   simbolUni?: string;
   meta?: string;
   valAtual: string;
-  nucleo?: string;
+  nucleo?: Nucleo;
   programa?: string;
 }
 
@@ -23,7 +27,7 @@ const dadosIniciais: Indicador[] = [
     simbolUni: '%',
     meta: '100',
     valAtual: '65',
-    nucleo: "NEI",
+    nucleo: NucleosCadastrados[0],
   },
   {
     id: '2',
@@ -32,7 +36,7 @@ const dadosIniciais: Indicador[] = [
     simbolUni: 't',
     meta: '50',
     valAtual: '12',
-    nucleo: "NINTER",
+    nucleo: NucleosCadastrados[2],
   },
   {
     id: '3',
@@ -40,7 +44,7 @@ const dadosIniciais: Indicador[] = [
     unidade: 'Unidade',
     meta: '10',
     valAtual: '13',
-    nucleo: "NINTER",
+    nucleo: NucleosCadastrados[2],
   },
 ];
 
@@ -249,19 +253,24 @@ function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador
     );
 }
 
-export default function Indicadores() {
+export default function TelaIndicadores() {
     const [indicadores, setIndicadores] = useState<Indicador[]>(dadosIniciais);
     const [indicSelecionado, setIndicSelecionado] = useState<Indicador | null>(null);
 
     const [filtroNucleo, setFiltroNucleo] = useState('');
     const [filtroPrograma, setFiltroPrograma] = useState('');
 
-    const listaNucleos = Array.from(new Set(indicadores.map(i => i.nucleo).filter(Boolean))) as string[];
+    const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
     const listaProgramas = Array.from(new Set(indicadores.map(i => i.programa).filter(Boolean))) as string[];
 
     // Filtragem combinada por Núcleo e Programa
     const indicadoresFiltrados = indicadores.filter(n => {
-        const matchNucleo = filtroNucleo ? n.nucleo === filtroNucleo : true;
+        // Se filtroNucleo for vazio, aceita todos. Se for "Nenhum", filtra os que não têm núcleo. Senão filtra pelo nome.
+        const matchNucleo = filtroNucleo === '' 
+            ? true 
+            : filtroNucleo === 'Nenhum' 
+                ? !n.nucleo 
+                : n.nucleo?.sigla === filtroNucleo;
         const matchPrograma = filtroPrograma ? n.programa === filtroPrograma : true;
         return matchNucleo && matchPrograma;
     });
@@ -274,7 +283,7 @@ export default function Indicadores() {
     
     const [formNome, setNomeForm] = useState('');
     const [formUnidade, setUnidadeForm] = useState('');
-    const [formNucleo, setNucleoForm] = useState('');
+    const [formNucleoId, setFormNucleoId] = useState<string>('');
     const [formProgram, setProgramForm] = useState('');
     const [formMeta, setMetaForm] = useState('');
     const [formValor, setValorForm] = useState('');
@@ -299,20 +308,23 @@ export default function Indicadores() {
     const abrirCriarModal = () => {
         setNomeForm('');
         setUnidadeForm('');
-        setNucleoForm('');
+        setFormNucleoId('');
         setProgramForm('');
         setModalNovoAberto(true);
     };
 
     const handleCriarIndic = (e: React.FormEvent) => {
         e.preventDefault();
+        
         let unitSimbol = getUnitSimb();
+        const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+        
         const novo: Indicador = {
             id: Date.now().toString(),
             nome: formNome || 'Novo Indicador',
             unidade: formUnidade || 'Unidade',
             simbolUni: unitSimbol,
-            nucleo: formNucleo,
+            nucleo: nucleoSelecionado,
             programa: formProgram,
             valAtual: '0'
         };
@@ -341,7 +353,7 @@ export default function Indicadores() {
         setIndicSelecionado(indicador);
         setNomeForm(indicador.nome);
         setUnidadeForm(indicador.unidade);
-        setNucleoForm(indicador.nucleo != null ? indicador.nucleo : "");
+        setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
         setProgramForm(indicador.programa != null ? indicador.programa : "");
         setMetaForm(indicador.meta != null ? indicador.meta : "");
         setEditAberto(true);
@@ -350,13 +362,16 @@ export default function Indicadores() {
     const handleSalvarEdicao = (e: React.FormEvent) => {
         e.preventDefault();
         if (!indicSelecionado) return;
+        
         let unitSimbol = getUnitSimb();
+        const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+
         setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
         ...n,
         nome: formNome,
         unidade: formUnidade,
         simbolUni: unitSimbol,
-        nucleo: formNucleo,
+        nucleo: nucleoSelecionado,
         programa: formProgram,
         meta: formMeta,
         } : n));
@@ -398,86 +413,92 @@ export default function Indicadores() {
 
     return(
         <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+
             <NavBar />
 
             {/*================ CONTEUDO PRINCIPAL =================*/}
-
             <main className="flex-1 p-6 md:p-8 h-full overflow-y-auto">
                 
             <div className="flex flex-1 flex-col gap-[30px] items-center pt-[30px] w-full">
                 
-            {/* Header */}
-            <div className="flex flex-col gap-[30px] items-center w-full" data-name="Header">
-                <div className="flex items-center justify-center px-[20px] w-full" data-name="Titulo">
-                    <p className="flex-1 font-semibold text-[#3b142f] text-[32px]">
-                        Indicadores
-                    </p>
-                </div>
-
-                {/* Resumos */}
-                <div className="flex gap-[30px] items-start justify-center px-[40px] w-full" data-name="Resumos">
-                    <TotalProgresso progresso={progressoGeral} />
-                    <TotalIndicadores valor={totalIndicadores} />
-                    <TotalParticipantes />
-                </div>
-
-            </div>
-
-            <div className="flex flex-col gap-[20px] items-center py-[10px] w-full">
-
-                {/*Control*/}
-                <div className="flex gap-[16px] items-center justify-center flex-wrap w-full">
-                    <CustomDropdown 
-                        icon={Svg.UsersMais}
-                        label="Núcleos" 
-                        valor={filtroNucleo} 
-                        onChange={setFiltroNucleo} 
-                        opcoes={listaNucleos} 
-                    />
-                    
-                    <CustomDropdown 
-                        icon={Svg.UsersMais}
-                        label="Programas" 
-                        valor={filtroPrograma} 
-                        onChange={setFiltroPrograma} 
-                        opcoes={listaProgramas} 
-                    />
-
-                    {/* Botão importar */}
-                    <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
-                        <BtnImportIco ico="block size-full" id="btnImportar"/>
-                        <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                            Importar CSV
+                {/* Header */}
+                <div className="flex flex-col gap-[30px] items-center w-full" data-name="Header">
+                    <div className="flex items-center justify-center px-[20px] w-full" data-name="Titulo">
+                        <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+                            Indicadores
                         </p>
                     </div>
 
-                    {/* Botão exportar */}
-                    {/*
-                    <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
-                        <BtnImportIco ico="block size-full rotate-180" id="btnExportar"/>
-                        <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                            Exportar CSV
-                        </p>
+                    {/* Resumos */}
+                    <div className="flex gap-[30px] items-start justify-center px-[40px] w-full" data-name="Resumos">
+                        <TotalProgresso progresso={progressoGeral} />
+                        <TotalIndicadores valor={totalIndicadores} />
+                        <TotalParticipantes />
                     </div>
-                    */}
 
-                    <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
                 </div>
 
-                {/*ListaIndicadores*/}
-                <div className="flex flex-col gap-[8px] items-center px-[10px] py-[10px] w-full">
-                    <Top />
-                    <Lista leList={indicadoresFiltrados}
-                            editIndic={abrirEditarModal}
-                            setIndicVal={abrirValModal}
-                            delIndic={abrirDeletarModal} />
+                <div className="flex flex-col gap-[20px] items-center py-[10px] w-full">
+                    {/*Control*/}
+                    <div className="flex gap-[16px] items-center justify-center flex-wrap w-full">
+                        <CustomDropdown 
+                            icon={Svg.UsersMais}
+                            label="Núcleos" 
+                            valor={filtroNucleo} 
+                            onChange={setFiltroNucleo} 
+                            opcoes={listaNucleosNome}
+                        />
+                        
+                        <CustomDropdown 
+                            icon={Svg.UsersMais}
+                            label="Programas" 
+                            valor={filtroPrograma} 
+                            onChange={setFiltroPrograma} 
+                            opcoes={listaProgramas} 
+                        />
+
+                        {/* Botão importar */}
+                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                            <BtnImportIco ico="block size-full" id="btnImportar"/>
+                            <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
+                                Importar CSV
+                            </p>
+                        </div>
+
+                        {/* Botão exportar */}
+                        {/*
+                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                            <BtnImportIco ico="block size-full rotate-180" id="btnExportar"/>
+                            <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
+                                Exportar CSV
+                            </p>
+                        </div>
+                        */}
+
+                        <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
+                    </div>
+
+                    {/*ListaIndicadores*/}
+                    <div className="flex flex-col gap-[8px] items-center px-[10px] py-[10px] w-full">
+                        <Top />
+                        <Lista leList={indicadoresFiltrados}
+                                editIndic={abrirEditarModal}
+                                setIndicVal={abrirValModal}
+                                delIndic={abrirDeletarModal} />
+                    </div>
                 </div>
-
-            </div>
-
             </div>
 
             </main>
+            
+            {/* ==================== BARRA DO USUÁRIO ========================== */}
+            <div className="absolute h-[60px] right-0 top-0 w-auto" data-name="userbar">
+                <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
+                    <div className="content-stretch flex items-start justify-end max-w-[inherit] min-w-[inherit] relative size-full">
+                    <User />
+                    </div>
+                </div>
+            </div>
             
             { /* ==================== TELAS POPUP ======================== */}
             {/* criação */}
@@ -514,13 +535,16 @@ export default function Indicadores() {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Núcleo</label>
-                            <input 
-                            type="text" 
-                            placeholder="Núcleo correspondente..." 
-                            value={formNucleo}
-                            onChange={(e) => setNucleoForm(e.target.value)}
-                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                            />
+                            <select 
+                            value={formNucleoId}
+                            onChange={(e) => setFormNucleoId(e.target.value)}
+                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            >
+                                <option value="">Sem núcleo</option>
+                                {NucleosCadastrados.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>{opt.sigla}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Programa</label>
@@ -631,13 +655,16 @@ export default function Indicadores() {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Núcleo</label>
-                            <input 
-                            type="text" 
-                            placeholder="Núcleo correspondente..." 
-                            value={formNucleo}
-                            onChange={(e) => setNucleoForm(e.target.value)}
-                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                            />
+                            <select 
+                            value={formNucleoId}
+                            onChange={(e) => setFormNucleoId(e.target.value)}
+                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            >
+                                <option value="">Sem núcleo</option>
+                                {NucleosCadastrados.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>{opt.sigla}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Programa</label>
@@ -697,21 +724,21 @@ export default function Indicadores() {
 
                     <div className="flex items-center gap-3">
                     <button 
-                        onClick={deletarIndic}
-                        className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
-                    >
-                        Deletar
-                    </button>
-                    <button 
                         onClick={() => setDeletando(false)}
                         className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
                     >
                         Cancelar
                     </button>
+                    <button 
+                        onClick={deletarIndic}
+                        className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                        Deletar
+                    </button>
                     </div>
                 </div>
             </div>
-        )}
+            )}
 
         </div>
     );

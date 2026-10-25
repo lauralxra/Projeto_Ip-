@@ -5,7 +5,6 @@ import {
   Layers, 
   FolderKanban, 
   BarChart3, 
-  MessageSquare, 
   History
 } from 'lucide-react';
 

@@ -1,69 +1,22 @@
 import React, { useState } from 'react';
-import { Imagens } from './config/assets';
 import { NavBar } from './NavBar';
+import { User } from './UserBar';
+import { BtnCriar } from './BtnCriar';
+
+import type { Nucleo } from './dados/nucleos';
+import { NucleosCadastrados } from './dados/nucleos';
+
+import { Imagens } from './config/assets';
 import {
-  Bell, 
-  User, 
   Search, 
   Plus, 
   MoreVertical, 
   Trash2, 
   Camera 
 } from 'lucide-react';
-import { BtnCriar } from './BtnCriar';
 
-interface Nucleo {
-  id: string;
-  nome: string;
-  sigla: string;
-  descricao: string;
-  corBg: string;
-  corIcone: string;
-  logoTexto?: string;
-  icone?: string;
-}
-
-const dadosIniciais: Nucleo[] = [
-  {
-    id: '1',
-    nome: 'Núcleo de Empreendedorismo',
-    sigla: 'NEI',
-    descricao: 'Apoio à criação e desenvolvimento de negócios',
-    corBg: 'bg-[#5c3a82]',
-    corIcone: 'text-white',
-    logoTexto: 'NEI'
-  },
-  {
-    id: '2',
-    nome: 'Núcleo de Relações Institucionais',
-    sigla: 'NURI',
-    descricao: 'Articulação de parcerias e relações institucionais',
-    corBg: 'bg-[#6b6e77]',
-    corIcone: 'text-white',
-    logoTexto: 'NURI'
-  },
-  {
-    id: '3',
-    nome: 'Núcleo de Internacionalização',
-    sigla: 'NINTER',
-    descricao: 'Conexões e oportunidades de cooperação internacional',
-    corBg: 'bg-[#d99738]',
-    corIcone: 'text-white',
-    logoTexto: 'NINTER'
-  },
-  {
-    id: '4',
-    nome: 'Núcleo do Instituto IPÊ',
-    sigla: 'IPÊ',
-    descricao: 'Gestão e acompanhamento das iniciativas do IPÊ',
-    corBg: 'bg-[#fcf2f7]',
-    corIcone: 'text-[#832b62]',
-    icone: Imagens.LogoIPE
-  }
-];
-
-export default function Nucleos() {
-  const [nucleos, setNucleos] = useState<Nucleo[]>(dadosIniciais);
+export default function TelaNucleos() {
+  const [nucleos, setNucleos] = useState<Nucleo[]>(NucleosCadastrados);
   const [termoPesquisa, setTermoPesquisa] = useState('');
 
   // Modais
@@ -151,23 +104,12 @@ export default function Nucleos() {
         {/* Cabeçalho */}
         <header className="flex items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800 font-serif">Núcleos</h1>
-            <p className="text-xs text-slate-400 mt-1">
+            <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">Núcleos</h1>
+            <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
               Áreas de atuação responsáveis pelo envio periódico dos dados
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button className="p-2 text-slate-600 hover:text-[#832b62] transition-colors cursor-pointer">
-              <Bell size={20} />
-            </button>
-            <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold">
-              <div className="w-8 h-8 rounded-full bg-[#fce8f3] text-[#832b62] flex items-center justify-center">
-                <User size={16} />
-              </div>
-              <span>Usuário</span>
-            </div>
-          </div>
         </header>
 
         {/* Barra de Pesquisa + Botão Novo Núcleo */}
@@ -231,9 +173,18 @@ export default function Nucleos() {
             </div>
           ))}
         </div>
-
       </main>
+                  
+      {/* ==================== BARRA DO USUÁRIO ========================== */}
+      <div className="absolute h-[60px] right-0 top-0 w-auto" data-name="userbar">
+          <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
+              <div className="content-stretch flex items-start justify-end max-w-[inherit] min-w-[inherit] relative size-full">
+              <User />
+              </div>
+          </div>
+      </div>
 
+      { /* ==================== TELAS POPUP ======================== */}
       {/* --- MODAL 1: NOVO NÚCLEO --- */}
       {modalNovoAberto && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -390,16 +341,16 @@ export default function Nucleos() {
 
             <div className="flex items-center gap-3">
               <button 
-                onClick={handleDeletarNucleo}
-                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
-              >
-                Deletar
-              </button>
-              <button 
                 onClick={() => setModalDeletarAberto(false)}
                 className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
               >
                 Cancelar
+              </button>
+              <button 
+                onClick={handleDeletarNucleo}
+                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                Deletar
               </button>
             </div>
           </div>

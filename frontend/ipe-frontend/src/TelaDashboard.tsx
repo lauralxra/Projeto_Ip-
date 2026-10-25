@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { NavBar } from './NavBar';
+import { User } from './UserBar';
 import { 
   Layers, 
   FolderKanban, 
   BarChart3,
-  Bell, 
-  User, 
   Download, 
   ChevronDown,
   TrendingUp,
@@ -22,8 +22,6 @@ import {
   CartesianGrid, 
   Legend 
 } from 'recharts';
-
-import { NavBar } from './NavBar';
 
 // Dados MOCK para os gráficos
 const dadosEvolucao = [
@@ -46,24 +44,24 @@ const dadosComparativo = [
   { nucleo: 'Gestão', Pessoas: 68, Projetos: 46, Parcerias: 38 },
 ];
 
-export default function Dashboard() {
+export default function TelaDashboard() {
   const [nucleoFiltro, setNucleoFiltro] = useState('Todos os Núcleos');
   const [periodoFiltro, setPeriodoFiltro] = useState('Últimos 12 meses');
 
   return (
-    <div className="flex min-h-screen bg-[#f8fafc]">
+    <div className="flex h-screen bg-[#f8fafc]">
       
       {/* Sidebar Lateral */}
       <NavBar></NavBar>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+      <main className="flex-1 px-[30px] h-full overflow-y-auto pt-[60px] pb-[25px]">
         
         {/* Cabeçalho do Dashboard */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800 font-serif">Dashboard</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">Dashboard</h1>
+            <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
               Acompanhe os resultados dos núcleos, programas e indicadores institucionais
             </p>
           </div>
@@ -103,19 +101,6 @@ export default function Dashboard() {
               <Download size={14} />
               <span>Exportar CSV</span>
             </button>
-
-            {/* Notificação e Usuário */}
-            <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
-              <button className="p-2 text-slate-600 hover:text-[#832b62] transition-colors cursor-pointer">
-                <Bell size={20} />
-              </button>
-              <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold">
-                <div className="w-8 h-8 rounded-full bg-[#fce8f3] text-[#832b62] flex items-center justify-center">
-                  <User size={16} />
-                </div>
-                <span>Usuário</span>
-              </div>
-            </div>
           </div>
         </header>
 
@@ -234,6 +219,15 @@ export default function Dashboard() {
         </div>
 
       </main>
+
+      {/* ==================== BARRA DO USUÁRIO ========================== */}
+      <div className="absolute h-[60px] right-0 top-0 w-auto" data-name="userbar">
+          <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
+              <div className="content-stretch flex items-start justify-end max-w-[inherit] min-w-[inherit] relative size-full">
+              <User />
+              </div>
+          </div>
+      </div>
     </div>
   );
 }

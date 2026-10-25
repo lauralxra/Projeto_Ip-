@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 
 import {Imagens} from './config/assets';
 
-export default function Login() {
+export default function TelaLogin() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
