@@ -3,6 +3,7 @@ import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { AuthController } from './auth.controller';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtAuthGuard],
+  // UserModule usa o guard, que depende do JwtService
+  exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}
