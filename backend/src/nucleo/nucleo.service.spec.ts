@@ -1,5 +1,15 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
-import { AcaoAuditoria, Prisma, StatusRegistro } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AcaoAuditoria,
+  Prisma,
+  Role,
+  StatusRegistro,
+  TrimestreEnum,
+} from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { NucleoRepository } from './nucleo.repository';
 import { NucleoService } from './nucleo.service';
@@ -11,6 +21,7 @@ describe('NucleoService', () => {
     create: jest.Mock;
     findAtivoComVinculos: jest.Mock;
     softDelete: jest.Mock;
+    search: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
@@ -27,6 +38,7 @@ describe('NucleoService', () => {
       create: jest.fn(),
       findAtivoComVinculos: jest.fn(),
       softDelete: jest.fn(),
+      search: jest.fn(),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
     service = new NucleoService(
@@ -198,6 +210,124 @@ describe('NucleoService', () => {
       await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
         'O núcleo não pode ser excluído pois possui usuários, programas, indicadores vinculados.',
       );
+    });
+  });
+
+  describe('search', () => {
+    const admin = { id: 'admin-uuid', role: Role.ADMINISTRADOR };
+    const diretor = { id: 'diretor-uuid', role: Role.DIRETORES_NUCLEOS };
+    const semFiltros = { pagina: 1, limite: 20 };
+
+    // where enviado ao repositório na última pesquisa
+    const whereUsado = () =>
+      (repository.search.mock.calls[0] as [Prisma.NucleoWhereInput])[0];
+
+    beforeEach(() => {
+      repository.search.mockResolvedValue([[{ id: 'nucleo-uuid' }], 1]);
+    });
+
+    it('devolve a página com itens e total', async () => {
+      await expect(service.search(semFiltros, admin)).resolves.toEqual({
+        itens: [{ id: 'nucleo-uuid' }],
+        total: 1,
+        pagina: 1,
+        limite: 20,
+      });
+    });
+
+    it('converte página e limite em skip e take', async () => {
+      await service.search({ pagina: 3, limite: 10 }, admin);
+
+      expect(repository.search).toHaveBeenCalledWith(expect.anything(), 20, 10);
+    });
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'perfil %s pesquisa todos os núcleos não excluídos',
+      async (role) => {
+        await service.search(semFiltros, { id: 'user-uuid', role });
+
+        expect(whereUsado()).toEqual({ deletedAt: null });
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s só recebe os núcleos aos quais está vinculado',
+      async (role) => {
+        await service.search(semFiltros, { id: 'user-uuid', role });
+
+        expect(whereUsado()).toEqual({
+          deletedAt: null,
+          users: { some: { userId: 'user-uuid' } },
+        });
+      },
+    );
+
+    it('mantém a restrição de vínculo junto com os filtros', async () => {
+      await service.search({ ...semFiltros, termo: 'nea' }, diretor);
+
+      expect(whereUsado()).toMatchObject({
+        deletedAt: null,
+        users: { some: { userId: 'diretor-uuid' } },
+        OR: expect.any(Array) as unknown,
+      });
+    });
+
+    it('busca o termo no nome, sigla e descrição sem diferenciar maiúsculas', async () => {
+      await service.search({ ...semFiltros, termo: 'Ambiental' }, admin);
+
+      expect(whereUsado().OR).toEqual([
+        { nome: { contains: 'Ambiental', mode: 'insensitive' } },
+        { sigla: { contains: 'Ambiental', mode: 'insensitive' } },
+        { descricao: { contains: 'Ambiental', mode: 'insensitive' } },
+      ]);
+    });
+
+    it('filtra por programa, estado e período de criação', async () => {
+      await service.search(
+        {
+          ...semFiltros,
+          programaId: 'programa-uuid',
+          status: StatusRegistro.INATIVO,
+          dataInicio: '2026-01-01',
+          dataFim: '2026-03-31',
+        },
+        admin,
+      );
+
+      expect(whereUsado()).toMatchObject({
+        programas: { some: { id: 'programa-uuid', deletedAt: null } },
+        status: StatusRegistro.INATIVO,
+        createdAt: {
+          gte: new Date('2026-01-01T00:00:00.000Z'),
+          lt: new Date('2026-04-01T00:00:00.000Z'),
+        },
+      });
+    });
+
+    it('filtra por ano e trimestre dos registros de indicadores', async () => {
+      await service.search(
+        { ...semFiltros, ano: 2026, trimestre: TrimestreEnum.Q2 },
+        admin,
+      );
+
+      expect(whereUsado().indicadores).toEqual({
+        some: {
+          deletedAt: null,
+          registros: {
+            some: { deletedAt: null, ano: 2026, trimestre: TrimestreEnum.Q2 },
+          },
+        },
+      });
+    });
+
+    it('recusa data inicial posterior à final com 400 sem consultar', async () => {
+      await expect(
+        service.search(
+          { ...semFiltros, dataInicio: '2026-05-01', dataFim: '2026-04-01' },
+          admin,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.search).not.toHaveBeenCalled();
     });
   });
 });

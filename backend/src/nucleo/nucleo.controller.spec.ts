@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   INestApplication,
   NotFoundException,
+  UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -15,24 +16,31 @@ import { NucleoService } from './nucleo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
-// Simula o JwtAuthGuard: o perfil do usuário vem do header x-test-role
+// Simula o JwtAuthGuard: o perfil do usuário vem do header x-test-role; sem ele, 401
 class FakeJwtGuard implements CanActivate {
   canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    req.user = { id: 'autor-uuid', role: req.headers['x-test-role'] as Role };
+    const role = req.headers['x-test-role'] as Role | undefined;
+    if (!role) throw new UnauthorizedException();
+    req.user = { id: 'autor-uuid', role };
     return true;
   }
 }
 
 describe('NucleoController (HTTP)', () => {
   let app: INestApplication<App>;
-  let nucleoService: { create: jest.Mock; remove: jest.Mock };
+  let nucleoService: {
+    create: jest.Mock;
+    remove: jest.Mock;
+    search: jest.Mock;
+  };
   const payload = { nome: 'Núcleo de Educação Ambiental', sigla: 'nea' };
 
   beforeEach(async () => {
     nucleoService = {
       create: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
       remove: jest.fn().mockResolvedValue(undefined),
+      search: jest.fn().mockResolvedValue({ itens: [], total: 0 }),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NucleoController],
@@ -195,6 +203,87 @@ describe('NucleoController (HTTP)', () => {
         .delete(`/nucleos/${id}`)
         .set('x-test-role', Role.ADMINISTRADOR)
         .expect(409);
+    });
+  });
+
+  describe('GET /nucleos', () => {
+    it('sem token retorna 401 e nada é consultado', async () => {
+      await request(app.getHttpServer()).get('/nucleos').expect(401);
+
+      expect(nucleoService.search).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      Role.ADMINISTRADOR,
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])('perfil %s pesquisa e recebe 200', async (role) => {
+      await request(app.getHttpServer())
+        .get('/nucleos')
+        .set('x-test-role', role)
+        .expect(200)
+        .expect({ itens: [], total: 0 });
+
+      expect(nucleoService.search).toHaveBeenCalledWith(
+        expect.objectContaining({ pagina: 1, limite: 20 }),
+        { id: 'autor-uuid', role },
+      );
+    });
+
+    it('repassa os filtros convertidos ao service', async () => {
+      await request(app.getHttpServer())
+        .get('/nucleos')
+        .query({ termo: ' nea ', ano: '2026', trimestre: 'Q1', limite: '5' })
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(200);
+
+      expect(nucleoService.search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          termo: 'nea',
+          ano: 2026,
+          trimestre: 'Q1',
+          pagina: 1,
+          limite: 5,
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('filtros inválidos retornam 400', async () => {
+      await request(app.getHttpServer())
+        .get('/nucleos')
+        .query({ status: 'EXCLUIDO', limite: '500' })
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(400);
+
+      expect(nucleoService.search).not.toHaveBeenCalled();
+    });
+
+    it('parâmetros desconhecidos retornam 400', async () => {
+      await request(app.getHttpServer())
+        .get('/nucleos')
+        .query({ cidade: 'Recife' })
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(400);
+    });
+
+    it('falha no banco retorna 500 padronizado', async () => {
+      nucleoService.search.mockRejectedValue(
+        new Prisma.PrismaClientUnknownRequestError('erro', {
+          clientVersion: 'test',
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .get('/nucleos')
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(500)
+        .expect({
+          statusCode: 500,
+          message: 'Erro interno ao acessar o banco de dados.',
+          error: 'Internal Server Error',
+        });
     });
   });
 });
