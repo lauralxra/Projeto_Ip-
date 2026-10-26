@@ -19,7 +19,7 @@ export const NucleosCadastrados: Nucleo[] = [
         descricao: 'Apoio à criação e desenvolvimento de negócios',
         corBg: 'bg-[#5c3a82]',
         corIcone: 'text-white',
-        logoTexto: 'NEI'
+        icone: Imagens.LogoNEI
     },
     {
         id: '1',
@@ -28,7 +28,7 @@ export const NucleosCadastrados: Nucleo[] = [
         descricao: 'Articulação de parcerias e relações institucionais',
         corBg: 'bg-[#6b6e77]',
         corIcone: 'text-white',
-        logoTexto: 'NURI'
+        icone: Imagens.LogoNURI
     },
     {
         id: '2',
@@ -37,7 +37,7 @@ export const NucleosCadastrados: Nucleo[] = [
         descricao: 'Conexões e oportunidades de cooperação internacional',
         corBg: 'bg-[#d99738]',
         corIcone: 'text-white',
-        logoTexto: 'NINTER'
+        icone: Imagens.LogoNINTER
     },
     {
         id: '3',

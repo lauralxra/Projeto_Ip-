@@ -1,5 +1,8 @@
 export const Imagens = {
     LogoIPE: '/src/assets/Logo_IPE.png',
+    LogoNEI: '/src/assets/Logo_NEI.png',
+    LogoNURI: '/src/assets/Logo_NURI.png',
+    LogoNINTER: '/src/assets/Logo_NINTER.png',
     DefaultPFP: '/src/assets/IPE_DefaultPfp.png'
 } as const;
 

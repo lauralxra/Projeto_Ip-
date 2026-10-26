@@ -14,7 +14,7 @@ function ProgramaObj( {programaEmSi, editFunc, delFunc}: {programaEmSi: Programa
   return (
     <div className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-[16px] items-start min-h-[120px] px-[18px] py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full" data-name="Programa">
       {/* Logo do Programa */}
-      <div className={`h-[75px] w-[75px] relative ${programaEmSi.nucleo.corBg} ${programaEmSi.nucleo.corIcone} flex items-center justify-center rounded-full shrink-0 border border-slate-200`} data-name="Img">
+      <div className={`h-[75px] w-[75px] relative ${programaEmSi.nucleo.corBg} ${programaEmSi.nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`} data-name="Img">
         {programaEmSi.nucleo.icone ? (
           <div>
           <img alt="" className="absolute inset-0 object-cover pointer-events-none size-full" src={programaEmSi.nucleo.icone}/>
