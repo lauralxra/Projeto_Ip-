@@ -82,7 +82,7 @@ function LabelTxt( {txt, widt}: {txt:string, widt?:string}) {
 function Labels() {
   return (
     <div className="bg-[#3b142f] drop-shadow-[0px_4px_2px_rgba(0,0,0,0.1)] flex h-[48px] items-center justify-between px-[20px] py-[8px] relative rounded-t-[24px] w-full" data-name="Labels">
-      <LabelTxt txt="Id" widt='100px'/>
+      <LabelTxt txt="Id" widt='70px'/>
       <LabelTxt txt="Usuário" />
       <LabelTxt txt="Tipo de Conta" />
       <LabelTxt txt="Núcleo associado" />
@@ -183,10 +183,6 @@ export default function TelaUsuarios() {
     const [usuarios, setUsuarios] = useState<Usuario[]>(UsuariosCadastrados);
     const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
 
-    const [modalCriacao, setModalCriacao] = useState(false);
-    const [modalEdicao, setModalEdicao] = useState(false);
-    const [modalDeletando, setModalDelete] = useState(false);
-
     const [formNome, setFormNome] = useState('');
     const [formImagem, setformImagem] = useState('');
     const [formTipo, setFormTipo] = useState('');
@@ -201,6 +197,7 @@ export default function TelaUsuarios() {
         setUsuarios(usuarios.map(u => u.id === id ? { ...u, status: novoStatus } : u));
     };
 
+    const [modalCriacao, setModalCriacao] = useState(false);
     const AbrirTelaCriacao = () => {
       setFormNome('');
       setformImagem('');
@@ -208,6 +205,17 @@ export default function TelaUsuarios() {
       setFormNucleos([]);
       setFormStatus(1);
       setModalCriacao(true);
+    };
+
+    const [modalEdicao, setModalEdicao] = useState(false);
+    const abrirEditModal = (user: Usuario) => {
+      setUserSelecionado(user);
+      setFormNome(user.nome);
+      setformImagem(user.imagem || '');
+      setFormTipo(user.tipo);
+      setFormNucleos(user.nucleos);
+      setFormStatus(user.status);
+      setModalEdicao(true);
     };
     
     const handleSalvarUsuario = (dadosUsuario: Usuario) => {
@@ -223,16 +231,7 @@ export default function TelaUsuarios() {
         setUserSelecionado(undefined);
     };
 
-    const abrirEditModal = (user: Usuario) => {
-      setUserSelecionado(user);
-      setFormNome(user.nome);
-      setformImagem(user.imagem || '');
-      setFormTipo(user.tipo);
-      setFormNucleos(user.nucleos);
-      setFormStatus(user.status);
-      setModalEdicao(true);
-    };
-
+    const [modalDeletando, setModalDelete] = useState(false);
     const abrirDeletarModal = (usuario: Usuario) => {
         setUserSelecionado(usuario);
         setModalDelete(true);
@@ -297,6 +296,7 @@ export default function TelaUsuarios() {
         </div>
 
         { /* ==================== TELAS POPUP ======================== */}
+        { /* cadastro */}
         {modalCriacao && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
             <TelaUsuarioUserPopup header='Criando usuário'
@@ -310,6 +310,7 @@ export default function TelaUsuarios() {
                                   onClose={() => setModalCriacao(false)}/>
           </div>
         )}
+
         {/* edicao */}
         {modalEdicao && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">

@@ -11,8 +11,7 @@ import {
   Search, 
   Plus, 
   MoreVertical, 
-  Trash2, 
-  Camera 
+  Trash2,
 } from 'lucide-react';
 
 export default function TelaNucleos() {
@@ -22,13 +21,16 @@ export default function TelaNucleos() {
   // Modais
   const [modalNovoAberto, setModalNovoAberto] = useState(false);
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
-  const [modalDeletarAberto, setModalDeletarAberto] = useState(false);
 
   // Estado dos formulários
   const [nucleoSelecionado, setNucleoSelecionado] = useState<Nucleo | null>(null);
   const [nomeForm, setNomeForm] = useState('');
   const [siglaForm, setSiglaForm] = useState('');
   const [descricaoForm, setDescricaoForm] = useState('');
+
+  const [imagemPreview, setImagemPreview] = useState<string | null>();
+
+  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 
   // Filtrar núcleos
   const nucleosFiltrados = nucleos.filter(n => 
@@ -42,6 +44,7 @@ export default function TelaNucleos() {
     setNomeForm('');
     setSiglaForm('');
     setDescricaoForm('');
+    setImagemPreview('')
     setModalNovoAberto(true);
   };
 
@@ -54,7 +57,8 @@ export default function TelaNucleos() {
       descricao: descricaoForm || 'Sem descrição cadastrada.',
       corBg: 'bg-[#832b62]',
       corIcone: 'text-white',
-      logoTexto: siglaForm || 'NOVO'
+      logoTexto: siglaForm || 'NOVO',
+      icone: imagemPreview || '',
     };
     setNucleos([...nucleos, novo]);
     setModalNovoAberto(false);
@@ -65,6 +69,7 @@ export default function TelaNucleos() {
     setNomeForm(nucleo.nome);
     setSiglaForm(nucleo.sigla);
     setDescricaoForm(nucleo.descricao);
+    setImagemPreview(nucleo.icone || "");
     setModalEditarAberto(true);
   };
 
@@ -76,11 +81,14 @@ export default function TelaNucleos() {
       nome: nomeForm,
       sigla: siglaForm,
       descricao: descricaoForm,
-      logoTexto: siglaForm
+      logoTexto: siglaForm,
+      icone: imagemPreview || '',
     } : n));
     setModalEditarAberto(false);
   };
 
+  // Deletamento Handling
+  const [modalDeletarAberto, setModalDeletarAberto] = useState(false);
   const abrirDeletarModal = (nucleo: Nucleo) => {
     setNucleoSelecionado(nucleo);
     setModalDeletarAberto(true);
@@ -90,6 +98,15 @@ export default function TelaNucleos() {
     if (!nucleoSelecionado) return;
     setNucleos(nucleos.filter(n => n.id !== nucleoSelecionado.id));
     setModalDeletarAberto(false);
+  };
+
+  const handleMudarImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const arquivo = e.target.files?.[0];
+      if (arquivo) {
+          setArquivoImagem(arquivo);
+          const urlTemporaria = URL.createObjectURL(arquivo);
+          setImagemPreview(urlTemporaria);
+      }
   };
 
   return (
@@ -157,10 +174,10 @@ export default function TelaNucleos() {
               <div className={`w-24 h-24 rounded-full ${nucleo.corBg} ${nucleo.corIcone} flex flex-col items-center justify-center shrink-0 border-2 border-white shadow-inner`}>
                 {nucleo.icone ? (
                   <div>
-                  <img alt="" className="relative h-24 left-0 max-w-none top-[-0.07%] w-24" src={Imagens.LogoIPE}/>
+                  <img alt="" className="relative h-24 left-0 max-w-none top-[-0.07%] rounded-[100px] w-24" src={nucleo.icone}/>
                   </div>
                 ) : (
-                  <span className="font-bold text-lg tracking-wider">{nucleo.logoTexto}</span>
+                  <span className="font-bold tracking-wider">{nucleo.logoTexto}</span>
                 )}
               </div>
 
@@ -195,10 +212,20 @@ export default function TelaNucleos() {
               <div className="flex gap-4">
                 {/* Upload Foto / Placeholder */}
                 <div className="w-24 h-24 rounded-2xl bg-slate-200 flex items-center justify-center relative shrink-0">
-                  <Camera size={28} className="text-slate-400" />
+                  <img alt="" className="absolute inset-0 max-w-none object-cover rounded-[5px] size-full"
+                      src={imagemPreview || Imagens.DefaultPFP}
+                  />
                   <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#4a1836] text-white flex items-center justify-center cursor-pointer shadow-md">
                     <Plus size={16} />
                   </div>
+                  
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleMudarImagem}
+                    className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
+                    title="Alterar foto"
+                  />
                 </div>
 
                 {/* Campos Nome e Sigla */}
@@ -208,6 +235,7 @@ export default function TelaNucleos() {
                     <input 
                       type="text" 
                       placeholder="Insira um nome..." 
+                      required
                       value={nomeForm}
                       onChange={(e) => setNomeForm(e.target.value)}
                       className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
@@ -218,6 +246,7 @@ export default function TelaNucleos() {
                     <input 
                       type="text" 
                       placeholder="Insira uma sigla..." 
+                      required
                       value={siglaForm}
                       onChange={(e) => setSiglaForm(e.target.value)}
                       className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
@@ -269,10 +298,20 @@ export default function TelaNucleos() {
             <form onSubmit={handleSalvarEdicao} className="space-y-4">
               <div className="flex gap-4">
                 <div className="w-24 h-24 rounded-2xl bg-slate-200 flex items-center justify-center relative shrink-0">
-                  <Camera size={28} className="text-slate-400" />
+                  <img alt="" className="absolute inset-0 max-w-none object-cover rounded-[5px] size-full"
+                      src={imagemPreview || Imagens.DefaultPFP}
+                  />
                   <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#4a1836] text-white flex items-center justify-center cursor-pointer shadow-md">
                     <Plus size={16} />
                   </div>
+                  
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleMudarImagem}
+                    className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
+                    title="Alterar foto"
+                  />
                 </div>
 
                 <div className="flex-1 space-y-3">

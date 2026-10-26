@@ -47,14 +47,5 @@ export const NucleosCadastrados: Nucleo[] = [
         corBg: 'bg-[#fcf2f7]',
         corIcone: 'text-[#832b62]',
         icone: Imagens.LogoIPE
-    },
-    {
-        id: '4',
-        nome: 'Super núcleo gg',
-        sigla: 'GG',
-        descricao: 'ui ui ai ai',
-        corBg: 'bg-[#313131]',
-        corIcone: 'text-[#555555]',
-        logoTexto: 'GG'
     }
 ];

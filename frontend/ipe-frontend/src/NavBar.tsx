@@ -31,7 +31,7 @@ export function NavBar() {
                     <Layers size={20} />
                     <span>Núcleos</span>
                 </Link>
-                <a href="#programas" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+                <a href="/programas" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                     <FolderKanban size={20} />
                     <span>Programas</span>
                 </a>

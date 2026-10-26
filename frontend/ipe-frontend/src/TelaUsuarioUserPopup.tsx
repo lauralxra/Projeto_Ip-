@@ -198,8 +198,6 @@ export function TelaUsuarioUserPopup({ header, id, nome, imagem, tipo, nucleos, 
                     <div className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full" data-name="Field">
                         <input
                             type="text"
-                            id="iptNome"
-                            name="nome"
                             placeholder="Insira um nome..."
                             required
                             value={formNome}

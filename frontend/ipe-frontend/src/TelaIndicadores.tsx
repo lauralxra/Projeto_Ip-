@@ -7,6 +7,8 @@ import { CustomDropdown } from './CustomDropdown';
 
 import type { Nucleo } from './dados/nucleos';
 import { NucleosCadastrados } from './dados/nucleos';
+import { Search } from 'lucide-react';
+import { programasCadastrados, type Programa } from './dados/programas';
 
 interface Indicador {
   id: string;
@@ -16,7 +18,7 @@ interface Indicador {
   meta?: string;
   valAtual: string;
   nucleo?: Nucleo;
-  programa?: string;
+  programa?: Programa;
 }
 
 const dadosIniciais: Indicador[] = [
@@ -261,19 +263,33 @@ export default function TelaIndicadores() {
     const [filtroPrograma, setFiltroPrograma] = useState('');
 
     const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
-    const listaProgramas = Array.from(new Set(indicadores.map(i => i.programa).filter(Boolean))) as string[];
+    const listaProgramas = Array.from(new Set(programasCadastrados.map(i => i.nome)));
 
-    // Filtragem combinada por Núcleo e Programa
-    const indicadoresFiltrados = indicadores.filter(n => {
+    // Filtragem
+    const [termoPesquisa, setTermoPesquisa] = useState('');
+
+    const indicPorNome = indicadores.filter(n => 
+        n.nome.toLowerCase().includes(termoPesquisa.toLowerCase()) || 
+        n.unidade.toLowerCase().includes(termoPesquisa.toLowerCase())
+    );
+
+    const indicadoresFiltrados = indicPorNome.filter(n => {
         // Se filtroNucleo for vazio, aceita todos. Se for "Nenhum", filtra os que não têm núcleo. Senão filtra pelo nome.
         const matchNucleo = filtroNucleo === '' 
             ? true 
             : filtroNucleo === 'Nenhum' 
                 ? !n.nucleo 
                 : n.nucleo?.sigla === filtroNucleo;
-        const matchPrograma = filtroPrograma ? n.programa === filtroPrograma : true;
+                
+        const matchPrograma = filtroPrograma === '' 
+            ? true 
+            : filtroPrograma === 'Nenhum' 
+                ? !n.programa 
+                : n.programa?.nome === filtroPrograma;
+        //const matchPrograma = filtroPrograma ? n.programa === filtroPrograma : true;
         return matchNucleo && matchPrograma;
     });
+
     
     // Janelas popup
     const [modalNovoAberto, setModalNovoAberto] = useState(false);
@@ -284,7 +300,7 @@ export default function TelaIndicadores() {
     const [formNome, setNomeForm] = useState('');
     const [formUnidade, setUnidadeForm] = useState('');
     const [formNucleoId, setFormNucleoId] = useState<string>('');
-    const [formProgram, setProgramForm] = useState('');
+    const [formProgramId, setProgramId] = useState<string>('');
     const [formMeta, setMetaForm] = useState('');
     const [formValor, setValorForm] = useState('');
 
@@ -309,7 +325,7 @@ export default function TelaIndicadores() {
         setNomeForm('');
         setUnidadeForm('');
         setFormNucleoId('');
-        setProgramForm('');
+        setProgramId('');
         setModalNovoAberto(true);
     };
 
@@ -318,6 +334,7 @@ export default function TelaIndicadores() {
         
         let unitSimbol = getUnitSimb();
         const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+        const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
         
         const novo: Indicador = {
             id: Date.now().toString(),
@@ -325,7 +342,7 @@ export default function TelaIndicadores() {
             unidade: formUnidade || 'Unidade',
             simbolUni: unitSimbol,
             nucleo: nucleoSelecionado,
-            programa: formProgram,
+            programa: programSelecionado,
             valAtual: '0'
         };
         setIndicadores([...indicadores, novo]);
@@ -354,7 +371,7 @@ export default function TelaIndicadores() {
         setNomeForm(indicador.nome);
         setUnidadeForm(indicador.unidade);
         setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
-        setProgramForm(indicador.programa != null ? indicador.programa : "");
+        setProgramId(indicador.programa ? indicador.programa.id : "");
         setMetaForm(indicador.meta != null ? indicador.meta : "");
         setEditAberto(true);
     };
@@ -365,6 +382,7 @@ export default function TelaIndicadores() {
         
         let unitSimbol = getUnitSimb();
         const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+        const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
 
         setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
         ...n,
@@ -372,7 +390,7 @@ export default function TelaIndicadores() {
         unidade: formUnidade,
         simbolUni: unitSimbol,
         nucleo: nucleoSelecionado,
-        programa: formProgram,
+        programa: programSelecionado,
         meta: formMeta,
         } : n));
         setEditAberto(false);
@@ -411,6 +429,17 @@ export default function TelaIndicadores() {
         return Math.round(somaPercentuais / indicadoresComMeta.length);
     }, [indicadoresComMeta]);
 
+    const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const arquivo = e.target.files?.[0];
+        if (arquivo) {
+            if(arquivo.type == "text/csv")
+            {
+                alert("Finge q importei o negócio, tá?")
+            }else 
+                alert("Tipo de arquivo inváido!")
+        }else alert("Arquivo inváido!")
+    };
+
     return(
         <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
 
@@ -441,6 +470,17 @@ export default function TelaIndicadores() {
                 <div className="flex flex-col gap-[20px] items-center py-[10px] w-full">
                     {/*Control*/}
                     <div className="flex gap-[16px] items-center justify-center flex-wrap w-full">
+                        <div className="relative w-full sm:w-96">
+                            <input 
+                            type="text" 
+                            placeholder="Pesquisar..." 
+                            value={termoPesquisa}
+                            onChange={(e) => setTermoPesquisa(e.target.value)}
+                            className="w-full pl-4 pr-10 py-2.5 rounded-full border border-slate-300 focus:outline-none focus:border-[#832b62] text-sm text-slate-700 placeholder:text-slate-400 bg-white"
+                            />
+                            <Search size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+
                         <CustomDropdown 
                             icon={Svg.UsersMais}
                             label="Núcleos" 
@@ -458,14 +498,22 @@ export default function TelaIndicadores() {
                         />
 
                         {/* Botão importar */}
-                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
                             <BtnImportIco ico="block size-full" id="btnImportar"/>
-                            <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
+                            <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
                                 Importar CSV
-                            </p>
+                            </div>
+                            <input 
+                                type="file"
+                                accept="text/csv"
+                                className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
+                                title="Importar CSV"
+                                onChange={handleCSVImport}
+                            />
                         </div>
 
-                        {/* Botão exportar */}
+                        {/* Botão exportar 
+                        (deixei comentado, pelo q me lembre n vai precisar exportar CSV e ainda mais diretamente dessa tela)*/}
                         {/*
                         <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
                             <BtnImportIco ico="block size-full rotate-180" id="btnExportar"/>
@@ -548,13 +596,16 @@ export default function TelaIndicadores() {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Programa</label>
-                            <input 
-                            type="text" 
-                            placeholder="Programa correspondentee..." 
-                            value={formProgram}
-                            onChange={(e) => setProgramForm(e.target.value)}
-                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                            />
+                            <select 
+                            value={formProgramId}
+                            onChange={(e) => setProgramId(e.target.value)}
+                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            >
+                                <option value="">Sem programa</option>
+                                {programasCadastrados.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -668,13 +719,16 @@ export default function TelaIndicadores() {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Programa</label>
-                            <input 
-                            type="text" 
-                            placeholder="Programa correspondente..." 
-                            value={formProgram}
-                            onChange={(e) => setProgramForm(e.target.value)}
-                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                            />
+                            <select 
+                            value={formProgramId}
+                            onChange={(e) => setProgramId(e.target.value)}
+                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            >
+                                <option value="">Sem programa</option>
+                                {programasCadastrados.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Meta</label>
