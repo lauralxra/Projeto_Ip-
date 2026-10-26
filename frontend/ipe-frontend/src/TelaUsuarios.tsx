@@ -184,6 +184,8 @@ export default function TelaUsuarios() {
     const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
 
     const [formNome, setFormNome] = useState('');
+    const [formMail, setFormMail] = useState('');
+    const [formSenha, setFormSenha] = useState('');
     const [formImagem, setformImagem] = useState('');
     const [formTipo, setFormTipo] = useState('');
     const [formNucleos, setFormNucleos] = useState<Nucleo[]>();
@@ -200,6 +202,8 @@ export default function TelaUsuarios() {
     const [modalCriacao, setModalCriacao] = useState(false);
     const AbrirTelaCriacao = () => {
       setFormNome('');
+      setFormMail('');
+      setFormSenha('');
       setformImagem('');
       setFormTipo('');
       setFormNucleos([]);
@@ -211,6 +215,8 @@ export default function TelaUsuarios() {
     const abrirEditModal = (user: Usuario) => {
       setUserSelecionado(user);
       setFormNome(user.nome);
+      setFormMail(user.email);
+      setFormSenha(user.senha);
       setformImagem(user.imagem || '');
       setFormTipo(user.tipo);
       setFormNucleos(user.nucleos);
@@ -301,7 +307,10 @@ export default function TelaUsuarios() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
             <TelaUsuarioUserPopup header='Criando usuário'
                                   id={''}
+                                  adm
                                   nome={''}
+                                  email={''}
+                                  senha={''}
                                   imagem={''}
                                   tipo={'DN'}
                                   nucleos={[]}
@@ -316,7 +325,10 @@ export default function TelaUsuarios() {
             <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <TelaUsuarioUserPopup header='Editando usuário'
                                     id={usuarioSelecionado? usuarioSelecionado.id : ''}
+                                    adm
                                     nome={formNome}
+                                    email={formMail}
+                                    senha={formSenha}
                                     imagem={formImagem}
                                     tipo={formTipo}
                                     nucleos={formNucleos ? formNucleos : undefined}

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Imagens, Svg } from "./config/assets";
+import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
+import { UsuarioAtual, UsuariosCadastrados, type Usuario } from './dados/usuarios';
 
 const svgPaths = Svg;
 
@@ -22,7 +24,7 @@ function Pic() {
     <div className="col-1 max-h-[80px] max-w-[80px] min-h-[80px] min-w-[80px] ml-0 mt-0 relative row-1 size-[80px]" data-name="pic">
       <div className="relative rounded-[100px] size-full">
           <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-          src={Imagens.DefaultPFP} />
+          src={UsuarioAtual.imagem ? ("/src/assets/"+UsuarioAtual.imagem) : Imagens.DefaultPFP} />
       </div>
     </div>
   );
@@ -45,7 +47,7 @@ function Pfp() {
   return (
     <div className="grid-cols-[max-content] grid-rows-[max-content] inline-grid max-h-[83.615234375px] max-w-[80px] min-h-[83.615234375px] min-w-[80px] place-items-start relative shrink-0" data-name="pfp">
       <Pic />
-      <AddPic />
+      {/*<AddPic />*/}
     </div>
   );
 }
@@ -55,10 +57,10 @@ function UserInfo() {
     <div className="content-stretch flex flex-col gap-[6px] items-center leading-[0] relative shrink-0 w-[244px]" data-name="userInfo">
       <Pfp />
       <div className="[word-break:break-word] flex flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center min-w-full not-italic relative shrink-0 text-[#a13680] text-[24px] text-center w-[min-content]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-        <p className="leading-[normal]">Usuário</p>
+        <p className="leading-[normal]">{UsuarioAtual.nome}</p>
       </div>
       <div className="[word-break:break-word] flex flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center min-w-full not-italic relative shrink-0 text-[#aeaeb2] text-[15px] text-center w-[min-content]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-        <p className="leading-[normal]">Sua Função</p>
+        <p className="leading-[normal]">{UsuarioAtual.tipo}</p>
       </div>
     </div>
   );
@@ -123,11 +125,14 @@ function Fields() {
   );
 }
 
-function OptExtras() {
+function OptExtras( {leUser, abrirEditModal}: {leUser:Usuario, abrirEditModal: (user:Usuario) => void} ) {
   return (
     <div className="content-stretch flex flex-col gap-[20px] items-center justify-center relative shrink-0 w-auto" data-name="optExtras">
-      <a href="/usuarios" className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-        {`Gerenciar Usuários `}
+      <a onClick={() => {abrirEditModal(leUser)}} className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] cursor-pointer font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap items-center justify-center" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
+        {`Editar perfil`}
+      </a>
+      <a href="/usuarios" className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap items-center justify-center" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
+        {`Gerenciar Usuários`}
       </a>
       {/*<p className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] w-[min-content]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
         Acessibilidade
@@ -144,24 +149,55 @@ function OptExtras() {
 }
 
 export function UserbarPopupUser( {onClose, isClosing}: {onClose:() => void, isClosing:boolean}) {
+  const [SeuUsuario, setUsuario] = useState<Usuario>(UsuarioAtual);
+  const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
+  
+  const [modalEdicao, setModalEdicao] = useState(false);
+  const abrirEditModal = (user: Usuario) => {
+    setUserSelecionado(user);
+    setModalEdicao(true);
+  };
+
+  const handleSalvarUsuario = (dadosUsuario: Usuario) => {
+      setUsuario(dadosUsuario);
+      Object.assign(UsuarioAtual, dadosUsuario);
+      setModalEdicao(false);
+  };
+
   return (
-    <div className={`bg-white relative size-full max-w-[360px] transform transition-transform duration-300 ease-in-out ${
-        isClosing ? 'translate-x-full' : 'translate-x-0'
-    }`}>
+    <div className={`bg-white relative size-full max-w-[360px] transform transition-transform duration-300 ease-in-out ${isClosing ? 'translate-x-full' : 'translate-x-0'}`}>
     
       <div className="flex flex-col items-center min-h-[inherit] min-w-[inherit] size-full">
-        <div className="content-stretch flex flex-col gap-[57px] items-center min-h-[inherit] min-w-[inherit] px-[14px] py-[27px] relative size-full">
+        <div className="content-stretch flex flex-col gap-[69px] items-center min-h-[inherit] min-w-[inherit] px-[14px] py-[27px] relative size-full">
           {/* BackArrow */}
           <button onClick={onClose} className="content-stretch flex flex-col items-start overflow-clip relative shrink-0 w-full cursor-pointer" data-name="backArrow">
             <Seta />
           </button>
 
           <UserInfo />
-          <Fields />
-          <OptExtras />
+          {/*<Fields />*/}
+          <OptExtras leUser={SeuUsuario} abrirEditModal={abrirEditModal}/>
         </div>
       </div>
       <div aria-hidden className="absolute border border-[#d0d0d0] border-solid inset-0 pointer-events-none" />
+
+      { /* cadastro */}
+      {modalEdicao && (
+        <div className="fixed top-0 right-0 w-screen h-screen z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <TelaUsuarioUserPopup header='Editando perfil'
+                                id={usuarioSelecionado? usuarioSelecionado.id : ''}
+                                nome={usuarioSelecionado?.nome || ''}
+                                email={usuarioSelecionado?.email || ''}
+                                senha={usuarioSelecionado?.senha || ''}
+                                imagem={usuarioSelecionado?.imagem || ''}
+                                tipo={usuarioSelecionado?.tipo || ''}
+                                nucleos={usuarioSelecionado?.nucleos || undefined}
+                                status={usuarioSelecionado?.status || 1}
+                                onSubmit={handleSalvarUsuario}
+                                onClose={() => setModalEdicao(false)}/>
+        </div>
+      )}
+
     </div>
   );
 }

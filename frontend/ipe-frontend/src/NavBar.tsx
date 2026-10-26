@@ -39,7 +39,7 @@ export function NavBar() {
                     <BarChart3 size={20} />
                     <span>Indicadores</span>
                 </a>
-                <a href="#historico" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+                <a href="/historico" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                     <History size={20} />
                     <span>Histórico</span>
                 </a>

@@ -8,7 +8,6 @@ import { CustomDropdown } from './CustomDropdown';
 import { type Nucleo, NucleosCadastrados } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
 import { UsuariosCadastrados, type Usuario } from './dados/usuarios';
-import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
 function ProgramaObj( {programaEmSi, editFunc, delFunc}: {programaEmSi: Programa, editFunc:(obj: Programa) => void, delFunc:(obj: Programa) => void}) {
@@ -88,15 +87,6 @@ export default function TelaProgramas() {
     const [termoPesquisa, setTermoPesquisa] = useState('');
     const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
-    const [formId, setFormId] = useState('');
-    const [formNome, setFormNome] = useState('');
-    const [formNucleo, setFormNucleo] = useState<Nucleo>();
-    const [formDescricao, setFormDescricao] = useState('');
-    const [formData, setFormData] = useState<Date>();
-    const [formStatus, setFormStatus] = useState('');
-    const [formResponsavel, setFormResponsavel] = useState<Usuario>();
-    const [formParticipantes, setFormParticipantes] = useState<Usuario[]>();
-
     const [filtroNucleo, setFiltroNucleo] = useState('');
     const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
 
@@ -117,27 +107,12 @@ export default function TelaProgramas() {
     
     const [modalCriacao, setModalCriacao] = useState(false);
     const abrirCriarModal = () => {
-        setFormNome('');
-        setFormNucleo(undefined);
-        setFormDescricao('');
-        setFormData(new Date());
-        setFormStatus('Ativo');
-        setFormResponsavel(undefined);
-        setFormParticipantes([]);
         setModalCriacao(true);
     };
 
     const [modalEdicao, setModalEdicao] = useState(false);
     const abrirEdicaoModal = (program: Programa) => {
         setProgramaSelecionado(program);
-        setFormId(program.id);
-        setFormNome(program.nome);
-        setFormNucleo(program.nucleo);
-        setFormDescricao(program.descricao);
-        setFormData(program.dataDeInicio);
-        setFormStatus(program.status);
-        setFormResponsavel(program.responsavel);
-        setFormParticipantes(program.participantes);
         setModalEdicao(true);
     };
 

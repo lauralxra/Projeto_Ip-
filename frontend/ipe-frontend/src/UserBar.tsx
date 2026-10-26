@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Imagens, Svg } from "./config/assets";
 import { UserbarPopupUser } from "./UserbarPopupUser";
+import { UsuarioAtual } from "./dados/usuarios";
 
 export function User() {
     const [popupUser, setPopupUser] = useState(false);
@@ -39,13 +40,13 @@ export function User() {
             <div className="relative shrink-0 size-[40px]" data-name="Icon">
                 <div className="relative rounded-[100px] size-full">
                     <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-                    src={Imagens.DefaultPFP} />
+                    src={UsuarioAtual.imagem ? ("/src/assets/"+UsuarioAtual.imagem) : Imagens.DefaultPFP} />
                 </div>
             </div>
 
             {/* nome */}
             <p className="[word-break:break-word] flex-[1_0_0] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] min-w-px not-italic relative text-[#a13680] text-[14px]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-                Usuário {/*fulanilson da silva francisco de santa moreira perez carvalho*/}
+                {UsuarioAtual.nome} {/*fulanilson da silva francisco de santa moreira perez carvalho*/}
             </p>
 
         </button>

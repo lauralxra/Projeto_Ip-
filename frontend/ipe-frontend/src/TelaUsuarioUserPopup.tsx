@@ -98,6 +98,7 @@ function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
         onChange={(e) => onChange(e.target.value)}
         className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-xs text-center"
       >
+        <option value="ADM">ADM</option>
         <option value="DN">DN</option>
         <option value="EC">EC</option>
         <option value="EG">EG</option>
@@ -107,9 +108,12 @@ function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
 }
 
 type userItems = {
+    adm?: boolean;
     header: string;
     id: string;
     nome: string;
+    email: string;
+    senha: string;
     imagem?: string;
     tipo: string;
     nucleos?: Nucleo[];
@@ -118,8 +122,10 @@ type userItems = {
     onClose: () => void;
 }
 
-export function TelaUsuarioUserPopup({ header, id, nome, imagem, tipo, nucleos, status, onSubmit, onClose }: userItems) {
+export function TelaUsuarioUserPopup({ adm, header, id, nome, email, senha, imagem, tipo, nucleos, status, onSubmit, onClose }: userItems) {
     const [formNome, setFormNome] = useState(nome || '');
+    const [formMail, setFormMail] = useState(email || '');
+    const [formSenha, setFormSenha] = useState(senha || '');
     const [formTipo, setFormTipo] = useState<string>(tipo || 'DN');
     const [formNucleos, setFormNucleos] = useState<Nucleo[]>(nucleos || []);
     const [formStatus, setFormStatus] = useState<number>(status ?? 1);
@@ -144,6 +150,8 @@ export function TelaUsuarioUserPopup({ header, id, nome, imagem, tipo, nucleos, 
         onSubmit({
             id: id || Date.now().toString(),
             nome: formNome,
+            email: formMail,
+            senha: formSenha,
             tipo: formTipo as TipoDeConta,
             nucleos: formNucleos,
             status: formStatus,
@@ -152,7 +160,7 @@ export function TelaUsuarioUserPopup({ header, id, nome, imagem, tipo, nucleos, 
     };
     
     return (
-    <form onSubmit={handleFormSubmit} className="bg-white border border-[#a13680] border-solid content-stretch flex flex-col gap-[82px] items-center overflow-clip px-[70px] py-[40px] relative rounded-[45px]" data-name="JanelaEdicaoUser">
+    <form onSubmit={handleFormSubmit} className="bg-white border border-[#a13680] border-solid content-stretch flex flex-col gap-[82px] items-center overflow-clip px-[40px] py-[20px] relative rounded-[45px]" data-name="JanelaEdicaoUser">
         <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-name="Up">
             <div className="[word-break:break-word] flex flex-[1_0_0] flex-col font-['Google_Sans_Flex:Bold',sans-serif] font-bold h-full justify-center leading-[0] min-w-px not-italic relative text-[36px] text-black" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
                 <p className="leading-[normal]">{header}</p>
@@ -190,39 +198,79 @@ export function TelaUsuarioUserPopup({ header, id, nome, imagem, tipo, nucleos, 
                     </div>
                 </div>
 
-                {/* Nome */}
-                <div className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]" data-name="CampoNome">
-                    <label className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-                        Nome
-                    </label>
-                    <div className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full" data-name="Field">
-                        <input
-                            type="text"
-                            placeholder="Insira um nome..."
-                            required
-                            value={formNome}
-                            onChange={(e) => setFormNome(e.target.value)}
-                            className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
-                            style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-                        />
+                {/* Nome, email e senha */}
+                <div className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full" data-name="Usuario">
+                    
+                    <div className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]" data-name="CampoNome">
+                        <label className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
+                            Nome
+                        </label>
+                        <div className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full" data-name="Field">
+                            <input
+                                type="text"
+                                placeholder="Insira um nome..."
+                                required
+                                value={formNome}
+                                onChange={(e) => setFormNome(e.target.value)}
+                                className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                                style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]" data-name="CampoMail">
+                        <label className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
+                            E-mail
+                        </label>
+                        <div className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full" data-name="Field">
+                            <input
+                                type="email"
+                                placeholder="Insira um nome..."
+                                required
+                                value={formMail}
+                                onChange={(e) => setFormMail(e.target.value)}
+                                className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                                style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]" data-name="CampoSenha">
+                        <label className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
+                            Senha
+                        </label>
+                        <div className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full" data-name="Field">
+                            <input
+                                type="password"
+                                placeholder="Insira um nome..."
+                                required
+                                value={formSenha}
+                                onChange={(e) => setFormSenha(e.target.value)}
+                                className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                                style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="content-stretch flex gap-[15px] items-start relative shrink-0 w-full justify-between">
-                <div className="flex flex-col gap-1">
-                    <label className="font-bold text-sm">Tipo de conta</label>
-                    <BtnUserTipo value={formTipo} onChange={setFormTipo} />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label className="font-bold text-sm">Núcleos pertencentes</label>
-                    <BtnUserNucleo selectedNucleos={formNucleos} onChange={setFormNucleos} />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label className="font-bold text-sm">Status</label>
-                    <BtnUserStatus value={formStatus} onChange={setFormStatus} />
-                </div>
-            </div>
+            {
+              adm ?
+              <div className="content-stretch flex gap-[15px] items-start relative shrink-0 w-full justify-between">
+                  <div className="flex flex-col gap-1">
+                      <label className="font-bold text-sm">Tipo de conta</label>
+                      <BtnUserTipo value={formTipo} onChange={setFormTipo} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                      <label className="font-bold text-sm">Núcleos pertencentes</label>
+                      <BtnUserNucleo selectedNucleos={formNucleos} onChange={setFormNucleos} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                      <label className="font-bold text-sm">Status</label>
+                      <BtnUserStatus value={formStatus} onChange={setFormStatus} />
+                  </div>
+              </div> : ""
+            }
         </div>
 
         <div className="content-stretch flex gap-[25px] items-center justify-center px-[4px] relative shrink-0 w-full" data-name="Botoes">

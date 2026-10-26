@@ -7,6 +7,7 @@ import TelaNucleos from './TelaNucleos';
 import TelaIndicadores from './TelaIndicadores';
 import TelaUsuarios from './TelaUsuarios';
 import TelaProgramas from './TelaProgramas';
+import TelaHistorico from './TelaHistorico';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/nucleos" element={<TelaNucleos />} />
         <Route path="/programas" element={<TelaProgramas />} />
         <Route path="/indicadores" element={<TelaIndicadores />} />
+        <Route path="/historico" element={<TelaHistorico />} />
         <Route path="/usuarios" element={<TelaUsuarios />} />
 
         {/* caso a URL não exista */}
