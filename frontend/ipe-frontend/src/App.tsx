@@ -8,6 +8,7 @@ import TelaIndicadores from './TelaIndicadores';
 import TelaUsuarios from './TelaUsuarios';
 import TelaProgramas from './TelaProgramas';
 import TelaHistorico from './TelaHistorico';
+import { UsuarioAtual } from './dados/usuarios';
 
 export default function App() {
   return (
@@ -18,6 +19,8 @@ export default function App() {
         
         <Route path="/login" element={<TelaLogin />} />
         {/*<Route path="/cadastro" element={<TelaCadastro />} />*/}
+
+        {UsuarioAtual ? "" : <Navigate to="/login" replace/>}
 
         <Route path="/dashboard" element={<TelaDashboard />} />
         <Route path="/nucleos" element={<TelaNucleos />} />

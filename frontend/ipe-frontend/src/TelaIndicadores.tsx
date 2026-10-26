@@ -4,51 +4,12 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
+import { CheckCircle2, Circle } from 'lucide-react';
 
-import type { Nucleo } from './dados/nucleos';
+import { type Indicador, IndicadoresCadastrados } from './dados/indicadores';
 import { NucleosCadastrados } from './dados/nucleos';
+import { programasCadastrados } from './dados/programas';
 import { Search } from 'lucide-react';
-import { programasCadastrados, type Programa } from './dados/programas';
-
-interface Indicador {
-  id: string;
-  nome: string;
-  unidade: string;
-  simbolUni?: string;
-  meta?: string;
-  valAtual: string;
-  nucleo?: Nucleo;
-  programa?: Programa;
-}
-
-const dadosIniciais: Indicador[] = [
-  {
-    id: '1',
-    nome: 'Taxa de reciclagem de resíduos',
-    unidade: 'Porcentagem',
-    simbolUni: '%',
-    meta: '100',
-    valAtual: '65',
-    nucleo: NucleosCadastrados[0],
-  },
-  {
-    id: '2',
-    nome: 'Redução de emissão de Co2',
-    unidade: 'Toneladas',
-    simbolUni: 't',
-    meta: '50',
-    valAtual: '12',
-    nucleo: NucleosCadastrados[2],
-  },
-  {
-    id: '3',
-    nome: 'Pessoas capacitadas',
-    unidade: 'Unidade',
-    meta: '10',
-    valAtual: '13',
-    nucleo: NucleosCadastrados[2],
-  },
-];
 
 function TotalProgresso({ progresso }: { progresso: number }) {
     // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -172,10 +133,11 @@ function Top() {
   );
 }
 
-function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador[],
+function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leList:Indicador[],
                                                         editIndic:(arg0: Indicador) => void,
-                                                        setIndicVal:(indic: Indicador) => void 
-                                                        delIndic:(indic: Indicador) => void }) {
+                                                        setIndicVal:(indic: Indicador) => void, 
+                                                        delIndic:(indic: Indicador) => void,
+                                                        aprovIndic:(indic: Indicador) => void }) {
     return (
         <div className="flex flex-col items-center justify-start gap-[12px] w-full">
             {leList.map((indicador) => {
@@ -205,7 +167,7 @@ function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador
                         </div>
 
                         {/* Realizado */}
-                        <button onClick={() => setIndicVal(indicador)} className="flex flex-1 gap-[16px] items-center cursor-pointer">
+                        <button title="Definir Valor Atual" onClick={() => setIndicVal(indicador)} className="flex flex-1 gap-[16px] items-center cursor-pointer">
                             <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
                                 {indicador.valAtual + (indicador.simbolUni ? indicador.simbolUni : '')}
                             </p>
@@ -228,13 +190,13 @@ function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador
 
                         {/* Ações */}
                         <div className="flex flex-1 gap-[12px] items-center">
-                            <button onClick={() => editIndic(indicador)} className="size-[24px] cursor-pointer">
+                            <button title="Editar Indicador" onClick={() => editIndic(indicador)} className="size-[24px] cursor-pointer">
                                 <svg className="block size-full" fill="none" viewBox="0 0 39 39">
                                   <path d={Svg.p36224900} fill="#3C3B3B" />
                                 </svg>
                             </button>
                             
-                            <a className="size-[24px]" href='/dashboard'>
+                            <a title="Ver nos Dashboards" className="size-[24px]" href='/dashboard'>
                               <div className="size-full">
                                 <svg className="block size-full" fill="none" viewBox="0 0 32.5 32.5001">
                                   <path d={Svg.p19cd0a80} fill="#3C3B3B" />
@@ -242,10 +204,14 @@ function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador
                               </div>
                             </a>
 
-                            <button onClick={() => delIndic(indicador)} className="size-[24px] cursor-pointer">
+                            <button title="Excluir Indicador" onClick={() => delIndic(indicador)} className="size-[24px] cursor-pointer">
                                 <svg className="block size-full" fill="none" viewBox="0 0 31.6875 36.5625">
                                   <path d={Svg.p38953980} fill="#3C3B3B" />
                                 </svg>
+                            </button>
+
+                            <button title="Definir Aprovação" onClick={() => aprovIndic(indicador)} className="size-[24px] cursor-pointer">
+                                {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
                             </button>
                         </div>
                     </div>
@@ -256,14 +222,28 @@ function Lista( { leList, editIndic, setIndicVal, delIndic }: { leList:Indicador
 }
 
 export default function TelaIndicadores() {
-    const [indicadores, setIndicadores] = useState<Indicador[]>(dadosIniciais);
+    const [indicadores, setIndicadores] = useState<Indicador[]>(IndicadoresCadastrados);
     const [indicSelecionado, setIndicSelecionado] = useState<Indicador | null>(null);
 
     const [filtroNucleo, setFiltroNucleo] = useState('');
     const [filtroPrograma, setFiltroPrograma] = useState('');
+    const [filtroAprovacao, setFiltroAprovacao] = useState('');
 
     const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
-    const listaProgramas = Array.from(new Set(programasCadastrados.map(i => i.nome)));
+
+    const programasDoNucleo = programasCadastrados.filter(n => {
+        const matchNucleo = filtroNucleo === '' 
+            ? true 
+            : filtroNucleo === 'Nenhum' 
+                ? !n.nucleo 
+                : n.nucleo?.sigla === filtroNucleo;
+                
+        return matchNucleo;
+    })
+
+    const listaProgramas = Array.from(new Set(programasDoNucleo.map(i => i.nome)));
+
+    const listagemAprovacao = ['Aprovado', 'Desaprovado']
 
     // Filtragem
     const [termoPesquisa, setTermoPesquisa] = useState('');
@@ -286,23 +266,24 @@ export default function TelaIndicadores() {
             : filtroPrograma === 'Nenhum' 
                 ? !n.programa 
                 : n.programa?.nome === filtroPrograma;
+
+        const matchAprov = filtroAprovacao === ''
+            ? true
+            : filtroAprovacao === 'Aprovado'
+                ? n.aprovado : !n.aprovado
         //const matchPrograma = filtroPrograma ? n.programa === filtroPrograma : true;
-        return matchNucleo && matchPrograma;
+        return matchNucleo && matchPrograma && matchAprov;
     });
 
-    
-    // Janelas popup
-    const [modalNovoAberto, setModalNovoAberto] = useState(false);
-    const [modalInserindoValor, inserindoValor] = useState(false);
-    const [modalEditAberto, setEditAberto] = useState(false);
-    const [modalDeletando, setDeletando] = useState(false);
-    
     const [formNome, setNomeForm] = useState('');
     const [formUnidade, setUnidadeForm] = useState('');
     const [formNucleoId, setFormNucleoId] = useState<string>('');
     const [formProgramId, setProgramId] = useState<string>('');
     const [formMeta, setMetaForm] = useState('');
     const [formValor, setValorForm] = useState('');
+    const [formStatus, setStatusForm] = useState('');
+    const [formAprovacao, setAprovacaoForm] = useState(false);
+    const [formDesaprovMotivo, setMotivo] = useState('');
 
     function getUnitSimb()
     {
@@ -320,12 +301,16 @@ export default function TelaIndicadores() {
                 return '';
         }
     }
+
+    // Janelas popup
     
+    const [modalNovoAberto, setModalNovoAberto] = useState(false);
     const abrirCriarModal = () => {
         setNomeForm('');
         setUnidadeForm('');
         setFormNucleoId('');
         setProgramId('');
+        setStatusForm('ativo');
         setModalNovoAberto(true);
     };
 
@@ -343,12 +328,15 @@ export default function TelaIndicadores() {
             simbolUni: unitSimbol,
             nucleo: nucleoSelecionado,
             programa: programSelecionado,
-            valAtual: '0'
+            valAtual: '0',
+            status: formStatus,
+            aprovado: false
         };
         setIndicadores([...indicadores, novo]);
         setModalNovoAberto(false);
     };
 
+    const [modalInserindoValor, inserindoValor] = useState(false);
     const abrirValModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
         setValorForm(indicador.valAtual);
@@ -366,6 +354,7 @@ export default function TelaIndicadores() {
         inserindoValor(false);
     };
     
+    const [modalEditAberto, setEditAberto] = useState(false);
     const abrirEditarModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
         setNomeForm(indicador.nome);
@@ -373,6 +362,7 @@ export default function TelaIndicadores() {
         setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
         setProgramId(indicador.programa ? indicador.programa.id : "");
         setMetaForm(indicador.meta != null ? indicador.meta : "");
+        setStatusForm(indicador.status);
         setEditAberto(true);
     };
 
@@ -392,10 +382,12 @@ export default function TelaIndicadores() {
         nucleo: nucleoSelecionado,
         programa: programSelecionado,
         meta: formMeta,
+        status: formStatus
         } : n));
         setEditAberto(false);
     };
 
+    const [modalDeletando, setDeletando] = useState(false);
     const abrirDeletarModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
         setDeletando(true);
@@ -405,6 +397,28 @@ export default function TelaIndicadores() {
         if (!indicSelecionado) return;
         setIndicadores(indicadores.filter(n => n.id !== indicSelecionado.id));
         setDeletando(false);
+    };
+
+    const [modalAprovacao, setModelAprov] = useState(false);
+    const abrirAprovacaoModal = (indicador: Indicador) => {
+        setIndicSelecionado(indicador);
+        setAprovacaoForm(indicador.aprovado);
+        setMotivo('');
+        setModelAprov(true);
+    }
+
+    const handleAprovacao = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!indicSelecionado) return;
+
+        setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
+        ...n,
+        aprovado: formAprovacao,
+        } : n));
+
+        formAprovacao ? "" : alert("Voce desaprovou por motivo: "+formDesaprovMotivo)
+
+        setModelAprov(false);
     };
 
     const totalIndicadores = indicadoresFiltrados.length;
@@ -496,6 +510,16 @@ export default function TelaIndicadores() {
                             onChange={setFiltroPrograma} 
                             opcoes={listaProgramas} 
                         />
+                        
+                        <CustomDropdown 
+                            icon={Svg.UsersMais}
+                            label="Aprovação" 
+                            valor={filtroAprovacao} 
+                            onChange={setFiltroAprovacao} 
+                            opcoes={listagemAprovacao} 
+                        />
+
+                        <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
 
                         {/* Botão importar */}
                         <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
@@ -523,7 +547,6 @@ export default function TelaIndicadores() {
                         </div>
                         */}
 
-                        <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
                     </div>
 
                     {/*ListaIndicadores*/}
@@ -532,7 +555,8 @@ export default function TelaIndicadores() {
                         <Lista leList={indicadoresFiltrados}
                                 editIndic={abrirEditarModal}
                                 setIndicVal={abrirValModal}
-                                delIndic={abrirDeletarModal} />
+                                delIndic={abrirDeletarModal}
+                                aprovIndic={abrirAprovacaoModal} />
                     </div>
                 </div>
             </div>
@@ -639,7 +663,9 @@ export default function TelaIndicadores() {
                     <form onSubmit={InserirValor} className="space-y-4">
                     <div className="flex flex-col gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Alterando valor</label>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Alterando valor {indicSelecionado?.simbolUni?"("+indicSelecionado.simbolUni+")":""}
+                            </label>
                             <input 
                             type="number"
                             min="0" 
@@ -792,6 +818,64 @@ export default function TelaIndicadores() {
                     </div>
                 </div>
             </div>
+            )}
+            
+            {/* aprovacao */}
+            {modalAprovacao && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-6">Definir aprovação</h2>
+
+                    <form onSubmit={handleAprovacao} className="space-y-4">
+                    <div className="flex flex-col gap-9">
+                        <div>
+                            <label className="flex gap-5 block text-lg-20 font-bold">
+                                Definir como aprovado para publicação
+                                <input
+                                type="checkbox"
+                                checked={formAprovacao}
+                                onChange={(e) => setAprovacaoForm(e.target.checked)}
+                                className="w-auto border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-0 focus:outline-none"
+                                />
+                            </label>
+                        </div>
+
+                        {
+                            !formAprovacao ?
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Motivo de disaprovação</label>
+                                <input 
+                                type="text"
+                                placeholder="Insira um valor..." 
+                                required
+                                value={formDesaprovMotivo}
+                                onChange={(e) => setMotivo(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                                />
+                            </div> 
+                            : ""
+                        }
+                    </div>
+
+
+                    <div className="flex items-center gap-3 pt-4">
+                        <button 
+                        type="button" 
+                        onClick={() => setModelAprov(false)}
+                        className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                        Cancelar
+                        </button>
+                        <button 
+                        type="submit" 
+                        className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer flex items-center justify-center gap-1"
+                        >
+                        <span>Confirmar</span>
+                        </button>
+                    </div>
+                    </form>
+                </div>
+                </div>
             )}
 
         </div>

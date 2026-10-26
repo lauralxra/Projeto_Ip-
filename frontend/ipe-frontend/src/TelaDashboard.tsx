@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
-import { 
-  Layers, 
+import {
   FolderKanban, 
   BarChart3,
   Download, 
@@ -22,6 +21,10 @@ import {
   CartesianGrid, 
   Legend 
 } from 'recharts';
+import { NucleosCadastrados } from './dados/nucleos';
+import { programasCadastrados } from './dados/programas';
+import { IndicadoresCadastrados } from './dados/indicadores';
+import { UsuariosCadastrados } from './dados/usuarios';
 
 // Dados MOCK para os gráficos
 const dadosEvolucao = [
@@ -55,7 +58,7 @@ export default function TelaDashboard() {
       <NavBar></NavBar>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 px-[30px] h-full overflow-y-auto pt-[60px] pb-[25px]">
+      <main className="flex-1 px-[30px] w-full h-full overflow-y-auto pt-[60px] pb-[25px]">
         
         {/* Cabeçalho do Dashboard */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
@@ -75,9 +78,11 @@ export default function TelaDashboard() {
                 className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
               >
                 <option>Todos os Núcleos</option>
-                <option>NEI</option>
-                <option>NURI</option>
-                <option>NINTA</option>
+                {
+                  NucleosCadastrados.map((n) => (
+                    <option>{n.sigla}</option>
+                  ))
+                }
               </select>
               <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none" />
             </div>
@@ -105,40 +110,42 @@ export default function TelaDashboard() {
         </header>
 
         {/* Grade de Cards Métricas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="content-stretch flex w-full gap-8 mb-8 h-30">
           
-          <div className="bg-[#fcf2f7] p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
+          <div className="bg-[#fcf2f7] w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
               <Users size={22} />
             </div>
             <div>
-              <span className="text-2xl font-bold text-slate-800">1.248</span>
-              <p className="text-xs text-slate-500 font-medium">Total de Pessoas Atendidas</p>
+              <span className="text-2xl font-bold text-slate-800">{UsuariosCadastrados.length}</span>
+              <p className="text-xs text-slate-500 font-medium">Total de Usuários</p>
               <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
                 <TrendingUp size={12} /> +12% em relação ao mês anterior
               </span>
             </div>
           </div>
 
-          <div className="bg-[#f0f4f9] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          {/*
+          <div className="bg-[#f0f4f9] w-full h-full p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#9d4b7b]/20 text-[#832b62] flex items-center justify-center shrink-0">
               <Layers size={22} />
             </div>
             <div>
-              <span className="text-2xl font-bold text-slate-800">4</span>
+              <span className="text-2xl font-bold text-slate-800">{NucleosCadastrados.length}</span>
               <p className="text-xs text-slate-500 font-medium">Núcleos em atividade</p>
               <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
                 <TrendingUp size={12} /> +1% em relação ao mês anterior
               </span>
             </div>
           </div>
+          */}
 
-          <div className="bg-[#f0f4f9] p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div className="bg-[#f0f4f9] w-full h-full p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#9d4b7b]/20 text-[#832b62] flex items-center justify-center shrink-0">
               <FolderKanban size={22} />
             </div>
             <div>
-              <span className="text-2xl font-bold text-slate-800">35</span>
+              <span className="text-2xl font-bold text-slate-800">{programasCadastrados.length}</span>
               <p className="text-xs text-slate-500 font-medium">Programas em Execução</p>
               <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
                 <TrendingUp size={12} /> +5% em relação ao mês anterior
@@ -146,12 +153,12 @@ export default function TelaDashboard() {
             </div>
           </div>
 
-          <div className="bg-[#fcf2f7] p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
+          <div className="bg-[#fcf2f7] w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
               <BarChart3 size={22} />
             </div>
             <div>
-              <span className="text-2xl font-bold text-slate-800">32</span>
+              <span className="text-2xl font-bold text-slate-800">{IndicadoresCadastrados.length}</span>
               <p className="text-xs text-slate-500 font-medium">Indicadores cadastrados</p>
               <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
                 <TrendingUp size={12} /> +2% em relação ao mês anterior
