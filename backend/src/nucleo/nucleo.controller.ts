@@ -6,7 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
+  HttpStatus,
   Ip,
+  ParseUUIDPipe,
   Req,
   UseFilters,
   UseGuards,
@@ -17,6 +20,7 @@ import { NucleoService } from './nucleo.service';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
 import { CreateNucleoSwagger } from './swagger/nucleo.post.swagger';
+import { DeleteNucleoSwagger } from './swagger/nucleo.delete.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
@@ -47,8 +51,8 @@ export class NucleoController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.nucleoService.findOne(+id);
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.nucleoService.findOne(id);
   }
 
   @Patch(':id')
@@ -57,7 +61,15 @@ export class NucleoController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.nucleoService.remove(+id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @DeleteNucleoSwagger()
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.remove(id, { id: req.user.id, ip });
   }
 }

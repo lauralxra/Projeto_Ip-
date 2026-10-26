@@ -1,7 +1,9 @@
 import {
   CanActivate,
+  ConflictException,
   ExecutionContext,
   INestApplication,
+  NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -24,12 +26,13 @@ class FakeJwtGuard implements CanActivate {
 
 describe('NucleoController (HTTP)', () => {
   let app: INestApplication<App>;
-  let nucleoService: { create: jest.Mock };
+  let nucleoService: { create: jest.Mock; remove: jest.Mock };
   const payload = { nome: 'Núcleo de Educação Ambiental', sigla: 'nea' };
 
   beforeEach(async () => {
     nucleoService = {
       create: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
+      remove: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NucleoController],
@@ -125,5 +128,73 @@ describe('NucleoController (HTTP)', () => {
       .set('x-test-role', Role.ADMINISTRADOR)
       .send(payload)
       .expect(503);
+  });
+
+  describe('DELETE /nucleos/:id', () => {
+    const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    it('ADMINISTRADOR exclui o núcleo e recebe 204', async () => {
+      await request(app.getHttpServer())
+        .delete(`/nucleos/${id}`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(204)
+        .expect('');
+
+      expect(nucleoService.remove).toHaveBeenCalledWith(
+        id,
+        expect.objectContaining({ id: 'autor-uuid' }),
+      );
+    });
+
+    it.each([
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])('perfil %s recebe 403 e nada é excluído', async (role) => {
+      await request(app.getHttpServer())
+        .delete(`/nucleos/${id}`)
+        .set('x-test-role', role)
+        .expect(403);
+
+      expect(nucleoService.remove).not.toHaveBeenCalled();
+    });
+
+    it('id que não é UUID retorna 400', async () => {
+      await request(app.getHttpServer())
+        .delete('/nucleos/123')
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(400);
+
+      expect(nucleoService.remove).not.toHaveBeenCalled();
+    });
+
+    it('núcleo inexistente retorna 404', async () => {
+      nucleoService.remove.mockRejectedValue(
+        new NotFoundException('Núcleo não encontrado.'),
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/nucleos/${id}`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(404)
+        .expect({
+          statusCode: 404,
+          message: 'Núcleo não encontrado.',
+          error: 'Not Found',
+        });
+    });
+
+    it('núcleo com vínculos retorna 409', async () => {
+      nucleoService.remove.mockRejectedValue(
+        new ConflictException(
+          'O núcleo não pode ser excluído pois possui programas vinculados.',
+        ),
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/nucleos/${id}`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(409);
+    });
   });
 });

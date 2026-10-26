@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AcaoAuditoria } from '@prisma/client';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
@@ -42,18 +46,54 @@ export class NucleoService {
   }
 
   findAll() {
-    return `This action returns all nucleo`;
+    return this.nucleoRepository.findAllAtivos();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} nucleo`;
+  async findOne(id: string) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+    return nucleo;
   }
 
   update(id: number, _updateNucleoDto: UpdateNucleoDto) {
     return `This action updates a #${id} nucleo`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} nucleo`;
+  async remove(id: string, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoComVinculos(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    const { _count: vinculos, ...dadosNucleo } = nucleo;
+    const impeditivos = [
+      vinculos.users > 0 && 'usuários',
+      vinculos.programas > 0 && 'programas',
+      vinculos.indicadores > 0 && 'indicadores',
+    ].filter(Boolean);
+    if (impeditivos.length > 0) {
+      throw new ConflictException(
+        `O núcleo não pode ser excluído pois possui ${impeditivos.join(', ')} vinculados.`,
+      );
+    }
+
+    const excluido = await this.nucleoRepository.softDelete(id);
+    if (!excluido) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.EXCLUIR_LOGICO,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: {
+        ...dadosNucleo,
+        createdAt: dadosNucleo.createdAt.toISOString(),
+      },
+      ip: autor.ip,
+    });
   }
 }
