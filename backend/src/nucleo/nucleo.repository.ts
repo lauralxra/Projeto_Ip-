@@ -31,13 +31,18 @@ export class NucleoRepository {
     });
   }
 
-  // Núcleos excluídos logicamente (UC027) não aparecem nas consultas
-  findAllAtivos() {
-    return this.prisma.nucleo.findMany({
-      where: { deletedAt: null },
-      select: nucleoSelect,
-      orderBy: { nome: 'asc' },
-    });
+  // Página de resultados e total na mesma transação, para a contagem bater com os itens
+  search(where: Prisma.NucleoWhereInput, skip: number, take: number) {
+    return this.prisma.$transaction([
+      this.prisma.nucleo.findMany({
+        where,
+        select: nucleoSelect,
+        orderBy: { nome: 'asc' },
+        skip,
+        take,
+      }),
+      this.prisma.nucleo.count({ where }),
+    ]);
   }
 
   findAtivoById(id: string) {
