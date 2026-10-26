@@ -381,7 +381,7 @@ export default function TelaIndicadores() {
         simbolUni: unitSimbol,
         nucleo: nucleoSelecionado,
         programa: programSelecionado,
-        meta: formMeta,
+        meta: formMeta || undefined,
         status: formStatus
         } : n));
         setEditAberto(false);

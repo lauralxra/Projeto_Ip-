@@ -7,7 +7,8 @@ import {
   Download, 
   ChevronDown,
   TrendingUp,
-  Users
+  Users,
+  TrendingDown
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -25,16 +26,7 @@ import { NucleosCadastrados } from './dados/nucleos';
 import { programasCadastrados } from './dados/programas';
 import { IndicadoresCadastrados } from './dados/indicadores';
 import { UsuariosCadastrados } from './dados/usuarios';
-
-// Dados MOCK para os gráficos
-const dadosEvolucao = [
-  { mes: 'Jan', atendimentos: 500 },
-  { mes: 'Fev', atendimentos: 650 },
-  { mes: 'Mar', atendimentos: 780 },
-  { mes: 'Abr', atendimentos: 720 },
-  { mes: 'Mai', atendimentos: 950 },
-  { mes: 'Jun', atendimentos: 1248 },
-];
+import { TrimestresPassados } from './dados/trimestres';
 
 const dadosComparativo = [
   { nucleo: 'Tecnologia', Pessoas: 85, Projetos: 65, Parcerias: 45 },
@@ -47,9 +39,56 @@ const dadosComparativo = [
   { nucleo: 'Gestão', Pessoas: 68, Projetos: 46, Parcerias: 38 },
 ];
 
+function CardMetrica( {TipoMetrica, valAtual, valVariacao, corBg}: {TipoMetrica: string, valAtual:number, valVariacao: number, corBg: string}) {
+  let leTitulo = "";
+  switch(TipoMetrica)
+  {
+    case "programas":
+      leTitulo = "Programas em Execução"
+      break;
+    case "indicadores":
+      leTitulo = "Indicadores Cadastrados";
+      break;
+    default:
+      leTitulo = "Total de Usuários";
+      break;
+  }
+
+  let varUsers = valVariacao;
+
+  return(
+    <div className={corBg+" w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4"}>
+      <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
+        {TipoMetrica === "programas" ? <FolderKanban size={22} /> : TipoMetrica === "indicadores" ? <BarChart3 size={22} /> : <Users size={22} /> }
+      </div>
+      <div>
+        <span className="text-2xl font-bold text-slate-800">{valAtual}</span>
+        <p className="text-xs text-slate-500 font-medium">{leTitulo}</p>
+        <span className={`text-[11px] font-semibold flex items-center gap-1 mt-1 ${varUsers >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          {varUsers >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} 
+          {varUsers >= 0 ? `+${varUsers}%` : `${varUsers}%`} em relação ao período anterior
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function TelaDashboard() {
   const [nucleoFiltro, setNucleoFiltro] = useState('Todos os Núcleos');
   const [periodoFiltro, setPeriodoFiltro] = useState('Últimos 12 meses');
+  
+  const trimestresArray = Array.from(TrimestresPassados.keys());
+  
+  const trimestreAnterior = trimestresArray.length > 1 ? trimestresArray[1] : null;
+
+  const calcularVariacao = (atual: number, anterior: number | undefined) => {
+    if (!anterior || anterior === 0) return 0;
+    return Number(((((atual - anterior) / anterior) * 100)).toFixed(1));
+  };
+
+  const varUsers = trimestreAnterior ? calcularVariacao(UsuariosCadastrados.length, trimestreAnterior.quantiaUsers) : 0;
+  const varProgramas = trimestreAnterior ? calcularVariacao(programasCadastrados.length, trimestreAnterior.quantiaProgramas) : 0;
+  const varIndicadores = trimestreAnterior ? calcularVariacao(IndicadoresCadastrados.length, trimestreAnterior.quantiaIndicadores) : 0;
 
   return (
     <div className="flex h-screen bg-[#f8fafc]">
@@ -112,88 +151,69 @@ export default function TelaDashboard() {
         {/* Grade de Cards Métricas */}
         <div className="content-stretch flex w-full gap-8 mb-8 h-30">
           
-          <div className="bg-[#fcf2f7] w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
-              <Users size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-bold text-slate-800">{UsuariosCadastrados.length}</span>
-              <p className="text-xs text-slate-500 font-medium">Total de Usuários</p>
-              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
-                <TrendingUp size={12} /> +12% em relação ao mês anterior
-              </span>
-            </div>
-          </div>
+          <CardMetrica TipoMetrica='usuario' valAtual={UsuariosCadastrados.length} valVariacao={varUsers} corBg="bg-[#fcf2f7]"/>
 
-          {/*
-          <div className="bg-[#f0f4f9] w-full h-full p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#9d4b7b]/20 text-[#832b62] flex items-center justify-center shrink-0">
-              <Layers size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-bold text-slate-800">{NucleosCadastrados.length}</span>
-              <p className="text-xs text-slate-500 font-medium">Núcleos em atividade</p>
-              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
-                <TrendingUp size={12} /> +1% em relação ao mês anterior
-              </span>
-            </div>
-          </div>
-          */}
+          {/*<CardMetrica TipoMetrica='nucleos' valAtual={NucleosCadastrados.length} valVariacao={varUsers} corBg="bg-[#f0f4f9]"/>*/}
 
-          <div className="bg-[#f0f4f9] w-full h-full p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#9d4b7b]/20 text-[#832b62] flex items-center justify-center shrink-0">
-              <FolderKanban size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-bold text-slate-800">{programasCadastrados.length}</span>
-              <p className="text-xs text-slate-500 font-medium">Programas em Execução</p>
-              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
-                <TrendingUp size={12} /> +5% em relação ao mês anterior
-              </span>
-            </div>
-          </div>
+          <CardMetrica TipoMetrica='programas' valAtual={programasCadastrados.length} valVariacao={varProgramas} corBg="bg-[#f0f4f9]"/>
 
-          <div className="bg-[#fcf2f7] w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
-              <BarChart3 size={22} />
-            </div>
-            <div>
-              <span className="text-2xl font-bold text-slate-800">{IndicadoresCadastrados.length}</span>
-              <p className="text-xs text-slate-500 font-medium">Indicadores cadastrados</p>
-              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
-                <TrendingUp size={12} /> +2% em relação ao mês anterior
-              </span>
-            </div>
-          </div>
+          <CardMetrica TipoMetrica='indicadores' valAtual={IndicadoresCadastrados.length} valVariacao={varIndicadores} corBg="bg-[#fcf2f7]"/>
+
 
         </div>
 
         {/* Seção de Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
-            <h3 className="text-base font-bold text-slate-800 mb-1">Evolução do Número de Pessoas Atendidas</h3>
-            <p className="text-xs text-slate-400 mb-6">Últimos 6 meses</p>
+          {IndicadoresCadastrados.map((indicador) => {
             
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dadosEvolucao} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="corAtendimentos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#832b62" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#832b62" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="mes" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', borderColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Area type="monotone" dataKey="atendimentos" stroke="#832b62" strokeWidth={3} fillOpacity={1} fill="url(#corAtendimentos)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+            {/* Monta os dados históricos do indicador percorrendo o Map de TrimestresPassados */}
+            const dadosHistoricoTrimestres = Array.from(TrimestresPassados.entries()).map(([trimestre, listaIndicadores]) => {
+              // Procura se este indicador existe no trimestre atual da iteração (comparando pelo nome ou ID)
+              const indEncontrado = listaIndicadores.find(i => i.nome === indicador.nome);
+              
+              return {
+                periodo: trimestre.periodo, // Ex: '2025.3', '2026.1', etc.
+                valor: indEncontrado ? Number(indEncontrado.valAtual) : 0 // Converte para número para o gráfico aceitar
+              };
+            }).reverse(); // .reverse() para deixar do mais antigo para o mais recente na linha do tempo do gráfico
+
+            return (
+              <div key={indicador.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
+                <h3 className="text-base font-bold text-slate-800 mb-1">{indicador.nome}</h3>
+                
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dadosHistoricoTrimestres} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id={`corIndicador-${indicador.id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#832b62" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#832b62" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="periodo" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-md text-xs">
+                                <p className="font-bold text-slate-700">{label}</p>
+                                <p className="font-semibold text-[#832b62] text-sm mt-0.5">
+                                  {payload[0].value} {indicador.simbolUni || ''}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />  
+                      <Area type="monotone" dataKey="valor" stroke="#832b62" strokeWidth={3} fillOpacity={1} fill={`url(#corIndicador-${indicador.id})`} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            );
+          })}
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
             <div className="flex items-center justify-between mb-1">

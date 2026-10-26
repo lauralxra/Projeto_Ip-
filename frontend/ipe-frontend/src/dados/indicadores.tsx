@@ -55,5 +55,24 @@ export const IndicadoresCadastrados: Indicador[] = [
     nucleo: NucleosCadastrados[2],
     status: 'ativo',
     aprovado: true
+  },
+  {
+    id: '4',
+    nome: 'Seguidores nas redes sociais',
+    unidade: 'Unidade',
+    valAtual: '2102',
+    nucleo: NucleosCadastrados[1],
+    status: 'ativo',
+    aprovado: true
+  },
+  {
+    id: '5',
+    nome: 'Arrecadação Total',
+    unidade: 'Reais',
+    simbolUni: '$',
+    valAtual: '1213922',
+    nucleo: NucleosCadastrados[0],
+    status: 'ativo',
+    aprovado: true
   }
 ];
