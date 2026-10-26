@@ -1,14 +1,29 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AcaoAuditoria } from '@prisma/client';
+import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
+import { SearchNucleoDto } from './dto/search-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
 import { NucleoRepository } from './nucleo.repository';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
+import { AuthenticatedUser } from '../auth/interface/request.interface';
+
+// RN01: Administrador e Equipe de Comunicação pesquisam todos os núcleos
+const PERFIS_ACESSO_GLOBAL: Role[] = [
+  Role.ADMINISTRADOR,
+  Role.EQUIPE_COMUNICACAO,
+];
+
+function inicioDoDiaSeguinte(data: string) {
+  const dia = new Date(data);
+  dia.setUTCDate(dia.getUTCDate() + 1);
+  return dia;
+}
 
 @Injectable()
 export class NucleoService {
@@ -45,8 +60,68 @@ export class NucleoService {
     return nucleo;
   }
 
-  findAll() {
-    return this.nucleoRepository.findAllAtivos();
+  async search(filtros: SearchNucleoDto, usuario: AuthenticatedUser) {
+    const { termo, programaId, status, dataInicio, dataFim, ano, trimestre } =
+      filtros;
+    const { pagina, limite } = filtros;
+
+    // Datas no formato AAAA-MM-DD podem ser comparadas como texto
+    if (dataInicio && dataFim && dataInicio > dataFim) {
+      throw new BadRequestException(
+        'A data inicial deve ser anterior ou igual à data final.',
+      );
+    }
+
+    // Núcleos excluídos logicamente (UC027) não aparecem nas consultas
+    const where: Prisma.NucleoWhereInput = { deletedAt: null };
+
+    // RN02: perfis sem acesso global só enxergam os núcleos aos quais estão vinculados
+    if (!PERFIS_ACESSO_GLOBAL.includes(usuario.role)) {
+      where.users = { some: { userId: usuario.id } };
+    }
+
+    if (termo) {
+      where.OR = [
+        { nome: { contains: termo, mode: 'insensitive' } },
+        { sigla: { contains: termo, mode: 'insensitive' } },
+        { descricao: { contains: termo, mode: 'insensitive' } },
+      ];
+    }
+
+    if (programaId) {
+      where.programas = { some: { id: programaId, deletedAt: null } };
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (dataInicio || dataFim) {
+      where.createdAt = {
+        ...(dataInicio && { gte: new Date(dataInicio) }),
+        // Data final inclusiva: tudo antes do início do dia seguinte
+        ...(dataFim && { lt: inicioDoDiaSeguinte(dataFim) }),
+      };
+    }
+
+    if (ano) {
+      where.indicadores = {
+        some: {
+          deletedAt: null,
+          registros: {
+            some: { deletedAt: null, ano, ...(trimestre && { trimestre }) },
+          },
+        },
+      };
+    }
+
+    const [itens, total] = await this.nucleoRepository.search(
+      where,
+      (pagina - 1) * limite,
+      limite,
+    );
+
+    return { itens, total, pagina, limite };
   }
 
   async findOne(id: string) {

@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Ip,
   ParseUUIDPipe,
+  Query,
   Req,
   UseFilters,
   UseGuards,
@@ -18,8 +19,10 @@ import { ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { NucleoService } from './nucleo.service';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
+import { SearchNucleoDto } from './dto/search-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
 import { CreateNucleoSwagger } from './swagger/nucleo.post.swagger';
+import { SearchNucleoSwagger } from './swagger/nucleo.get.swagger';
 import { DeleteNucleoSwagger } from './swagger/nucleo.delete.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -46,8 +49,10 @@ export class NucleoController {
   }
 
   @Get()
-  findAll() {
-    return this.nucleoService.findAll();
+  @UseGuards(JwtAuthGuard)
+  @SearchNucleoSwagger()
+  search(@Query() filtros: SearchNucleoDto, @Req() req: AuthenticatedRequest) {
+    return this.nucleoService.search(filtros, req.user);
   }
 
   @Get(':id')

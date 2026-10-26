@@ -39,3 +39,20 @@ export class NucleoResponseDto {
   })
   createdAt!: Date;
 }
+
+export class NucleoPaginadoResponseDto {
+  @ApiProperty({ type: [NucleoResponseDto] })
+  itens!: NucleoResponseDto[];
+
+  @ApiProperty({
+    example: 42,
+    description: 'Total de núcleos que atendem aos filtros',
+  })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  pagina!: number;
+
+  @ApiProperty({ example: 20 })
+  limite!: number;
+}
