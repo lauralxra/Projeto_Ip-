@@ -132,7 +132,7 @@ function OptExtras( {leUser, abrirEditModal}: {leUser:Usuario, abrirEditModal: (
         {`Editar perfil`}
       </a>
       <a href="/usuarios" className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap items-center justify-center" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-        {`Gerenciar Usuários`}
+        {UsuarioAtual.tipo == "ADM" ? `Gerenciar Usuários` : `Usuários Cadastrados`}
       </a>
       {/*<p className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] w-[min-content]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
         Acessibilidade

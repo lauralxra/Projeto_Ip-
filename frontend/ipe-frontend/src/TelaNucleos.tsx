@@ -13,6 +13,7 @@ import {
   MoreVertical, 
   Trash2,
 } from 'lucide-react';
+import { UsuarioAtual } from './dados/usuarios';
 
 export default function TelaNucleos() {
   const [nucleos, setNucleos] = useState<Nucleo[]>(NucleosCadastrados);
@@ -142,7 +143,9 @@ export default function TelaNucleos() {
             <Search size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
-          <BtnCriar txt="Novo núcleo" acao={abrirCriarModal}/>
+          {UsuarioAtual.tipo == "ADM" ? 
+            <BtnCriar txt="Novo núcleo" acao={abrirCriarModal}/> : ""
+          }
         </div>
 
         {/* Lista de Núcleos (Cards) */}
@@ -153,22 +156,25 @@ export default function TelaNucleos() {
               className="bg-[#f2eff4] rounded-2xl p-6 relative flex items-center gap-5 border border-slate-200/60 shadow-xs hover:shadow-md transition-shadow"
             >
               {/* Ícone de Ações no Canto Superior Direito */}
-              <div className="absolute top-4 right-4 flex flex-col gap-1 items-center">
-                <button 
-                  onClick={() => abrirEditarModal(nucleo)}
-                  className="p-1 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" 
-                  title="Editar"
-                >
-                  <MoreVertical size={18} />
-                </button>
-                <button 
-                  onClick={() => abrirDeletarModal(nucleo)}
-                  className="p-1 text-slate-600 hover:text-red-600 transition-colors cursor-pointer" 
-                  title="Deletar"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              {UsuarioAtual.tipo == "ADM" ? 
+                <div className="absolute top-4 right-4 flex flex-col gap-1 items-center">
+                  <button 
+                    onClick={() => abrirEditarModal(nucleo)}
+                    className="p-1 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" 
+                    title="Editar"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                  <button 
+                    onClick={() => abrirDeletarModal(nucleo)}
+                    className="p-1 text-slate-600 hover:text-red-600 transition-colors cursor-pointer" 
+                    title="Deletar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                : ""
+              }
 
               {/* Avatar do Núcleo */}
               <div className={`w-24 h-24 rounded-full ${nucleo.corBg} ${nucleo.corIcone} flex flex-col items-center justify-center shrink-0 border-2 border-white shadow-inner`}>

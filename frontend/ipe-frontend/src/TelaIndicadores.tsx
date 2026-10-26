@@ -10,6 +10,7 @@ import { type Indicador, IndicadoresCadastrados } from './dados/indicadores';
 import { NucleosCadastrados } from './dados/nucleos';
 import { programasCadastrados } from './dados/programas';
 import { Search } from 'lucide-react';
+import { UsuarioAtual } from './dados/usuarios';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
     // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -166,19 +167,31 @@ function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leLi
                             <p>{indicador.meta != null ? (indicador.meta + (indicador.simbolUni ? indicador.simbolUni : '')) : "Sem meta"}</p>
                         </div>
 
-                        {/* Realizado */}
-                        <button title="Definir Valor Atual" onClick={() => setIndicVal(indicador)} className="flex flex-1 gap-[16px] items-center cursor-pointer">
-                            <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
-                                {indicador.valAtual + (indicador.simbolUni ? indicador.simbolUni : '')}
-                            </p>
-                            {/* Botao Editar */}
-                            <div className="flex items-center p-[2px] size-[14px]">
-                                <svg className="block size-full" fill="none" viewBox="0 0 14.6791 14.6795">
-                                    <path d={Svg.p1dac9e00} stroke="#3B142F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                                    <path d={Svg.pa46f980} stroke="#3B142F" strokeWidth="2" />
-                                </svg>
+                        {UsuarioAtual.tipo == "ADM" || UsuarioAtual.tipo == "DN" ?
+                            <>{/* Realizado */}
+                            <button title="Definir Valor Atual" onClick={() => setIndicVal(indicador)} className="flex flex-1 gap-[16px] items-center cursor-pointer">
+                                <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
+                                    {indicador.valAtual + (indicador.simbolUni ? indicador.simbolUni : '')}
+                                </p>
+
+                                {/* Botao Editar */}
+                                <div className="flex items-center p-[2px] size-[14px]">
+                                    <svg className="block size-full" fill="none" viewBox="0 0 14.6791 14.6795">
+                                        <path d={Svg.p1dac9e00} stroke="#3B142F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                                        <path d={Svg.pa46f980} stroke="#3B142F" strokeWidth="2" />
+                                    </svg>
+                                </div>
+                            </button>
+                            </>
+                            :
+                            <>
+                            <div className="flex flex-1 gap-[16px] items-center cursor-pointer">
+                                <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
+                                    {indicador.valAtual + (indicador.simbolUni ? indicador.simbolUni : '')}
+                                </p>
                             </div>
-                        </button>
+                            </>
+                        }
                         
                         {/* Container barra */}
                         <div className="flex items-center flex-1">
@@ -190,11 +203,14 @@ function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leLi
 
                         {/* Ações */}
                         <div className="flex flex-1 gap-[12px] items-center">
-                            <button title="Editar Indicador" onClick={() => editIndic(indicador)} className="size-[24px] cursor-pointer">
-                                <svg className="block size-full" fill="none" viewBox="0 0 39 39">
-                                  <path d={Svg.p36224900} fill="#3C3B3B" />
-                                </svg>
-                            </button>
+                            {UsuarioAtual.tipo == "ADM" ?
+                                <button title="Editar Indicador" onClick={() => editIndic(indicador)} className="size-[24px] cursor-pointer">
+                                    <svg className="block size-full" fill="none" viewBox="0 0 39 39">
+                                    <path d={Svg.p36224900} fill="#3C3B3B" />
+                                    </svg>
+                                </button>
+                                : ""
+                            }
                             
                             <a title="Ver nos Dashboards" className="size-[24px]" href='/dashboard'>
                               <div className="size-full">
@@ -204,15 +220,23 @@ function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leLi
                               </div>
                             </a>
 
-                            <button title="Excluir Indicador" onClick={() => delIndic(indicador)} className="size-[24px] cursor-pointer">
-                                <svg className="block size-full" fill="none" viewBox="0 0 31.6875 36.5625">
-                                  <path d={Svg.p38953980} fill="#3C3B3B" />
-                                </svg>
-                            </button>
+                            {UsuarioAtual.tipo == "ADM" ?
+                                <button title="Excluir Indicador" onClick={() => delIndic(indicador)} className="size-[24px] cursor-pointer">
+                                    <svg className="block size-full" fill="none" viewBox="0 0 31.6875 36.5625">
+                                    <path d={Svg.p38953980} fill="#3C3B3B" />
+                                    </svg>
+                                </button> : ""
+                            }
 
-                            <button title="Definir Aprovação" onClick={() => aprovIndic(indicador)} className="size-[24px] cursor-pointer">
-                                {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
-                            </button>
+                            {UsuarioAtual.tipo == "ADM" ?
+                                <button title="Definir Aprovação" onClick={() => aprovIndic(indicador)} className="size-[24px] cursor-pointer">
+                                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
+                                </button>
+                                :
+                                <div title={indicador.aprovado ? "Aprovado para Publicação" : "Não Aprovado para Publicação"} className="size-[24px]">
+                                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -229,9 +253,16 @@ export default function TelaIndicadores() {
     const [filtroPrograma, setFiltroPrograma] = useState('');
     const [filtroAprovacao, setFiltroAprovacao] = useState('');
 
-    const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
+    const NucleosDoUser = Array.from(new Set(UsuarioAtual.nucleos))
+    const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla)));
 
-    const programasDoNucleo = programasCadastrados.filter(n => {
+    const programasDoUsuario = programasCadastrados.filter(p => {
+        if (!p.nucleo) return false;
+        return UsuarioAtual.nucleos?.some(nuUser => nuUser.sigla === p.nucleo?.sigla);
+    });
+
+    // 2. Aplica o filtro dinâmico do select de núcleos selecionado na tela
+    const programasDoNucleo = programasDoUsuario.filter(n => {
         const matchNucleo = filtroNucleo === '' 
             ? true 
             : filtroNucleo === 'Nenhum' 
@@ -239,16 +270,23 @@ export default function TelaIndicadores() {
                 : n.nucleo?.sigla === filtroNucleo;
                 
         return matchNucleo;
-    })
+    });
 
     const listaProgramas = Array.from(new Set(programasDoNucleo.map(i => i.nome)));
 
     const listagemAprovacao = ['Aprovado', 'Desaprovado']
 
     // Filtragem
-    const [termoPesquisa, setTermoPesquisa] = useState('');
+    const indicDoUser = indicadores.filter(n => {
+        if (UsuarioAtual.tipo === "ADM") return true;
+        if (!n.nucleo) return false;
+        
+        // Verifica se algum dos núcleos do usuário possui a mesma sigla ou ID do núcleo do indicador
+        return UsuarioAtual.nucleos?.some(nuUser => nuUser.sigla === n.nucleo?.sigla);
+    });
 
-    const indicPorNome = indicadores.filter(n => 
+    const [termoPesquisa, setTermoPesquisa] = useState('');
+    const indicPorNome = indicDoUser.filter(n => 
         n.nome.toLowerCase().includes(termoPesquisa.toLowerCase()) || 
         n.unidade.toLowerCase().includes(termoPesquisa.toLowerCase())
     );
@@ -318,7 +356,7 @@ export default function TelaIndicadores() {
         e.preventDefault();
         
         let unitSimbol = getUnitSimb();
-        const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+        const nucleoSelecionado = formNucleoId ? NucleosDoUser.find(n => n.id === formNucleoId) : undefined;
         const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
         
         const novo: Indicador = {
@@ -371,7 +409,7 @@ export default function TelaIndicadores() {
         if (!indicSelecionado) return;
         
         let unitSimbol = getUnitSimb();
-        const nucleoSelecionado = formNucleoId ? NucleosCadastrados.find(n => n.id === formNucleoId) : undefined;
+        const nucleoSelecionado = formNucleoId ? NucleosDoUser.find(n => n.id === formNucleoId) : undefined;
         const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
 
         setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
@@ -519,33 +557,37 @@ export default function TelaIndicadores() {
                             opcoes={listagemAprovacao} 
                         />
 
-                        <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
-
-                        {/* Botão importar */}
-                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
-                            <BtnImportIco ico="block size-full" id="btnImportar"/>
-                            <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                                Importar CSV
+                        {UsuarioAtual.tipo == "ADM" ?
+                            <>
+                            <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
+                            
+                            {/* Botão importar */}
+                            <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                                <BtnImportIco ico="block size-full" id="btnImportar"/>
+                                <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
+                                    Importar CSV
+                                </div>
+                                <input 
+                                    type="file"
+                                    accept="text/csv"
+                                    className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
+                                    title="Importar CSV"
+                                    onChange={handleCSVImport}
+                                />
                             </div>
-                            <input 
-                                type="file"
-                                accept="text/csv"
-                                className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
-                                title="Importar CSV"
-                                onChange={handleCSVImport}
-                            />
-                        </div>
 
-                        {/* Botão exportar 
-                        (deixei comentado, pelo q me lembre n vai precisar exportar CSV e ainda mais diretamente dessa tela)*/}
-                        {/*
-                        <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
-                            <BtnImportIco ico="block size-full rotate-180" id="btnExportar"/>
-                            <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                                Exportar CSV
-                            </p>
-                        </div>
-                        */}
+                            {/* Botão exportar 
+                            (deixei comentado, pelo q me lembre n vai precisar exportar CSV e ainda mais diretamente dessa tela)*/}
+                            {/*
+                            <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                                <BtnImportIco ico="block size-full rotate-180" id="btnExportar"/>
+                                <p className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
+                                    Exportar CSV
+                                </p>
+                            </div>
+                            */}
+                            </> : ""
+                        }
 
                     </div>
 
@@ -613,7 +655,7 @@ export default function TelaIndicadores() {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem núcleo</option>
-                                {NucleosCadastrados.map((opt) => (
+                                {NucleosDoUser.map((opt) => (
                                     <option key={opt.id} value={opt.id}>{opt.sigla}</option>
                                 ))}
                             </select>
@@ -738,7 +780,7 @@ export default function TelaIndicadores() {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem núcleo</option>
-                                {NucleosCadastrados.map((opt) => (
+                                {NucleosDoUser.map((opt) => (
                                     <option key={opt.id} value={opt.id}>{opt.sigla}</option>
                                 ))}
                             </select>

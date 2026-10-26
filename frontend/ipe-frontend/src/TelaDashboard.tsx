@@ -25,7 +25,7 @@ import {
 import { NucleosCadastrados } from './dados/nucleos';
 import { programasCadastrados } from './dados/programas';
 import { IndicadoresCadastrados } from './dados/indicadores';
-import { UsuariosCadastrados } from './dados/usuarios';
+import { UsuarioAtual, UsuariosCadastrados } from './dados/usuarios';
 import { TrimestresPassados } from './dados/trimestres';
 
 const dadosComparativo = [
@@ -118,7 +118,7 @@ export default function TelaDashboard() {
               >
                 <option>Todos os Núcleos</option>
                 {
-                  NucleosCadastrados.map((n) => (
+                  UsuarioAtual.nucleos.map((n) => (
                     <option>{n.sigla}</option>
                   ))
                 }

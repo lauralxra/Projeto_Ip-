@@ -4,7 +4,7 @@ import { NavBar } from "./NavBar";
 import { User } from './UserBar';
 
 import { type Nucleo } from "./dados/nucleos";
-import { type Usuario, TipoDeConta } from "./dados/usuarios";
+import { type Usuario, TipoDeConta, UsuarioAtual } from "./dados/usuarios";
 import { UsuariosCadastrados } from "./dados/usuarios";
 import { BtnCriar } from "./BtnCriar";
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
@@ -174,7 +174,9 @@ function LinhaUsuarioCadastrado({ usuario, editFunction, deleteFunction }: Linha
                 </div>
             </div>
 
-            <LinhaUsuarioCadastradoEditarBtn usuarioEmSi={usuario} editFunction={editFunction} deleteFunction={deleteFunction} className="cursor-pointer min-h-[30px] min-w-[20px] relative shrink-0" />
+            {UsuarioAtual.tipo == "ADM" ?
+                <LinhaUsuarioCadastradoEditarBtn usuarioEmSi={usuario} editFunction={editFunction} deleteFunction={deleteFunction} className="cursor-pointer min-h-[30px] min-w-[20px] relative shrink-0"/> : ""
+            }
         </div>
     );
 }
@@ -265,7 +267,9 @@ export default function TelaUsuarios() {
                         </p>
                     </div>
 
-                    <BtnCriar txt="Cadastrar usuário" acao={AbrirTelaCriacao}/>
+                    {UsuarioAtual.tipo == "ADM" ?
+                        <BtnCriar txt="Cadastrar usuário" acao={AbrirTelaCriacao}/> : ""
+                    }
                 </div>
 
                 {/* Lista */}

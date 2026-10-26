@@ -20,16 +20,6 @@ export interface Usuario {
     status: number;
 }
 
-export const UsuarioAtual: Usuario = {
-    id: '4032839',
-    nome: 'Seu Nomezinho da Silva',
-    email: 'seu.nome@ufrpe.com',
-    senha: '12345@senha',
-    tipo: TipoDeConta.ADM,
-    nucleos: NucleosCadastrados,
-    status: 1
-}
-
 export const UsuariosCadastrados: Usuario[] = [
     {
         id: '0',
@@ -102,7 +92,9 @@ export const UsuariosCadastrados: Usuario[] = [
         email: 'seu.nome@ufrpe.com',
         senha: '12345@senha',
         tipo: TipoDeConta.ADM,
-        nucleos: NucleosCadastrados,
+        nucleos: [NucleosCadastrados[0], NucleosCadastrados[1], NucleosCadastrados[2], NucleosCadastrados[3]],
         status: 1
     }
 ];
+
+export const UsuarioAtual: Usuario = UsuariosCadastrados[7];

@@ -7,7 +7,7 @@ import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { CustomDropdown } from './CustomDropdown';
 import { type Nucleo, NucleosCadastrados } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
-import { UsuariosCadastrados, type Usuario } from './dados/usuarios';
+import { UsuarioAtual, UsuariosCadastrados, type Usuario } from './dados/usuarios';
 import "react-datepicker/dist/react-datepicker.css";
 
 function ProgramaObj( {programaEmSi, editFunc, delFunc}: {programaEmSi: Programa, editFunc:(obj: Programa) => void, delFunc:(obj: Programa) => void}) {
@@ -25,19 +25,24 @@ function ProgramaObj( {programaEmSi, editFunc, delFunc}: {programaEmSi: Programa
       </div>
 
       <div className="content-stretch flex flex-1 flex-col gap-[6px] relative pr-6">
-        {/* edição */}
-        <button className="absolute right-0 size-[20px] top-0 cursor-pointer" data-name="akar-icons:more-vertical-fill"
-          onClick={() => editFunc(programaEmSi)}
-          >
-            <MoreVertical size={18} />
-        </button>
-        
-        {/* apagação */}
-        <button className="absolute right-0 size-[20px] top-8 cursor-pointer" data-name="akar-icons:more-vertical-fill"
-            onClick={() => delFunc(programaEmSi)}
-          >
-            <Trash2 size={16} />
-        </button>
+        {UsuarioAtual.tipo == "ADM" ?
+            <>
+                {/* edicao */}
+                <button className="absolute right-0 size-[20px] top-0 cursor-pointer" data-name="akar-icons:more-vertical-fill"
+                    onClick={() => editFunc(programaEmSi)}
+                >
+                    <MoreVertical size={18} />
+                </button>
+                
+                {/* deletamento */}
+                <button className="absolute right-0 size-[20px] top-8 cursor-pointer" data-name="akar-icons:more-vertical-fill"
+                    onClick={() => delFunc(programaEmSi)}
+                >
+                    <Trash2 size={16} />
+                </button>
+            </>
+            : ""
+        }
         
         {/* nome */}
         <p className="font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold text-[#040404] text-[16px] leading-tight">
@@ -88,9 +93,18 @@ export default function TelaProgramas() {
     const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
     const [filtroNucleo, setFiltroNucleo] = useState('');
-    const listaNucleosNome = Array.from(new Set(NucleosCadastrados.map(i => i.sigla)));
+    const NucleosDoUser = Array.from(new Set(UsuarioAtual.nucleos))
+    const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla)));
 
-    const programPorNome = programas.filter(n => 
+    const programsDoUser = programas.filter(n => {
+        if (UsuarioAtual.tipo === "ADM") return true;
+        if (!n.nucleo) return false;
+        
+        // Verifica se algum dos núcleos do usuário possui a mesma sigla ou ID do núcleo do indicador
+        return UsuarioAtual.nucleos?.some(nuUser => nuUser.sigla === n.nucleo?.sigla);
+    });
+
+    const programPorNome = programsDoUser.filter(n => 
         n.nome.toLowerCase().includes(termoPesquisa.toLowerCase()) || 
         n.descricao.toLowerCase().includes(termoPesquisa.toLowerCase())
     );
@@ -178,7 +192,10 @@ export default function TelaProgramas() {
                                 opcoes={listaNucleosNome}
                             />
 
-                            <BtnCriar txt="Criar Programa" acao={abrirCriarModal} />
+                            {UsuarioAtual.tipo == "ADM" ?
+                                <BtnCriar txt="Criar Programa" acao={abrirCriarModal} />
+                                : ""
+                            }
                         </div>
                   </div>
 
@@ -391,14 +408,14 @@ function EditProgramaPopup({ header, id, nome, nucleo, descricao, dataDeInicio, 
                     <select
                         value={formNucleo?.id || ''}
                         onChange={(e) => {
-                            const n = NucleosCadastrados.find(item => item.id === e.target.value);
+                            const n = UsuarioAtual.nucleos.find(item => item.id === e.target.value);
                             setFormNucleo(n);
                         }}
                         required
                         className="bg-[#d8d0d8] h-[45px] px-3 rounded-[15px] border-none outline-none font-bold text-xs cursor-pointer text-black"
                     >
                         <option value="" disabled>Selecione um núcleo...</option>
-                        {NucleosCadastrados.map((n) => (
+                        {UsuarioAtual.nucleos.map((n) => (
                             <option key={n.id} value={n.id}>{n.nome} ({n.sigla})</option>
                         ))}
                     </select>

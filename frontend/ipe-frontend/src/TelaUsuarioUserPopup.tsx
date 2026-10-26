@@ -98,10 +98,10 @@ function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
         onChange={(e) => onChange(e.target.value)}
         className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-xs text-center"
       >
-        <option value="ADM">ADM</option>
-        <option value="DN">DN</option>
-        <option value="EC">EC</option>
-        <option value="EG">EG</option>
+        <option value="ADM">Administrador</option>
+        <option value="DN">Diretor de Núcleo</option>
+        <option value="EC">Equipe de Comunicação</option>
+        <option value="EG">Equipe de Gestão</option>
       </select>
     </div>
   );
