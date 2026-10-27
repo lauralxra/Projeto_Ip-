@@ -27,4 +27,18 @@ export class UserRepository {
   create(data: Prisma.UserCreateInput) {
     return this.prisma.user.create({ data, select: publicUserSelect });
   }
+
+  findActiveById(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: publicUserSelect,
+    });
+  }
+
+  updateName(id: string, nome: string) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { nome },
+    });
+  }
 }
