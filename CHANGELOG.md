@@ -1,3 +1,10 @@
+# [1.1.0-dev.2](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.1...v1.1.0-dev.2) (2026-10-27)
+
+
+### Features
+
+* **auth:** integracao do login com backend ([6fcca5b](https://github.com/lauralxra/Projeto_Ip-/commit/6fcca5b29e00df6665961819761246918e1cef03))
+
 # [1.1.0-dev.1](https://github.com/lauralxra/Projeto_Ip-/compare/v1.0.0...v1.1.0-dev.1) (2026-10-20)
 
 
