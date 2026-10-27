@@ -6,6 +6,17 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 1. Habilita o CORS para permitir requisições do frontend Vite/React
+  app.enableCors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  });
+
+  // 2. Define o prefixo global /api para as rotas da aplicação
+  app.setGlobalPrefix('api');
+
+  // 3. Validação global de DTOs
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -14,6 +25,7 @@ async function bootstrap() {
     }),
   );
 
+  // 4. Configuração da documentação Swagger
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Plataforma Instituto Ipê - API')
     .setDescription(
