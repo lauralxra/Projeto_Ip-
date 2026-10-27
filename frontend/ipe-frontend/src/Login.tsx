@@ -6,12 +6,59 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  // Estados para tratamento da autenticação
+  const [mensagemErro, setMensagemErro] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(false);
+
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Redireciona para o Dashboard após o login
-    navigate('/dashboard');
+    setMensagemErro(null);
+    setCarregando(true);
+
+    try {
+      // 1. Faz a requisição de login para a API em NestJS
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: senha, // Envia 'password' de acordo com o DTO do backend
+        }),
+      });
+
+      const data = await response.json();
+
+      // 2. Se o backend retornar erro (400, 401 ou 404 - Usuário não encontrado)
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.',
+        );
+      }
+
+      // 3. Salva o token JWT e dados do usuário retornado pelo banco
+      if (data.access_token) {
+        localStorage.setItem('access_token', data.access_token);
+      }
+      if (data.user && data.user.role) {
+        localStorage.setItem('user_role', data.user.role);
+      }
+
+      // 4. Redireciona para o Dashboard apenas após autenticação válida no banco
+      navigate('/dashboard');
+    } catch (err: any) {
+      // Exibe a mensagem de erro no card e impede o acesso
+      setMensagemErro(
+        err.message || 'Erro ao conectar ao servidor de autenticação.',
+      );
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -50,6 +97,13 @@ export default function Login() {
               Insira suas informações para logar na plataforma IPÊ - Indicadores
             </p>
 
+            {/* Alerta de erro de autenticação */}
+            {mensagemErro && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 mb-4 leading-relaxed font-medium">
+                {mensagemErro}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -61,7 +115,8 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Digite seu email..."
                   required
-                  className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all"
+                  disabled={carregando}
+                  className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all disabled:opacity-60"
                 />
               </div>
 
@@ -76,7 +131,8 @@ export default function Login() {
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="Digite sua senha..."
                     required
-                    className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all pr-10"
+                    disabled={carregando}
+                    className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all pr-10 disabled:opacity-60"
                   />
                   <button
                     type="button"
@@ -105,9 +161,10 @@ export default function Login() {
 
               <button
                 type="submit"
-                className="w-full py-3.5 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer mt-2"
+                disabled={carregando}
+                className="w-full py-3.5 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Entrar
+                {carregando ? 'Autenticando...' : 'Entrar'}
               </button>
             </form>
           </div>
