@@ -10,7 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 @ApiTags('user')
+@ApiBearerAuth('JWT-auth')
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -38,20 +39,26 @@ export class UserController {
     return this.userService.create(createUserDto, { id: req.user.id, ip });
   }
 
-  @Get()
-  findAll() {
-    return this.userService.findAll();
-  }
+@Get()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMINISTRADOR)
+findAll() {
+  return this.userService.findAll();
+}
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findById(id);
-  }
+@Get(':id')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMINISTRADOR)
+findOne(@Param('id') id: string) {
+  return this.userService.findById(id);
+}
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(id, updateUserDto);
-  }
+@Patch(':id')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMINISTRADOR)
+update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  return this.userService.update(id, updateUserDto);
+}
 
   @Delete(':id')
   remove(@Param('id') id: string) {

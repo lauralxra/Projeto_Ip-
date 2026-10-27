@@ -62,25 +62,123 @@ export class UserService {
       ip: autor.ip,
     });
 
-    return user;
+    return {
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      ativo: user.ativo,
+      createdAt: user.createdAt,
+    };
   }
 
-  async findAll() {
-    return await this.prisma.user.findMany();
+
+async findAll() {
+  const users = await this.prisma.user.findMany({
+    select: {
+      id: true,
+      nome: true,
+      email: true,
+      fotoUrl: true,
+      perfil: true,
+      ativo: true,
+      ultimoAcesso: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
+    },
+  });
+
+  return users;
+}
+
+
+
+async findById(id: string) {
+  const user = await this.prisma.user.findUnique({ where: { id } });
+
+  if (!user) throw new NotFoundException('User not found');
+
+  return {
+    id: user.id,
+    nome: user.nome,
+    email: user.email,
+    fotoUrl: user.fotoUrl,
+    perfil: user.perfil,
+    ativo: user.ativo,
+    ultimoAcesso: user.ultimoAcesso,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    deletedAt: user.deletedAt,
+  };
+}
+
+
+
+async update(id: string, updateUserDto: UpdateUserDto) {
+  const user = await this.prisma.user.findUnique({
+    where: { id },
+  });
+
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
 
-  async findById(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  const { name, email, password, role, confirmPassword } = updateUserDto;
 
-    if (!user) throw new NotFoundException('User not found');
-
-    const { senhaHash: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+  if (password && password !== confirmPassword) {
+    throw new ConflictException('As senhas não coincidem.');
   }
 
-  update(id: string, updateUserDto: UpdateUserDto) {
-    return updateUserDto;
+  if (email && email !== user.email) {
+    const existingUser = await this.userRepository.findActiveByEmail(email);
+
+    if (existingUser && existingUser.id !== id) {
+      throw new ConflictException(EMAIL_EM_USO);
+    }
   }
+
+  const data: Prisma.UserUpdateInput = {};
+
+  if (name !== undefined) data.nome = name;
+  if (email !== undefined) data.email = email;
+  if (role !== undefined) data.perfil = role;
+
+  if (password) {
+    data.senhaHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  }
+
+  try {
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        fotoUrl: true,
+        perfil: true,
+        ativo: true,
+        ultimoAcesso: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+      },
+    });
+
+    return updatedUser;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(EMAIL_EM_USO);
+    }
+
+    throw error;
+  }
+}
+
 
   remove(id: string) {
     return `This action removes a #${id} user`;
