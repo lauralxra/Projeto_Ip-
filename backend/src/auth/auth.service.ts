@@ -6,6 +6,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { AcaoAuditoria } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -140,6 +141,19 @@ export class AuthService {
         createdAt: usuario.createdAt,
       },
     };
+  }
+
+  async logout(userId: string, ip: string) {
+    await this.audit.registrarAcao({
+      userId,
+      acao: AcaoAuditoria.ENCERRAR_SESSAO,
+      entidade: 'Sessao',
+      entidadeId: userId,
+      dadosNovos: { evento: 'logout' },
+      ip,
+    });
+
+    return { message: 'Sessão encerrada com sucesso' };
   }
 
   async registrarTentativaInvalida(
