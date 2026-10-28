@@ -7,10 +7,13 @@ import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 describe('UserController', () => {
   let controller: UserController;
-  let userService: { create: jest.Mock };
+  let userService: { create: jest.Mock; updateName: jest.Mock };
 
   beforeEach(async () => {
-    userService = { create: jest.fn().mockResolvedValue({ id: 'novo-uuid' }) };
+    userService = {
+      create: jest.fn().mockResolvedValue({ id: 'novo-uuid' }),
+      updateName: jest.fn().mockResolvedValue({ id: 'usuario-uuid' }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [{ provide: UserService, useValue: userService }],
@@ -40,5 +43,24 @@ describe('UserController', () => {
       id: 'admin-uuid',
       ip: '203.0.113.7',
     });
+  });
+
+  it('repassa somente o nome e o autor autenticado na atualização', async () => {
+    const req = {
+      user: { id: 'usuario-uuid', role: Role.EQUIPE_GESTAO },
+    } as AuthenticatedRequest;
+
+    await controller.update(
+      'usuario-uuid',
+      { name: 'Maria Silva' },
+      req,
+      '203.0.113.7',
+    );
+
+    expect(userService.updateName).toHaveBeenCalledWith(
+      'usuario-uuid',
+      'Maria Silva',
+      { id: 'usuario-uuid', ip: '203.0.113.7' },
+    );
   });
 });

@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Ip,
+  ParseUUIDPipe,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserSwagger } from './swagger/user.post.swagger';
+import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
@@ -56,8 +58,17 @@ findOne(@Param('id') id: string) {
 @Patch(':id')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMINISTRADOR)
-update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-  return this.userService.update(id, updateUserDto);
+@UpdateUserSwagger()
+update(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Body() updateUserDto: UpdateUserDto,
+  @Req() req: AuthenticatedRequest,
+  @Ip() ip: string,
+) {
+  return this.userService.updateName(id, updateUserDto.name, {
+    id: req.user.id,
+    ip,
+  });
 }
 
   @Delete(':id')
