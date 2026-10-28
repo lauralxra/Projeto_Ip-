@@ -7,6 +7,7 @@ import {
 import { AcaoAuditoria, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
@@ -34,7 +35,6 @@ export class UserService {
 
     let user: Awaited<ReturnType<UserRepository['create']>>;
     try {
-      // Criado pela administração: já liberado com o perfil escolhido (RF17/RF18)
       user = await this.userRepository.create({
         nome: name,
         email,
@@ -43,7 +43,6 @@ export class UserService {
         ativo: true,
       });
     } catch (error) {
-      // Cadastro concorrente com o mesmo e-mail barrado pelo índice único parcial
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
@@ -62,20 +61,112 @@ export class UserService {
       ip: autor.ip,
     });
 
-    return user;
+    return {
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      ativo: user.ativo,
+      createdAt: user.createdAt,
+    };
   }
 
   async findAll() {
-    return await this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        fotoUrl: true,
+        perfil: true,
+        ativo: true,
+        ultimoAcesso: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+      },
+    });
   }
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
-    const { senhaHash: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return {
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      fotoUrl: user.fotoUrl,
+      perfil: user.perfil,
+      ativo: user.ativo,
+      ultimoAcesso: user.ultimoAcesso,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      deletedAt: user.deletedAt,
+    };
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { name, email, password, role, confirmPassword } = updateUserDto;
+
+    if (password && password !== confirmPassword) {
+      throw new ConflictException('As senhas não coincidem.');
+    }
+
+    if (email && email !== user.email) {
+      const existingUser = await this.userRepository.findActiveByEmail(email);
+
+      if (existingUser && existingUser.id !== id) {
+        throw new ConflictException(EMAIL_EM_USO);
+      }
+    }
+
+    const data: Prisma.UserUpdateInput = {};
+
+    if (name !== undefined) data.nome = name;
+    if (email !== undefined) data.email = email;
+    if (role !== undefined) data.perfil = role;
+
+    if (password) {
+      data.senhaHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    }
+
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data,
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          fotoUrl: true,
+          perfil: true,
+          ativo: true,
+          ultimoAcesso: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(EMAIL_EM_USO);
+      }
+
+      throw error;
+    }
   }
 
   async updateName(id: string, name: string, autor: AutorAcao) {
