@@ -1,24 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Svg } from "./config/assets";
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
 import { CheckCircle2, Circle } from 'lucide-react';
-
-import { type Indicador, IndicadoresCadastrados } from './dados/indicadores';
-import { NucleosCadastrados } from './dados/nucleos';
-import { programasCadastrados } from './dados/programas';
+import type { Programa } from './dados/programas';
+import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
+import type { Nucleo } from './dados/nucleos';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
     // Cálculo matemático para preencher o círculo SVG proporcionalmente
     // O raio do círculo é 82.5, logo a circunferência aproximada é 2 * pi * 82.5 ≈ 518.36
     const raio = 82.5;
     const circunferencia = 2 * Math.PI * raio;
-    const deslocamento = circunferencia - (circunferencia * progresso) / 100;
-    
+    const progressoSeguro = Number.isFinite(progresso) ? Math.max(0, Math.min(progresso, 100)) : 0;
+    const deslocamento = circunferencia - (circunferencia * progressoSeguro) / 100;  
+
     return (
     <div className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[12px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px]" data-name="TotalProgresso">
         
@@ -60,7 +60,7 @@ function TotalProgresso({ progresso }: { progresso: number }) {
 
             {/* Porcentagem */}
             <p className="col-1 font-normal ml-[42px] mt-[52px] absolute align-center justify-center row-1 text-[#3c3b3b] text-[18px]">
-                {progresso}%
+                {progressoSeguro}%
             </p>
         </div>
     </div>
@@ -246,20 +246,165 @@ function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leLi
 }
 
 export default function TelaIndicadores() {
-    const [indicadores, setIndicadores] = useState<Indicador[]>(IndicadoresCadastrados);
+const [indicadores, setIndicadores] = useState<Indicador[]>([]);
+const [nucleosDoBanco, setNucleosDoBanco] = useState<Nucleo[]>([]);
+const [programasDoBanco, setProgramasDoBanco] = useState<Programa[]>([]);
+
+useEffect(() => {
+    const carregarIndicadores = async () => {
+        const token = localStorage.getItem('access_token');
+
+        if (!token) return;
+
+        try {
+            const resposta = await fetch('http://localhost:3000/api/indicadores', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!resposta.ok) {
+                throw new Error(`Erro ao carregar indicadores: ${resposta.status}`);
+            }
+
+            const dados = await resposta.json();
+
+            const indicadoresReais: Indicador[] = dados.map((item: any) => {
+                const registro = item.registros?.[0];
+
+                const unidade = item.unidadeMedida ?? 'Unidade';
+
+                const simbolo =
+                    unidade === 'Porcentagem' ? '%' :
+                    unidade === 'Toneladas' ? 't' :
+                    unidade === 'Quilos' ? 'Kg' :
+                    unidade === 'Reais' ? '$' : '';
+
+                return {
+                    id: item.id,
+                    nome: item.nome,
+                    unidade,
+                    simbolUni: simbolo,
+                    meta: registro?.metaAplicada != null
+                        ? String(registro.metaAplicada)
+                        : undefined,
+                    valAtual: registro?.valorRealizado != null
+                        ? String(registro.valorRealizado)
+                        : '0',
+                    nucleo: item.nucleo ?? undefined,
+                    programa: item.programa ?? undefined,
+                    status: item.status,
+                    aprovado: registro?.statusAprovacao === 'APROVADO',
+                };
+            });
+
+            setIndicadores(indicadoresReais);
+        } catch (erro) {
+            console.error('Erro ao carregar indicadores:', erro);
+            alert('Não foi possível carregar os indicadores do banco de dados.');
+        }
+    };
+
+    carregarIndicadores();
+        }, []);
+        
+    useEffect(() => {
+        const carregarNucleos = async () => {
+            const token = localStorage.getItem('access_token');
+
+            if (!token) return;
+
+            try {
+                const resposta = await fetch('http://localhost:3000/api/nucleos', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!resposta.ok) {
+                    throw new Error(`Erro ao carregar núcleos: ${resposta.status}`);
+                }
+
+                const dados = await resposta.json();
+
+                const nucleosReais: Nucleo[] = dados.map((item: any) => ({
+                    id: item.id,
+                    nome: item.nome,
+                    sigla: item.sigla,
+                    descricao: item.descricao ?? '',
+                    corBg: 'bg-[#832b62]',
+                    corIcone: 'text-white',
+                }));
+
+                setNucleosDoBanco(nucleosReais);
+            } catch (erro) {
+                console.error('Erro ao carregar núcleos:', erro);
+                alert('Não foi possível carregar os núcleos do banco de dados.');
+            }
+        };
+
+        carregarNucleos();
+    }, []);
+
+    useEffect(() => {
+        const carregarProgramas = async () => {
+            const token = localStorage.getItem('access_token');
+
+            if (!token) return;
+
+            try {
+                const resposta = await fetch('http://localhost:3000/api/programas', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!resposta.ok) {
+                    throw new Error(`Erro ao carregar programas: ${resposta.status}`);
+                }
+
+                const dados = await resposta.json();
+
+                const programasReais: Programa[] = dados.map((item: any) => ({
+                    id: item.id,
+                    nome: item.nome,
+                    descricao: item.descricao ?? '',
+                    nucleo: item.nucleo
+                        ? {
+                            id: item.nucleo.id,
+                            nome: item.nucleo.nome,
+                            sigla: item.nucleo.sigla,
+                            descricao: '',
+                            corBg: 'bg-[#832b62]',
+                            corIcone: 'text-white',
+                        }
+                        : undefined,
+                    dataDeInicio: '',
+                    status: 'ATIVO',
+                    acoes: [],
+                    indicadores: [],
+                }));
+
+                setProgramasDoBanco(programasReais);
+            } catch (erro) {
+                console.error('Erro ao carregar programas:', erro);
+                alert('Não foi possível carregar os programas do banco de dados.');
+            }
+        };
+
+        carregarProgramas();
+    }, []);
+
     const [indicSelecionado, setIndicSelecionado] = useState<Indicador | null>(null);
 
     const [filtroNucleo, setFiltroNucleo] = useState('');
     const [filtroPrograma, setFiltroPrograma] = useState('');
     const [filtroAprovacao, setFiltroAprovacao] = useState('');
 
-    const NucleosDoUser = Array.from(new Set(UsuarioAtual.nucleos))
+    const NucleosDoUser = nucleosDoBanco;
     const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla)));
 
-    const programasDoUsuario = programasCadastrados.filter(p => {
-        if (!p.nucleo) return false;
-        return UsuarioAtual.nucleos?.some(nuUser => nuUser.sigla === p.nucleo?.sigla);
-    });
+    const programasDoUsuario = programasDoBanco;
 
     // 2. Aplica o filtro dinâmico do select de núcleos selecionado na tela
     const programasDoNucleo = programasDoUsuario.filter(n => {
@@ -319,6 +464,8 @@ export default function TelaIndicadores() {
     const [formProgramId, setProgramId] = useState<string>('');
     const [formMeta, setMetaForm] = useState('');
     const [formValor, setValorForm] = useState('');
+    const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
+    const [formTrimestre, setFormTrimestre] = useState('T4');
     const [formStatus, setStatusForm] = useState('');
     const [formAprovacao, setAprovacaoForm] = useState(false);
     const [formDesaprovMotivo, setMotivo] = useState('');
@@ -352,46 +499,173 @@ export default function TelaIndicadores() {
         setModalNovoAberto(true);
     };
 
-    const handleCriarIndic = (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        let unitSimbol = getUnitSimb();
-        const nucleoSelecionado = formNucleoId ? NucleosDoUser.find(n => n.id === formNucleoId) : undefined;
-        const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
-        
-        const novo: Indicador = {
-            id: Date.now().toString(),
-            nome: formNome || 'Novo Indicador',
-            unidade: formUnidade || 'Unidade',
-            simbolUni: unitSimbol,
-            nucleo: nucleoSelecionado,
-            programa: programSelecionado,
-            valAtual: '0',
-            status: formStatus,
-            aprovado: false
-        };
-        setIndicadores([...indicadores, novo]);
-        setModalNovoAberto(false);
+const handleCriarIndic = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const token = localStorage.getItem('access_token');
+
+    if (!token) {
+        alert('Sua sessão expirou. Faça login novamente.');
+        return;
+    }
+
+    const nome = formNome.trim();
+
+    if (!nome) {
+        alert('Informe o nome do indicador.');
+        return;
+    }
+
+    const nucleoSelecionado = formNucleoId
+        ? NucleosDoUser.find(n => n.id === formNucleoId)
+        : undefined;
+
+    const programSelecionado = formProgramId
+        ? programasDoBanco.find(n => n.id === formProgramId)
+        : undefined;
+
+    const tipoDado =
+        formUnidade === 'Porcentagem'
+            ? 'PERCENTUAL'
+            : formUnidade === 'Reais'
+                ? 'MOEDA'
+                : 'NUMERICO';
+
+    const dadosIndicador = {
+        nome,
+        unidadeMedida: formUnidade || 'Unidade',
+        escopo: nucleoSelecionado ? 'NUCLEO' : 'INSTITUCIONAL',
+        tipoDado,
+        nucleoId: nucleoSelecionado?.id || null,
+        programaId: programSelecionado?.id || null,
     };
+
+    try {
+        const resposta = await fetch('http://localhost:3000/api/indicadores', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(dadosIndicador),
+        });
+
+        const resultado = await resposta.json();
+
+        if (!resposta.ok) {
+            throw new Error(
+                resultado.message || 'Não foi possível cadastrar o indicador.'
+            );
+        }
+
+        const novo: Indicador = {
+            id: resultado.id,
+            nome: resultado.nome,
+            unidade: resultado.unidadeMedida || 'Unidade',
+            simbolUni: getUnitSimb(),
+            nucleo: resultado.nucleo
+                ? {
+                    id: resultado.nucleo.id,
+                    nome: resultado.nucleo.nome,
+                    sigla: resultado.nucleo.sigla,
+                    descricao: resultado.nucleo.descricao || '',
+                    corBg: 'bg-[#832b62]',
+                    corIcone: 'text-white',
+                    }
+                : undefined,
+                programa: resultado.programa
+                ? {
+                    ...programSelecionado,
+                    id: resultado.programa.id,
+                    nome: resultado.programa.nome,
+                    } as Programa
+                : undefined,
+            valAtual: '0',
+            status: resultado.status || 'ATIVO',
+            aprovado: false,
+        };
+
+        setIndicadores(prev => [...prev, novo]);
+        setModalNovoAberto(false);
+        setNomeForm('');
+        setUnidadeForm('');
+        setFormNucleoId('');
+        setProgramId('');
+
+        alert('Indicador cadastrado com sucesso!');
+    } catch (erro) {
+        console.error('Erro ao cadastrar indicador:', erro);
+        alert(
+            erro instanceof Error
+                ? erro.message
+                : 'Erro ao cadastrar indicador.'
+        );
+    }
+};
+
 
     const [modalInserindoValor, inserindoValor] = useState(false);
     const abrirValModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
         setValorForm(indicador.valAtual);
+        setFormAno(String(new Date().getFullYear()));
+        setFormTrimestre('T4');
         inserindoValor(true);
-    }
+    };
 
-    const InserirValor = (e: React.FormEvent) => {
+    const InserirValor = async (e: React.FormEvent) => {
         e.preventDefault();
+
         if (!indicSelecionado) return;
 
-        setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
-        ...n,
-        valAtual: formValor,
-        } : n));
-        inserindoValor(false);
+        const token = localStorage.getItem('access_token');
+
+        if (!token) {
+            alert('Sua sessão expirou. Faça login novamente.');
+            return;
+        }
+
+        try {
+            const resposta = await fetch(
+                `http://localhost:3000/api/indicadores/${indicSelecionado.id}/registros`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        ano: Number(formAno),
+                        trimestre: formTrimestre,
+                        valorRealizado: Number(formValor),
+                    }),
+                }
+            );
+
+            if (!resposta.ok) {
+                const erro = await resposta.json();
+                throw new Error(erro.message || 'Não foi possível salvar o valor.');
+            }
+
+            setIndicadores(indicadores.map(n =>
+                n.id === indicSelecionado.id
+                    ? { ...n, valAtual: formValor }
+                    : n
+            ));
+
+            inserindoValor(false);
+            alert('Valor salvo com sucesso!');
+
+        } catch (erro) {
+            console.error('Erro ao salvar valor:', erro);
+            alert(
+                erro instanceof Error
+                    ? erro.message
+                    : 'Erro ao salvar o valor.'
+            );
+        }
     };
-    
+        
     const [modalEditAberto, setEditAberto] = useState(false);
     const abrirEditarModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
@@ -410,7 +684,7 @@ export default function TelaIndicadores() {
         
         let unitSimbol = getUnitSimb();
         const nucleoSelecionado = formNucleoId ? NucleosDoUser.find(n => n.id === formNucleoId) : undefined;
-        const programSelecionado = formProgramId ? programasCadastrados.find(n => n.id === formProgramId) : undefined;
+        const programSelecionado = formProgramId ? programasDoBanco.find(n => n.id === formProgramId) : undefined;
 
         setIndicadores(indicadores.map(n => n.id === indicSelecionado.id ? {
         ...n,
@@ -466,30 +740,85 @@ export default function TelaIndicadores() {
         return !isNaN(metaNum) && metaNum > 0;
     });
 
-    const progressoGeral = React.useMemo(() => {        
-        if (totalIndicadores === 0) return 0;
-        const somaPercentuais = indicadoresComMeta.reduce((acc, indicador) => {
-            const realizado = parseFloat(indicador.valAtual) || 0;
-            const meta = parseFloat(indicador.meta || '0');
-            
-            if (meta <= 0) return 100;
-            
-            const pct = Math.min((realizado / meta) * 100, 100);
-            return acc + pct;
-        }, 0);
 
-        return Math.round(somaPercentuais / indicadoresComMeta.length);
-    }, [indicadoresComMeta]);
+const progressoGeral = React.useMemo(() => {
+    if (indicadoresComMeta.length === 0) return 0;
 
-    const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const arquivo = e.target.files?.[0];
-        if (arquivo) {
-            if(arquivo.type == "text/csv")
-            {
-                alert("Finge q importei o negócio, tá?")
-            }else 
-                alert("Tipo de arquivo inváido!")
-        }else alert("Arquivo inváido!")
+    const somaPercentuais = indicadoresComMeta.reduce((acc, indicador) => {
+        const realizado = Number(indicador.valAtual) || 0;
+        const meta = Number(indicador.meta);
+
+        if (!Number.isFinite(meta) || meta <= 0) return acc;
+
+        const pct = Math.min((realizado / meta) * 100, 100);
+
+        return acc + pct;
+    }, 0);
+
+    return Math.round(somaPercentuais / indicadoresComMeta.length);
+}, [indicadoresComMeta]);
+
+
+    const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.currentTarget;
+        const arquivo = input.files?.[0];
+        if (!arquivo) return;
+
+        if (!/\.(csv|xlsx|xls)$/i.test(arquivo.name)) {
+            alert("Selecione um arquivo CSV, XLSX ou XLS.");
+            input.value = "";
+            return;
+        }
+
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            alert("Sua sessão não foi encontrada. Entre novamente no sistema.");
+            input.value = "";
+            return;
+        }
+
+        const dados = new FormData();
+        dados.append("arquivo", arquivo);
+
+        try {
+            const resposta = await fetch("http://localhost:3000/api/importacoes/csv", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: dados
+            });
+
+            const resultado = await resposta.json();
+
+            if (!resposta.ok) {
+                throw new Error(resultado.message || "Não foi possível importar o arquivo.");
+            }
+
+            const resumo = [
+                `Importação finalizada: ${resultado.status}`,
+                `Linhas válidas importadas: ${resultado.linhasOk ?? 0}`,
+                `Total de linhas: ${resultado.totalLinhas ?? 0}`
+            ];
+
+            if (Array.isArray(resultado.erros) && resultado.erros.length > 0) {
+                resumo.push(
+                    "",
+                    "Erros encontrados:",
+                    ...resultado.erros.slice(0, 10).map(
+                        (erro: { linha?: number; mensagem?: string }) =>
+                            `Linha ${erro.linha ?? "?"}: ${erro.mensagem ?? "Erro não especificado"}`
+                    )
+                );
+                if (resultado.erros.length > 10) {
+                    resumo.push(`... e mais ${resultado.erros.length - 10} erro(s).`);
+                }
+            }
+
+            alert(resumo.join("\n"));
+        } catch (erro) {
+            alert(erro instanceof Error ? erro.message : "Erro ao importar o arquivo.");
+        } finally {
+            input.value = "";
+        }
     };
 
     return(
@@ -569,8 +898,7 @@ export default function TelaIndicadores() {
                                 </div>
                                 <input 
                                     type="file"
-                                    accept="text/csv"
-                                    className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
+                                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"                                    className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
                                     title="Importar CSV"
                                     onChange={handleCSVImport}
                                 />
@@ -668,7 +996,7 @@ export default function TelaIndicadores() {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasCadastrados.map((opt) => (
+                                {programasDoBanco.map((opt) => (
                                     <option key={opt.id} value={opt.id}>{opt.nome}</option>
                                 ))}
                             </select>
@@ -706,16 +1034,49 @@ export default function TelaIndicadores() {
                     <div className="flex flex-col gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">
-                                Alterando valor {indicSelecionado?.simbolUni?"("+indicSelecionado.simbolUni+")":""}
+                                Alterando valor {indicSelecionado?.simbolUni ? "(" + indicSelecionado.simbolUni + ")" : ""}
                             </label>
-                            <input 
-                            type="number"
-                            min="0" 
-                            placeholder="Insira um valor..." 
-                            value={formValor}
-                            onChange={(e) => setValorForm(e.target.value)}
-                            className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Insira um valor..."
+                                value={formValor}
+                                onChange={(e) => setValorForm(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                                required
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Ano
+                            </label>
+                            <input
+                                type="number"
+                                min="2000"
+                                max="2100"
+                                value={formAno}
+                                onChange={(e) => setFormAno(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Trimestre
+                            </label>
+                            <select
+                                value={formTrimestre}
+                                onChange={(e) => setFormTrimestre(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                                required
+                            >
+                                <option value="Q1">1º trimestre (Q1)</option>
+                                <option value="Q2">2º trimestre (Q2)</option>
+                                <option value="Q3">3º trimestre (Q3)</option>
+                                <option value="Q4">4º trimestre (Q4)</option>
+                            </select>
                         </div>
                     </div>
 
@@ -793,7 +1154,7 @@ export default function TelaIndicadores() {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasCadastrados.map((opt) => (
+                                {programasDoBanco.map((opt) => (
                                     <option key={opt.id} value={opt.id}>{opt.nome}</option>
                                 ))}
                             </select>

@@ -31,8 +31,6 @@ export default function TelaNucleos() {
 
   const [imagemPreview, setImagemPreview] = useState<string | null>();
 
-  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
-
   // Filtrar núcleos
   const nucleosFiltrados = nucleos.filter(n => 
     n.nome.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
@@ -104,7 +102,6 @@ export default function TelaNucleos() {
   const handleMudarImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
       const arquivo = e.target.files?.[0];
       if (arquivo) {
-          setArquivoImagem(arquivo);
           const urlTemporaria = URL.createObjectURL(arquivo);
           setImagemPreview(urlTemporaria);
       }

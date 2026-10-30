@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -9,7 +9,7 @@ export default function TelaLogin() {
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  // Estados para tratamento da autenticação
+  // Estados para tratamento da autenticaÃ§Ã£o
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -21,7 +21,7 @@ export default function TelaLogin() {
     setCarregando(true);
 
     try {
-      // 1. Faz a requisição de login para a API em NestJS
+      // 1. Faz a requisiÃ§Ã£o de login para a API em NestJS
       const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: {
@@ -35,7 +35,7 @@ export default function TelaLogin() {
 
       const data = await response.json();
 
-      // 2. Se o backend retornar erro (400, 401 ou 404 - Usuário não encontrado)
+      // 2. Se o backend retornar erro (400, 401 ou 404 - UsuÃ¡rio nÃ£o encontrado)
       if (!response.ok) {
         throw new Error(
           data.message ||
@@ -43,20 +43,23 @@ export default function TelaLogin() {
         );
       }
 
-      // 3. Salva o token JWT e dados do usuário retornado pelo banco
-      if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token);
-      }
-      if (data.user && data.user.role) {
-        localStorage.setItem('user_role', data.user.role);
+      // 3. Salva o token JWT e dados do usuÃ¡rio retornado pelo banco
+      if (!data.accessToken) {
+        throw new Error('O servidor não retornou o token de autenticação.');
       }
 
-      // 4. Redireciona para o Dashboard apenas após autenticação válida no banco
+      localStorage.setItem('access_token', data.accessToken);
+
+      if (data.user?.perfil) {
+        localStorage.setItem('user_role', data.user.perfil);
+      }
+
+      // Redireciona somente após receber o token
       navigate('/dashboard');
     } catch (err: any) {
       // Exibe a mensagem de erro no card e impede o acesso
       setMensagemErro(
-        err.message || 'Erro ao conectar ao servidor de autenticação.',
+        err.message || 'Erro ao conectar ao servidor de autenticaÃ§Ã£o.',
       );
     } finally {
       setCarregando(false);
@@ -66,20 +69,20 @@ export default function TelaLogin() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[580px]">
-        {/* Apresentação */}
+        {/* ApresentaÃ§Ã£o */}
         <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight font-semibold tracking-tight">
             Indicadores Institucionais <br className="hidden sm:inline" />
-            em um só lugar
+            em um sÃ³ lugar
           </h1>
           <p className="text-white/90 text-sm md:text-base leading-relaxed max-w-lg font-light">
-            Centralize metas, resultados e séries históricas dos núcleos de
-            Inovação, Parcerias, Empreendedorismo e Internacionalização, com
+            Centralize metas, resultados e sÃ©ries histÃ³ricas dos nÃºcleos de
+            InovaÃ§Ã£o, Parcerias, Empreendedorismo e InternacionalizaÃ§Ã£o, com
             dashboards, filtros cruzados e rastreabilidade.
           </p>
           <div className="pt-12 sm:pt-24 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-white/80 font-medium">
-            <span>Instituto IPÊ</span> • <span>UFRPE</span> •{' '}
-            <span>Termos</span> • <span>Contate-nos</span>
+            <span>Instituto IPÃŠ</span> â€¢ <span>UFRPE</span> â€¢{' '}
+            <span>Termos</span> â€¢ <span>Contate-nos</span>
           </div>
         </div>
 
@@ -96,10 +99,10 @@ export default function TelaLogin() {
               Bem-vindo(a) de Volta!
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-6">
-              Insira suas informações para logar na plataforma IPÊ - Indicadores
+              Insira suas informaÃ§Ãµes para logar na plataforma IPÃŠ - Indicadores
             </p>
 
-            {/* Alerta de erro de autenticação */}
+            {/* Alerta de erro de autenticaÃ§Ã£o */}
             {mensagemErro && (
               <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 mb-4 leading-relaxed font-medium">
                 {mensagemErro}
@@ -175,3 +178,4 @@ export default function TelaLogin() {
     </div>
   );
 }
+

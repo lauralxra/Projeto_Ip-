@@ -5,7 +5,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { CustomDropdown } from './CustomDropdown';
-import { type Nucleo, NucleosCadastrados } from './dados/nucleos';
+import { type Nucleo } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
 import { UsuarioAtual, UsuariosCadastrados, type Usuario } from './dados/usuarios';
 import "react-datepicker/dist/react-datepicker.css";

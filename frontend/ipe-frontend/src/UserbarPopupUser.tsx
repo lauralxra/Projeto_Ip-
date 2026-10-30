@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Imagens, Svg } from "./config/assets";
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
-import { UsuarioAtual, UsuariosCadastrados, type Usuario } from './dados/usuarios';
-
+import { UsuarioAtual, type Usuario } from './dados/usuarios';
 const svgPaths = Svg;
 
 function Seta() {
@@ -30,7 +29,7 @@ function Pic() {
   );
 }
 
-function AddPic() {
+export function AddPic() {
   return (
     <div className="col-1 max-h-[22px] max-w-[22px] min-h-[22px] min-w-[22px] ml-[54px] mt-[61.62px] relative row-1 size-[22px]" data-name="addPic">
       <svg className="absolute block inset-0 size-full" fill="none" height="22" preserveAspectRatio="none" viewBox="0 0 22 22" width="22">
@@ -78,7 +77,7 @@ function BtnEdit() {
   );
 }
 
-function Fields() {
+export function Fields() {
   const [formMail, setNomeMail] = useState("TeuEmail@ufrpe.br");
   const [formSenha, setNomeSenha] = useState('senhapa@12345');
 
