@@ -30,4 +30,14 @@ export class UserService {
   remove(id: string) {
     return `This action removes a #${id} user`;
   }
+
+  async countAtivos() {
+    return this.prisma.user.count({
+      where: {
+        ativo: true,
+        deletedAt: null,
+      },
+    });
+  }
+
 }

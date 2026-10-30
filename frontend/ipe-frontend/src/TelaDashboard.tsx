@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import {
@@ -10,34 +10,48 @@ import {
   Users,
   TrendingDown
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  BarChart, 
-  Bar, 
-  CartesianGrid, 
-  Legend 
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  Legend,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
-import { NucleosCadastrados } from './dados/nucleos';
-import { programasCadastrados } from './dados/programas';
-import { IndicadoresCadastrados } from './dados/indicadores';
-import { UsuarioAtual, UsuariosCadastrados } from './dados/usuarios';
-import { TrimestresPassados } from './dados/trimestres';
+import { UsuarioAtual } from './dados/usuarios';
+import * as XLSX from 'xlsx';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
-const dadosComparativo = [
-  { nucleo: 'Tecnologia', Pessoas: 85, Projetos: 65, Parcerias: 45 },
-  { nucleo: 'Educação', Pessoas: 70, Projetos: 55, Parcerias: 40 },
-  { nucleo: 'Meio Ambiente', Pessoas: 60, Projetos: 50, Parcerias: 35 },
-  { nucleo: 'Saúde', Pessoas: 75, Projetos: 48, Parcerias: 50 },
-  { nucleo: 'Cultura', Pessoas: 65, Projetos: 42, Parcerias: 30 },
-  { nucleo: 'Esporte', Pessoas: 58, Projetos: 38, Parcerias: 28 },
-  { nucleo: 'Comunicação', Pessoas: 72, Projetos: 52, Parcerias: 42 },
-  { nucleo: 'Gestão', Pessoas: 68, Projetos: 46, Parcerias: 38 },
-];
+interface RegistroDashboard {
+  id: string;
+  ano: number;
+  trimestre: string;
+  valorRealizado: string | number | null;
+  metaAplicada: string | number | null;
+  statusAprovacao: string;
+}
+
+interface IndicadorDashboard {
+  id: string;
+  nome: string;
+  unidadeMedida: string | null;
+  nucleo: {
+    id: string;
+    nome: string;
+    sigla: string;
+  } | null;
+  registros: RegistroDashboard[];
+}
 
 function CardMetrica( {TipoMetrica, valAtual, valVariacao, corBg}: {TipoMetrica: string, valAtual:number, valVariacao: number, corBg: string}) {
   let leTitulo = "";
@@ -75,21 +89,379 @@ function CardMetrica( {TipoMetrica, valAtual, valVariacao, corBg}: {TipoMetrica:
 
 export default function TelaDashboard() {
   const [nucleoFiltro, setNucleoFiltro] = useState('Todos os Núcleos');
-  const [periodoFiltro, setPeriodoFiltro] = useState('Últimos 12 meses');
+  const [periodoFiltro, setPeriodoFiltro] = useState('Todos os períodos');
+  const [totalUsuarios, setTotalUsuarios] = useState(0);
+  const [indicadores, setIndicadores] = useState<IndicadorDashboard[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroIndicadores, setErroIndicadores] = useState<string | null>(null);
+  const [totalProgramas, setTotalProgramas] = useState(0);
+  const [programasPorNucleo, setProgramasPorNucleo] = useState<
+    { nucleoId: string | null; _count: { id: number } }[]
+  >([]);
+  const [menuExportacaoAberto, setMenuExportacaoAberto] = useState(false);
+  const [tiposGraficos, setTiposGraficos] = useState<Record<string, string>>({});
+
+  const exportarCSV = () => {
+  const linhas = indicadoresFiltrados.flatMap((indicador) =>
+    filtrarRegistrosPorPeriodo(indicador.registros).map((registro) => ({
+      Indicador: indicador.nome,
+      Nucleo: indicador.nucleo?.sigla ?? 'Institucional',
+      Ano: registro.ano,
+      Trimestre: registro.trimestre,
+      Valor: registro.valorRealizado,
+    }))
+  );
+
+  const planilha = XLSX.utils.json_to_sheet(linhas);
+  const conteudo = XLSX.utils.sheet_to_csv(planilha);
+  const arquivo = new Blob(['\uFEFF' + conteudo], {
+    type: 'text/csv;charset=utf-8;',
+  });
+
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(arquivo);
+  link.download = 'dashboard-ipe.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
+
+const exportarExcel = () => {
+  const dadosIndicadores = indicadoresFiltrados.flatMap((indicador) =>
+    filtrarRegistrosPorPeriodo(indicador.registros).map((registro) => ({
+      Indicador: indicador.nome,
+      Nucleo: indicador.nucleo?.sigla ?? 'Institucional',
+      Ano: registro.ano,
+      Trimestre: registro.trimestre,
+      Valor: registro.valorRealizado,
+    }))
+  );
+
+  const dadosProgramas = dadosProgramasPorNucleo.map((item) => ({
+    Nucleo: item.nucleo,
+    ProgramasAtivos: item.programas,
+  }));
+
+  // Terceira aba: Resumo Executivo
+  const resumoExecutivo = [
+    { Informacao: 'RELATÓRIO EXECUTIVO - PROJETO IPÊ', Valor: '' },
+    { Informacao: 'Data da exportação', Valor: new Date().toLocaleDateString('pt-BR') },
+    { Informacao: 'Núcleo selecionado', Valor: nucleoFiltro },
+    { Informacao: 'Período selecionado', Valor: periodoFiltro },
+    { Informacao: '', Valor: '' },
+    { Informacao: 'INDICADORES GERAIS', Valor: '' },
+    { Informacao: 'Total de usuários ativos', Valor: totalUsuarios },
+    { Informacao: 'Total de programas ativos', Valor: totalProgramas },
+    { Informacao: 'Total de indicadores cadastrados', Valor: indicadores.length },
+    { Informacao: 'Indicadores no filtro atual', Valor: indicadoresFiltrados.length },
+    { Informacao: 'Registros históricos exportados', Valor: dadosIndicadores.length },
+    { Informacao: '', Valor: '' },
+    { Informacao: 'PROGRAMAS POR NÚCLEO', Valor: '' },
+    ...dadosProgramas.map((item) => ({
+      Informacao: item.Nucleo,
+      Valor: item.ProgramasAtivos,
+    })),
+  ];
+
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(dadosIndicadores),
+    'Indicadores'
+  );
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(dadosProgramas),
+    'Programas por Nucleo'
+  );
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(resumoExecutivo),
+    'Resumo Executivo'
+  );
+
+  XLSX.writeFile(workbook, 'dashboard-ipe.xlsx');
+};
+
+
+const exportarPDF = async () => {
+  const dashboard = document.getElementById('dashboard-export');
+
+  if (!dashboard) {
+    alert('Não foi possível localizar o dashboard.');
+    return;
+  }
+
+  const alturaOriginal = dashboard.style.height;
+  const overflowOriginal = dashboard.style.overflow;
+
+  try {
+    // Calcula a altura total, incluindo o conteúdo fora da tela
+    const alturaCompleta = dashboard.scrollHeight;
+
+    // Expande temporariamente o dashboard para capturar tudo
+    dashboard.style.height = `${alturaCompleta}px`;
+    dashboard.style.overflow = 'visible';
+
+    // Aguarda a atualização visual
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve())
+    );
+
+    const imagem = await toPng(dashboard, {
+      pixelRatio: 2,
+      backgroundColor: '#f8fafc',
+      filter: (node) => {
+        return !(
+          node instanceof HTMLElement &&
+          node.id === 'menu-exportacao'
+        );
+      },
+    });
+
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const larguraPagina = pdf.internal.pageSize.getWidth();
+    const alturaPagina = pdf.internal.pageSize.getHeight();
+
+    const margem = 10;
+    const larguraDisponivel = larguraPagina - margem * 2;
+    const alturaDisponivel = alturaPagina - margem * 2;
+
+    const propriedades = pdf.getImageProperties(imagem);
+
+    // Mantém a proporção da imagem
+    const proporcao = larguraDisponivel / propriedades.width;
+    const larguraImagem = larguraDisponivel;
+    const alturaImagem = propriedades.height * proporcao;
+
+    // Calcula quantas páginas serão necessárias
+    const totalPaginas = Math.ceil(
+      alturaImagem / alturaDisponivel
+    );
+
+    for (let pagina = 0; pagina < totalPaginas; pagina++) {
+      if (pagina > 0) {
+        pdf.addPage();
+      }
+
+      pdf.addImage(
+        imagem,
+        'PNG',
+        margem,
+        margem - pagina * alturaDisponivel,
+        larguraImagem,
+        alturaImagem
+      );
+    }
+
+    pdf.save('dashboard-ipe.pdf');
+
+  } catch (erro) {
+    console.error('Erro ao exportar PDF:', erro);
+    alert('Não foi possível gerar o PDF.');
+
+  } finally {
+    // Restaura o dashboard ao tamanho original
+    dashboard.style.height = alturaOriginal;
+    dashboard.style.overflow = overflowOriginal;
+  }
+};
+
+  useEffect(() => {
+    let cancelado = false;
+
+    const carregarIndicadores = async () => {
+      const token = localStorage.getItem('access_token');
+
+      if (!token) {
+        if (!cancelado) {
+          setErroIndicadores('Sessão não encontrada. Faça login novamente.');
+          setCarregando(false);
+        }
+        return;
+      }
+
+      try {
+        const resposta = await fetch('http://localhost:3000/api/indicadores', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!resposta.ok) {
+          throw new Error(`Erro ao consultar indicadores: HTTP ${resposta.status}`);
+        }
+
+        const dados: unknown = await resposta.json();
+
+        if (!Array.isArray(dados)) {
+          throw new Error('A API retornou um formato inesperado.');
+        }
+
+        if (!cancelado) {
+          setIndicadores(dados as IndicadorDashboard[]);
+          setErroIndicadores(null);
+        }
+      } catch (erro) {
+        if (!cancelado) {
+          setErroIndicadores(
+            erro instanceof Error ? erro.message : 'Erro ao carregar indicadores.'
+          );
+        }
+      } finally {
+        if (!cancelado) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    carregarIndicadores();
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const carregarTotalUsuarios = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+
+        const resposta = await fetch(
+          'http://localhost:3000/api/user/contagem',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!resposta.ok) {
+          throw new Error('Erro ao buscar quantidade de usuários');
+        }
+
+        const quantidade: number = await resposta.json();
+        setTotalUsuarios(quantidade);
+      } catch (erro) {
+        console.error('Erro ao carregar usuários:', erro);
+      }
+    };
+
+    carregarTotalUsuarios();
+  }, []);
+
+  useEffect(() => {
+    const carregarTotalProgramas = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+
+        const resposta = await fetch(
+          'http://localhost:3000/api/programas/contagem',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!resposta.ok) {
+          throw new Error('Erro ao buscar quantidade de programas');
+        }
+
+        const quantidade: number = await resposta.json();
+        setTotalProgramas(quantidade);
+      } catch (erro) {
+        console.error('Erro ao carregar programas:', erro);
+      }
+    };
+
+    carregarTotalProgramas();
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+
+    if (!token) return;
+
+    fetch('http://localhost:3000/api/programas/por-nucleo', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Erro ao buscar programas por núcleo');
+        }
+        return res.json();
+      })
+      .then((dados) => setProgramasPorNucleo(dados))
+      .catch((erro) => console.error(erro));
+  }, []);
+
+const indicadoresFiltrados = indicadores.filter(
+  (indicador) =>
+    nucleoFiltro === 'Todos os Núcleos' ||
+    indicador.nucleo?.sigla === nucleoFiltro
+);
+
+const agora = new Date();
+const indiceTrimestreAtual =
+  agora.getFullYear() * 4 + Math.floor(agora.getMonth() / 3);
+
+const filtrarRegistrosPorPeriodo = (registros: RegistroDashboard[]) => {
+  return registros.filter((registro) => {
+    if (periodoFiltro === 'Todos os períodos') {
+      return true;
+    }
+
+    if (periodoFiltro === 'Ano de 2026') {
+      return registro.ano === 2026;
+    }
+
+    const numeroTrimestre = Number(registro.trimestre.replace('Q', ''));
+
+    if (numeroTrimestre < 1 || numeroTrimestre > 4) {
+      return false;
+    }
+
+    const indiceRegistro =
+      registro.ano * 4 + numeroTrimestre - 1;
+
+    const quantidadeTrimestres =
+      periodoFiltro === 'Últimos 6 meses' ? 2 : 4;
+
+    return (
+      indiceRegistro <= indiceTrimestreAtual &&
+      indiceRegistro >= indiceTrimestreAtual - quantidadeTrimestres + 1
+    );
+  });
+};
+
+  const dadosProgramasPorNucleo = UsuarioAtual.nucleos
+    .filter(
+      (nucleo) =>
+        nucleoFiltro === 'Todos os Núcleos' ||
+        nucleo.sigla === nucleoFiltro
+    )
+    .map((nucleo) => {
+      const registro = programasPorNucleo.find(
+        (item) => item.nucleoId === nucleo.id
+      );
+
+      return {
+        nucleo: nucleo.sigla,
+        programas: registro?._count.id ?? 0,
+      };
+    });
   
-  const trimestresArray = Array.from(TrimestresPassados.keys());
-  
-  const trimestreAnterior = trimestresArray.length > 1 ? trimestresArray[1] : null;
-
-  const calcularVariacao = (atual: number, anterior: number | undefined) => {
-    if (!anterior || anterior === 0) return 0;
-    return Number(((((atual - anterior) / anterior) * 100)).toFixed(1));
-  };
-
-  const varUsers = trimestreAnterior ? calcularVariacao(UsuariosCadastrados.length, trimestreAnterior.quantiaUsers) : 0;
-  const varProgramas = trimestreAnterior ? calcularVariacao(programasCadastrados.length, trimestreAnterior.quantiaProgramas) : 0;
-  const varIndicadores = trimestreAnterior ? calcularVariacao(IndicadoresCadastrados.length, trimestreAnterior.quantiaIndicadores) : 0;
-
   return (
     <div className="flex h-screen bg-[#f8fafc]">
       
@@ -97,8 +469,10 @@ export default function TelaDashboard() {
       <NavBar></NavBar>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 px-[30px] w-full h-full overflow-y-auto pt-[60px] pb-[25px]">
-        
+      <main
+        id="dashboard-export"
+        className="flex-1 px-[30px] w-full h-full overflow-y-auto pt-[60px] pb-[25px]"
+      >        
         {/* Cabeçalho do Dashboard */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
@@ -110,7 +484,7 @@ export default function TelaDashboard() {
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro Núcleos */}
-            <div className="relative">
+            <div id="menu-exportacao" className="relative">
               <select 
                 value={nucleoFiltro}
                 onChange={(e) => setNucleoFiltro(e.target.value)}
@@ -119,7 +493,9 @@ export default function TelaDashboard() {
                 <option>Todos os Núcleos</option>
                 {
                   UsuarioAtual.nucleos.map((n) => (
-                    <option>{n.sigla}</option>
+                    <option key={n.id} value={n.sigla}>
+                      {n.sigla}
+                    </option>
                   ))
                 }
               </select>
@@ -133,6 +509,7 @@ export default function TelaDashboard() {
                 onChange={(e) => setPeriodoFiltro(e.target.value)}
                 className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
               >
+                <option>Todos os períodos</option>
                 <option>Últimos 12 meses</option>
                 <option>Últimos 6 meses</option>
                 <option>Ano de 2026</option>
@@ -141,107 +518,286 @@ export default function TelaDashboard() {
             </div>
 
             {/* Botão Exportar CSV */}
-            <button className="flex items-center gap-2 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer">
-              <Download size={14} />
-              <span>Exportar CSV</span>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMenuExportacaoAberto(!menuExportacaoAberto)}
+                className="flex items-center gap-2 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <Download size={14} />
+                <span>Exportar</span>
+              </button>
+
+              <div
+                className={`absolute right-0 top-full mt-1 ${
+                  menuExportacaoAberto ? 'block' : 'hidden'
+                } bg-white border border-gray-200 rounded-lg shadow-lg min-w-40 z-50`}
+              >
+                <button
+                  onClick={() => {
+                    setMenuExportacaoAberto(false);
+                    exportarCSV();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
+                >
+                  Exportar CSV
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMenuExportacaoAberto(false);
+                    exportarExcel();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
+                >
+                  Exportar Excel
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMenuExportacaoAberto(false);
+                    exportarPDF();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
+                >
+                  Exportar PDF
+                </button>
+              </div>
+
+            </div>
           </div>
         </header>
 
         {/* Grade de Cards Métricas */}
         <div className="content-stretch flex w-full gap-8 mb-8 h-30">
           
-          <CardMetrica TipoMetrica='usuario' valAtual={UsuariosCadastrados.length} valVariacao={varUsers} corBg="bg-[#fcf2f7]"/>
+          <CardMetrica TipoMetrica='usuario' valAtual={totalUsuarios} valVariacao={0} corBg="bg-[#fcf2f7]"/>
 
           {/*<CardMetrica TipoMetrica='nucleos' valAtual={NucleosCadastrados.length} valVariacao={varUsers} corBg="bg-[#f0f4f9]"/>*/}
 
-          <CardMetrica TipoMetrica='programas' valAtual={programasCadastrados.length} valVariacao={varProgramas} corBg="bg-[#f0f4f9]"/>
+          <CardMetrica TipoMetrica='programas' valAtual={totalProgramas} valVariacao={0} corBg="bg-[#f0f4f9]"/>
 
-          <CardMetrica TipoMetrica='indicadores' valAtual={IndicadoresCadastrados.length} valVariacao={varIndicadores} corBg="bg-[#fcf2f7]"/>
-
+          <CardMetrica TipoMetrica='indicadores' valAtual={indicadores.length} valVariacao={0} corBg="bg-[#fcf2f7]"/>
 
         </div>
 
         {/* Seção de Gráficos */}
+        {carregando && (
+          <p className="text-sm text-slate-500">
+            Carregando indicadores...
+          </p>
+        )}
+
+        {erroIndicadores && (
+          <p className="text-sm text-red-600" role="alert">
+            {erroIndicadores}
+          </p>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {IndicadoresCadastrados.map((indicador) => {
-            
+          {indicadoresFiltrados.map((indicador) => {            
             {/* Monta os dados históricos do indicador percorrendo o Map de TrimestresPassados */}
-            const dadosHistoricoTrimestres = Array.from(TrimestresPassados.entries()).map(([trimestre, listaIndicadores]) => {
-              // Procura se este indicador existe no trimestre atual da iteração (comparando pelo nome ou ID)
-              const indEncontrado = listaIndicadores.find(i => i.nome === indicador.nome);
-              
-              return {
-                periodo: trimestre.periodo, // Ex: '2025.3', '2026.1', etc.
-                valor: indEncontrado ? Number(indEncontrado.valAtual) : 0 // Converte para número para o gráfico aceitar
-              };
-            }).reverse(); // .reverse() para deixar do mais antigo para o mais recente na linha do tempo do gráfico
+            const dadosHistoricoTrimestres = [
+              ...filtrarRegistrosPorPeriodo(indicador.registros ?? []),
+            ]
+              .sort((a, b) => {
+                const diferencaAno = a.ano - b.ano;
+
+                if (diferencaAno !== 0) return diferencaAno;
+
+                return Number(a.trimestre.slice(1)) - Number(b.trimestre.slice(1));
+              })
+              .map((registro) => {
+                const valor = Number(registro.valorRealizado ?? 0);
+
+                return {
+                  periodo: `${registro.ano}.${registro.trimestre.replace('Q', '')}`,
+                  valor: Number.isFinite(valor) ? valor : 0,
+                };
+              });
 
             return (
               <div key={indicador.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
                 <h3 className="text-base font-bold text-slate-800 mb-1">{indicador.nome}</h3>
-                
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dadosHistoricoTrimestres} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id={`corIndicador-${indicador.id}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#832b62" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#832b62" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="periodo" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip 
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-md text-xs">
-                                <p className="font-bold text-slate-700">{label}</p>
-                                <p className="font-semibold text-[#832b62] text-sm mt-0.5">
-                                  {payload[0].value} {indicador.simbolUni || ''}
-                                </p>
-                              </div>
-                            );
+                                
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-slate-500">
+                  Tipo de visualização
+                </span>
+
+                <select
+                  value={tiposGraficos[indicador.id] || 'area'}
+                  onChange={(e) =>
+                    setTiposGraficos((anteriores) => ({
+                      ...anteriores,
+                      [indicador.id]: e.target.value,
+                    }))
+                  }
+                  className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700"
+                >
+                  <option value="area">Área</option>
+                  <option value="linha">Linha</option>
+                  <option value="coluna">Colunas</option>
+                  <option value="pizza">Pizza</option>
+                  <option value="rosca">Rosca</option>
+                </select>
+              </div>
+
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <>
+                    {(tiposGraficos[indicador.id] || 'area') === 'area' && (
+                      <AreaChart data={dadosHistoricoTrimestres}>
+                        <defs>
+                          <linearGradient
+                            id={`corIndicador-${indicador.id}`}
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop offset="5%" stopColor="#832b62" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#832b62" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" fontSize={12} />
+                        <YAxis fontSize={12} />
+                        <Tooltip />
+                        <Area
+                          type="monotone"
+                          dataKey="valor"
+                          stroke="#832b62"
+                          strokeWidth={3}
+                          fill={`url(#corIndicador-${indicador.id})`}
+                        />
+                      </AreaChart>
+                    )}
+
+                    {tiposGraficos[indicador.id] === 'linha' && (
+                      <LineChart data={dadosHistoricoTrimestres}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" fontSize={12} />
+                        <YAxis fontSize={12} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="valor"
+                          stroke="#832b62"
+                          strokeWidth={3}
+                        />
+                      </LineChart>
+                    )}
+
+                    {tiposGraficos[indicador.id] === 'coluna' && (
+                      <BarChart data={dadosHistoricoTrimestres}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" fontSize={12} />
+                        <YAxis fontSize={12} />
+                        <Tooltip />
+                        <Bar dataKey="valor" fill="#832b62" radius={[5, 5, 0, 0]} />
+                      </BarChart>
+                    )}
+
+                    {(tiposGraficos[indicador.id] === 'pizza' ||
+                      tiposGraficos[indicador.id] === 'rosca') && (
+                      <PieChart>
+                        <Tooltip />
+                        <Legend />
+                        <Pie
+                          data={dadosHistoricoTrimestres}
+                          dataKey="valor"
+                          nameKey="periodo"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={85}
+                          innerRadius={
+                            tiposGraficos[indicador.id] === 'rosca' ? 50 : 0
                           }
-                          return null;
-                        }}
-                      />  
-                      <Area type="monotone" dataKey="valor" stroke="#832b62" strokeWidth={3} fillOpacity={1} fill={`url(#corIndicador-${indicador.id})`} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                          label
+                        >
+                          {dadosHistoricoTrimestres.map((_, index) => (
+                            <Cell
+                              key={`fatia-${indicador.id}-${index}`}
+                              fill={
+                                ['#832b62', '#a13680', '#d18ab5', '#e8b9d5', '#6b3157'][
+                                  index % 5
+                                ]
+                              }
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    )}
+                  </>
+                </ResponsiveContainer>
+              </div>
+
               </div>
             );
           })}
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-base font-bold text-slate-800">Comparativo de Indicadores por Núcleo</h3>
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600">
-                <button className="px-2.5 py-1 bg-white rounded-md shadow-xs text-[#832b62]">Últimos 6 meses</button>
-                <button className="px-2.5 py-1">Mensal</button>
-              </div>
-            </div>
-            <p className="text-xs text-slate-400 mb-6">Média do período</p>
-            
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dadosComparativo} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="nucleo" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} unit="%" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', borderColor: '#f1f5f9' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Bar dataKey="Pessoas" fill="#832b62" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Projetos" fill="#b66692" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Parcerias" fill="#e8b2d1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-base font-bold text-slate-800">
+          Programas em Execução por Núcleo
+        </h3>
+      </div>
+
+      <p className="text-xs text-slate-400 mb-6">
+        Quantidade de programas ativos por núcleo
+      </p>
+
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={dadosProgramasPorNucleo}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke="#f1f5f9"
+            />
+
+            <XAxis
+              dataKey="nucleo"
+              stroke="#94a3b8"
+              fontSize={10}
+              tickLine={false}
+            />
+
+            <YAxis
+              stroke="#94a3b8"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                borderColor: '#f1f5f9',
+              }}
+            />
+
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              iconType="circle"
+              wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+            />
+
+            <Bar
+              dataKey="programas"
+              name="Programas"
+              fill="#832b62"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
 
         </div>
 
