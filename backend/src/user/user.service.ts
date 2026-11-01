@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma } from '@prisma/client';
@@ -13,6 +14,8 @@ import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
+import { unlink } from 'fs';
+import { join } from 'path';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -203,6 +206,44 @@ export class UserService {
 
     return usuarioAtualizado;
   }
+
+  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao, oldFotoUrl?: string) {
+  const usuarioAtual = await this.userRepository.findActiveById(id);
+  if (!usuarioAtual) {
+    throw new NotFoundException('Usuário não encontrado.');
+  }
+
+  try {
+    const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Remove a foto antiga do disco
+    if (usuarioAtual.fotoUrl) {
+      const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
+      unlink(oldPath, (err) => {
+        if (err) console.warn(`[FOTO] Não foi possível remover foto antiga: ${err.message}`);
+      });
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
+      dadosNovos: { fotoUrl },
+      ip: autor.ip,
+    });
+
+    return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
+
+  } catch (error) {
+    if (error instanceof NotFoundException) throw error;
+    throw new InternalServerErrorException('Erro ao atualizar a foto de perfil.');
+  }
+}
 
   remove(id: string) {
     return `This action removes a #${id} user`;

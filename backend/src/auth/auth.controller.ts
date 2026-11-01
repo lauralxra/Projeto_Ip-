@@ -20,8 +20,9 @@ import { LoginSwagger } from './swagger/login.swagger';
 import { Roles } from './roles.decorators';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { AuthenticatedRequest } from './interface/request.interface';
+import type { AuthenticatedRequest } from './interface/request.interface';
 import { LogoutSwagger } from './swagger/logout.swagger';
+
 
 @ApiTags('auth')
 @Roles(Role.ADMINISTRADOR)
