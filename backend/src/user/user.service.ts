@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -14,6 +15,7 @@ import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { RequestEmailChangeDto } from './dto/request-email-change.dto';
+
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -217,17 +219,20 @@ export class UserService {
   if (dto.newEmail !== dto.confirmNewEmail) {
     throw new ConflictException('Os e-mails não coincidem.');
   }
-
   
   const user = await this.prisma.user.findUnique({ where: { id } });
   if (!user) {
     throw new NotFoundException('Usuário não encontrado.');
   }
 
+  if (dto.newEmail === user.email) {
+    throw new ConflictException('O novo e-mail não pode ser igual ao e-mail atual.');
+  }
+
   
   const senhaValida = await bcrypt.compare(dto.currentPassword, user.senhaHash);
   if (!senhaValida) {
-    throw new ConflictException('Senha atual incorreta.');
+    throw new UnauthorizedException('Senha atual incorreta.');
   }
 
   
@@ -235,6 +240,8 @@ export class UserService {
   if (emailEmUso && emailEmUso.id !== id) {
     throw new ConflictException('Este e-mail já está em uso por outra conta.');
   }
+
+  
 
   
   const token = crypto.randomUUID();
