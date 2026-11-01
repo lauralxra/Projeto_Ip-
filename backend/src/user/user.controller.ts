@@ -65,10 +65,7 @@ update(
   @Req() req: AuthenticatedRequest,
   @Ip() ip: string,
 ) {
-  return this.userService.updateName(id, updateUserDto.name, {
-    id: req.user.id,
-    ip,
-  });
+  return this.userService.update(id, updateUserDto);
 }
 
   @Delete(':id')
