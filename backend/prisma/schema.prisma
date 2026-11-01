@@ -168,6 +168,7 @@ model User {
   forumReplies         ForumReply[]
   auditLogs            AuditLog[]
   loginLogs            LoginLog[]
+  emailChangeTokens EmailChangeToken[]
 
   @@index([email])
   @@index([perfil])
@@ -559,4 +560,20 @@ model FaqItem {
   @@index([categoriaId])
   @@map("faq_items")
 }
+model EmailChangeToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  newEmail  String   @map("new_email") @db.VarChar(150)
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("email_change_tokens")
+}
+
 

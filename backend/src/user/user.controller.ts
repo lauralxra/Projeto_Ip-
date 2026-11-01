@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
+import { RequestEmailChangeDto } from './dto/request-email-change.dto';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -72,4 +73,17 @@ update(
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }
+@Post('profile/email-change')
+@UseGuards(JwtAuthGuard)
+requestEmailChange(
+  @Body() dto: RequestEmailChangeDto,
+  @Req() req: AuthenticatedRequest,
+  @Ip() ip: string,
+) {
+  return this.userService.requestEmailChange(
+    req.user.id,
+    dto,
+    { id: req.user.id, ip },
+  );
+}
 }
