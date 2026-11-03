@@ -171,4 +171,30 @@ export class NucleoService {
       ip: autor.ip,
     });
   }
+
+  async deactivate(id: string, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    const desativado = await this.nucleoRepository.deactivate(id);
+    if (!desativado) {
+      throw new NotFoundException('Núcleo não encontrado ou já desativado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.DESATIVAR,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },
+      dadosNovos: {
+        ...nucleo,
+        status: 'INATIVO',
+        createdAt: nucleo.createdAt.toISOString(),
+      },
+      ip: autor.ip,
+    });
+  }
 }

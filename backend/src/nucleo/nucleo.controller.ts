@@ -24,6 +24,7 @@ import { UpdateNucleoDto } from './dto/update-nucleo.dto';
 import { CreateNucleoSwagger } from './swagger/nucleo.post.swagger';
 import { SearchNucleoSwagger } from './swagger/nucleo.get.swagger';
 import { DeleteNucleoSwagger } from './swagger/nucleo.delete.swagger';
+import { DeactivateNucleoSwagger } from './swagger/nucleo.deactivate.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
@@ -76,5 +77,18 @@ export class NucleoController {
     @Ip() ip: string,
   ) {
     return this.nucleoService.remove(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/desativar')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @DeactivateNucleoSwagger()
+  deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.deactivate(id, { id: req.user.id, ip });
   }
 }
