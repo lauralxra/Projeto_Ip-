@@ -1,14 +1,17 @@
 import { useState } from 'react';
+import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { Svg } from "./config/assets";
 import { type Programa, programasCadastrados } from './dados/programas';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
-import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { CustomDropdown } from './CustomDropdown';
 import { type Nucleo } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
 import { UsuarioAtual, UsuariosCadastrados, type Usuario } from './dados/usuarios';
 import "react-datepicker/dist/react-datepicker.css";
+
+
+
 
 function ProgramaObj( {programaEmSi, editFunc, delFunc}: {programaEmSi: Programa, editFunc:(obj: Programa) => void, delFunc:(obj: Programa) => void}) {
   return (
@@ -137,7 +140,11 @@ export default function TelaProgramas() {
             setProgramas(programas.map(u => u.id === dadosProgram.id ? dadosProgram : u));
             setModalEdicao(false);
         } else {
-            setProgramas([...programas, dadosProgram]);
+            const programaComIdUnico = {
+                ...dadosProgram,
+                id: dadosProgram.id || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+            };
+            setProgramas([...programas, programaComIdUnico]);
             setModalCriacao(false);
         }
         setProgramaSelecionado(undefined);
@@ -202,7 +209,7 @@ export default function TelaProgramas() {
                   {/* Lista de Programas Ajustada */}
                   <div className="gap-[12px] flex flex-col items-center h-full overflow-y-auto px-[10px] py-[10px] w-full shrink-0" data-name="ListaProgramas">
                       {programsFiltrados.map((programa) => (
-                        <ProgramaObj programaEmSi={programa} editFunc={abrirEdicaoModal} delFunc={abrirDeletarModal}/>
+                        <ProgramaObj key={programa.id} programaEmSi={programa} editFunc={abrirEdicaoModal} delFunc={abrirDeletarModal}/>
                       ))}
                   </div>
               </div>
@@ -325,7 +332,7 @@ function EditProgramaPopup({ header, id, nome, nucleo, descricao, dataDeInicio, 
         }
 
         onSubmit({
-            id: id || Date.now().toString(),
+            id: id || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
             nome: formNome,
             nucleo: formNucleo,
             descricao: formDescricao,

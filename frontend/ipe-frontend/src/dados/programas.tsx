@@ -54,8 +54,8 @@ export const programasCadastrados: Programa[] = [
         participantes: []
     },
     {
-        id: "3",
-        nome: "Programa principal",
+        id: "4",
+        nome: "Programa Principal",
         nucleo: NucleosCadastrados[3],
         descricao: "O principal",
         dataDeInicio: new Date(2023, 1, 1),

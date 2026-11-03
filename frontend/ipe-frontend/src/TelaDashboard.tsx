@@ -50,6 +50,10 @@ interface IndicadorDashboard {
     nome: string;
     sigla: string;
   } | null;
+  programa: {
+    id: string;
+    nome: string;
+  } | null;
   registros: RegistroDashboard[];
 }
 
@@ -152,7 +156,7 @@ const exportarExcel = () => {
     { Informacao: 'INDICADORES GERAIS', Valor: '' },
     { Informacao: 'Total de usuários ativos', Valor: totalUsuarios },
     { Informacao: 'Total de programas ativos', Valor: totalProgramas },
-    { Informacao: 'Total de indicadores cadastrados', Valor: indicadores.length },
+    { Informacao: 'Total de indicadores cadastrados', Valor: indicadoresAgrupados.length },
     { Informacao: 'Indicadores no filtro atual', Valor: indicadoresFiltrados.length },
     { Informacao: 'Registros históricos exportados', Valor: dadosIndicadores.length },
     { Informacao: '', Valor: '' },
@@ -406,7 +410,25 @@ const exportarPDF = async () => {
       .catch((erro) => console.error(erro));
   }, []);
 
-const indicadoresFiltrados = indicadores.filter(
+const indicadoresAgrupados = Array.from(
+  indicadores.reduce((mapa, indicador) => {
+    const chave = `${(indicador.nome ?? '').trim().toLowerCase()}|${indicador.nucleo?.id ?? 'institucional'}|${indicador.programa?.id ?? 'sem-programa'}`;
+    const atual = mapa.get(chave);
+
+    if (!atual) {
+      mapa.set(chave, {
+        ...indicador,
+        registros: [...(indicador.registros ?? [])],
+      });
+      return mapa;
+    }
+
+    atual.registros = [...(atual.registros ?? []), ...(indicador.registros ?? [])];
+    return mapa;
+  }, new Map<string, IndicadorDashboard>()).values()
+);
+
+const indicadoresFiltrados = indicadoresAgrupados.filter(
   (indicador) =>
     nucleoFiltro === 'Todos os Núcleos' ||
     indicador.nucleo?.sigla === nucleoFiltro
@@ -576,7 +598,7 @@ const filtrarRegistrosPorPeriodo = (registros: RegistroDashboard[]) => {
 
           <CardMetrica TipoMetrica='programas' valAtual={totalProgramas} valVariacao={0} corBg="bg-[#f0f4f9]"/>
 
-          <CardMetrica TipoMetrica='indicadores' valAtual={indicadores.length} valVariacao={0} corBg="bg-[#fcf2f7]"/>
+          <CardMetrica TipoMetrica='indicadores' valAtual={indicadoresAgrupados.length} valVariacao={0} corBg="bg-[#fcf2f7]"/>
 
         </div>
 
@@ -617,6 +639,16 @@ const filtrarRegistrosPorPeriodo = (registros: RegistroDashboard[]) => {
             return (
               <div key={indicador.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
                 <h3 className="text-base font-bold text-slate-800 mb-1">{indicador.nome}</h3>
+                <div className="mb-3 text-[11px] text-slate-500 space-y-0.5">
+                  <div>
+                    <span className="font-semibold text-slate-600">Núcleo:</span>{' '}
+                    {indicador.nucleo?.sigla ?? 'Institucional'}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-600">Programa:</span>{' '}
+                    {indicador.programa?.nome ?? 'Geral'}
+                  </div>
+                </div>
                                 
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-slate-500">
