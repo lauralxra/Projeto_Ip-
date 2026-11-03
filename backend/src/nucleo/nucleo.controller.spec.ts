@@ -32,6 +32,7 @@ describe('NucleoController (HTTP)', () => {
   let nucleoService: {
     create: jest.Mock;
     remove: jest.Mock;
+    deactivate: jest.Mock;
     search: jest.Mock;
   };
   const payload = { nome: 'Núcleo de Educação Ambiental', sigla: 'nea' };
@@ -40,6 +41,7 @@ describe('NucleoController (HTTP)', () => {
     nucleoService = {
       create: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
       remove: jest.fn().mockResolvedValue(undefined),
+      deactivate: jest.fn().mockResolvedValue(undefined),
       search: jest.fn().mockResolvedValue({ itens: [], total: 0 }),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -203,6 +205,44 @@ describe('NucleoController (HTTP)', () => {
         .delete(`/nucleos/${id}`)
         .set('x-test-role', Role.ADMINISTRADOR)
         .expect(409);
+    });
+  });
+
+  describe('PATCH /nucleos/:id/desativar', () => {
+    const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    it('ADMINISTRADOR desativa o núcleo e recebe 204', async () => {
+      await request(app.getHttpServer())
+        .patch(`/nucleos/${id}/desativar`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(204)
+        .expect('');
+
+      expect(nucleoService.deactivate).toHaveBeenCalledWith(
+        id,
+        expect.objectContaining({ id: 'autor-uuid' }),
+      );
+    });
+
+    it.each([
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])('perfil %s recebe 403', async (role) => {
+      await request(app.getHttpServer())
+        .patch(`/nucleos/${id}/desativar`)
+        .set('x-test-role', role)
+        .expect(403);
+
+      expect(nucleoService.deactivate).not.toHaveBeenCalled();
+    });
+
+    it('id inválido retorna 400', async () => {
+      await request(app.getHttpServer())
+        .patch('/nucleos/123/desativar')
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(400);
+      expect(nucleoService.deactivate).not.toHaveBeenCalled();
     });
   });
 

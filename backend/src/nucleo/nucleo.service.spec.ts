@@ -18,9 +18,11 @@ describe('NucleoService', () => {
   let service: NucleoService;
   let repository: {
     findConflito: jest.Mock;
+    findAtivoById: jest.Mock;
     create: jest.Mock;
     findAtivoComVinculos: jest.Mock;
     softDelete: jest.Mock;
+    deactivate: jest.Mock;
     search: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
@@ -35,9 +37,11 @@ describe('NucleoService', () => {
   beforeEach(() => {
     repository = {
       findConflito: jest.fn(),
+      findAtivoById: jest.fn(),
       create: jest.fn(),
       findAtivoComVinculos: jest.fn(),
       softDelete: jest.fn(),
+      deactivate: jest.fn(),
       search: jest.fn(),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
@@ -210,6 +214,59 @@ describe('NucleoService', () => {
       await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
         'O núcleo não pode ser excluído pois possui usuários, programas, indicadores vinculados.',
       );
+    });
+  });
+
+  describe('deactivate', () => {
+    const nucleo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo de Educação Ambiental',
+      sigla: 'NEA',
+      descricao: null,
+      corHex: '#2E7D32',
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+
+    it('desativa sem excluir o núcleo e registra os dados alterados na auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleo);
+      repository.deactivate.mockResolvedValue(true);
+
+      await expect(
+        service.deactivate('nucleo-uuid', autor),
+      ).resolves.toBeUndefined();
+
+      expect(repository.deactivate).toHaveBeenCalledWith('nucleo-uuid');
+      expect(audit.registrarAcao).toHaveBeenCalledWith({
+        userId: autor.id,
+        acao: AcaoAuditoria.DESATIVAR,
+        entidade: 'Nucleo',
+        entidadeId: 'nucleo-uuid',
+        dadosAntigos: expect.objectContaining({ status: StatusRegistro.ATIVO }),
+        dadosNovos: expect.objectContaining({ status: StatusRegistro.INATIVO }),
+        ip: autor.ip,
+      });
+    });
+
+    it('retorna 404 para núcleo inexistente ou desativado sem auditar', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        new NotFoundException('Núcleo não encontrado.'),
+      );
+      expect(repository.deactivate).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('trata uma desativação concorrente como 404 e não registra auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleo);
+      repository.deactivate.mockResolvedValue(false);
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 
