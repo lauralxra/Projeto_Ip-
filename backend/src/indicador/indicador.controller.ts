@@ -2,6 +2,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Post,
   Req,
@@ -162,7 +163,62 @@ export class IndicadorController {
       },
     });
   }
-    @Post(':id/registros')
+
+  @Delete()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  async limparTodosIndicadores() {
+    const indicadoresAtivos = await this.prisma.indicador.findMany({
+      where: {
+        deletedAt: null,
+        status: 'ATIVO',
+      },
+      select: { id: true },
+    });
+
+    if (indicadoresAtivos.length === 0) {
+      return { removidos: 0 };
+    }
+
+    const ids = indicadoresAtivos.map((indicador) => indicador.id);
+    const agora = new Date();
+
+    await this.prisma.indicadorRegistro.updateMany({
+      where: {
+        indicadorId: { in: ids },
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: agora,
+        status: 'INATIVO',
+      },
+    });
+
+    await this.prisma.meta.updateMany({
+      where: {
+        indicadorId: { in: ids },
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: agora,
+        status: 'INATIVO',
+      },
+    });
+
+    await this.prisma.indicador.updateMany({
+      where: {
+        id: { in: ids },
+      },
+      data: {
+        deletedAt: agora,
+        status: 'INATIVO',
+      },
+    });
+
+    return { removidos: ids.length };
+  }
+
+  @Post(':id/registros')
   async salvarRegistro(
     @Req() req: RequestComUsuario,
     @Body()
