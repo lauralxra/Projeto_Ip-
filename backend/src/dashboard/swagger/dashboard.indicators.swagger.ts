@@ -1,4 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
+import { StatusAprovacao } from '@prisma/client';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -6,6 +7,7 @@ import {
   ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiServiceUnavailableResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -23,13 +25,39 @@ export function DashboardIndicadoresSwagger() {
         'APROVADO ou PUBLICADO (RN01). Sem indicadores disponíveis, retorna a lista vazia.',
     }),
     ApiBearerAuth('JWT-auth'),
+    ApiQuery({ name: 'ano', required: false, type: Number, example: 2026 }),
+    ApiQuery({
+      name: 'trimestre',
+      required: false,
+      enum: ['Q1', 'Q2', 'Q3', 'Q4'],
+    }),
+    ApiQuery({
+      name: 'nucleoId',
+      required: false,
+      type: String,
+      format: 'uuid',
+    }),
+    ApiQuery({
+      name: 'indicadorId',
+      required: false,
+      type: String,
+      format: 'uuid',
+    }),
+    ApiQuery({
+      name: 'programaId',
+      required: false,
+      type: String,
+      format: 'uuid',
+    }),
+    ApiQuery({ name: 'acaoId', required: false, type: String, format: 'uuid' }),
+    ApiQuery({ name: 'status', required: false, enum: StatusAprovacao }),
     ApiOkResponse({
       description: 'Indicadores visíveis para o perfil, com metas e medições.',
       type: DashboardIndicadoresResponseDto,
     }),
     ApiBadRequestResponse({
       description:
-        'Filtros inválidos: ano fora de 2000–2100, trimestre desconhecido ou núcleo fora do formato UUID.',
+        'Filtros inválidos: ano fora de 2000–2100, trimestre/status inválido ou identificadores fora do formato UUID.',
       type: AuthErrorResponseDto,
     }),
     ApiUnauthorizedResponse({
@@ -37,7 +65,8 @@ export function DashboardIndicadoresSwagger() {
       type: AuthErrorResponseDto,
     }),
     ApiForbiddenResponse({
-      description: 'O usuário autenticado não possui perfil de acesso.',
+      description:
+        'O usuário não possui perfil de acesso, tentou filtrar um núcleo sem vínculo ou solicitou status exclusivo da Administração.',
       type: AuthErrorResponseDto,
     }),
     ApiInternalServerErrorResponse({
