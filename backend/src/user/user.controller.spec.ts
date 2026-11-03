@@ -2,21 +2,27 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
+import { NucleoService } from '../nucleo/nucleo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 describe('UserController', () => {
   let controller: UserController;
   let userService: { create: jest.Mock; updateName: jest.Mock };
+  let nucleoService: { findAssociados: jest.Mock };
 
   beforeEach(async () => {
     userService = {
       create: jest.fn().mockResolvedValue({ id: 'novo-uuid' }),
       updateName: jest.fn().mockResolvedValue({ id: 'usuario-uuid' }),
     };
+    nucleoService = { findAssociados: jest.fn().mockResolvedValue([]) };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
-      providers: [{ provide: UserService, useValue: userService }],
+      providers: [
+        { provide: UserService, useValue: userService },
+        { provide: NucleoService, useValue: nucleoService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -62,5 +68,15 @@ describe('UserController', () => {
       'Maria Silva',
       { id: 'usuario-uuid', ip: '203.0.113.7' },
     );
+  });
+
+  it('busca os núcleos pelo ID do usuário autenticado', async () => {
+    const req = {
+      user: { id: 'diretor-uuid', role: Role.DIRETORES_NUCLEOS },
+    } as AuthenticatedRequest;
+
+    await controller.findMyNucleos(req);
+
+    expect(nucleoService.findAssociados).toHaveBeenCalledWith('diretor-uuid');
   });
 });

@@ -18,6 +18,7 @@ describe('NucleoService', () => {
   let service: NucleoService;
   let repository: {
     findConflito: jest.Mock;
+    findAssociadosByUserId: jest.Mock;
     findAtivoById: jest.Mock;
     create: jest.Mock;
     findAtivoComVinculos: jest.Mock;
@@ -37,6 +38,7 @@ describe('NucleoService', () => {
   beforeEach(() => {
     repository = {
       findConflito: jest.fn(),
+      findAssociadosByUserId: jest.fn(),
       findAtivoById: jest.fn(),
       create: jest.fn(),
       findAtivoComVinculos: jest.fn(),
@@ -120,6 +122,33 @@ describe('NucleoService', () => {
 
     await expect(service.create(dto, autor)).rejects.toThrow('falha no banco');
     expect(audit.registrarAcao).not.toHaveBeenCalled();
+  });
+
+  describe('findAssociados', () => {
+    it('retorna os núcleos associados ao ID autenticado', async () => {
+      const nucleos = [
+        {
+          id: 'nucleo-uuid',
+          nome: 'Núcleo de Educação Ambiental',
+          sigla: 'NEA',
+          imagemUrl: 'https://example.com/nea.png',
+        },
+      ];
+      repository.findAssociadosByUserId.mockResolvedValue(nucleos);
+
+      await expect(service.findAssociados('usuario-uuid')).resolves.toEqual(
+        nucleos,
+      );
+      expect(repository.findAssociadosByUserId).toHaveBeenCalledWith(
+        'usuario-uuid',
+      );
+    });
+
+    it('retorna lista vazia quando o usuário não possui núcleos associados', async () => {
+      repository.findAssociadosByUserId.mockResolvedValue([]);
+
+      await expect(service.findAssociados('usuario-uuid')).resolves.toEqual([]);
+    });
   });
 
   describe('remove', () => {

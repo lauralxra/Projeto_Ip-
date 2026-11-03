@@ -132,6 +132,10 @@ export class NucleoService {
     return nucleo;
   }
 
+  findAssociados(userId: string) {
+    return this.nucleoRepository.findAssociadosByUserId(userId);
+  }
+
   update(id: number, _updateNucleoDto: UpdateNucleoDto) {
     return `This action updates a #${id} nucleo`;
   }

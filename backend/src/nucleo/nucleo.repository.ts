@@ -13,6 +13,13 @@ export const nucleoSelect = {
   createdAt: true,
 } as const;
 
+export const nucleoAssociadoSelect = {
+  id: true,
+  nome: true,
+  sigla: true,
+  imagemUrl: true,
+} as const;
+
 @Injectable()
 export class NucleoRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -49,6 +56,17 @@ export class NucleoRepository {
     return this.prisma.nucleo.findFirst({
       where: { id, deletedAt: null },
       select: nucleoSelect,
+    });
+  }
+
+  findAssociadosByUserId(userId: string) {
+    return this.prisma.nucleo.findMany({
+      where: {
+        deletedAt: null,
+        users: { some: { userId } },
+      },
+      select: nucleoAssociadoSelect,
+      orderBy: { nome: 'asc' },
     });
   }
 
