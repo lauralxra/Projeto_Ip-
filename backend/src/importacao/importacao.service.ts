@@ -92,19 +92,27 @@ export class ImportacaoService {
     const temIndicadorReferenciado = colunas.indicadorId >= 0;
     const temIndicadorNomeOuCodigo =
       colunas.nomeIndicador >= 0 || colunas.codigoIndicador >= 0;
+    const temNucleoReferenciado = colunas.nucleoId >= 0 || colunas.nucleoNome >= 0;
+    const temProgramaReferenciado = colunas.programaId >= 0 || colunas.programaNome >= 0;
 
     if (
       !temIndicadorReferenciado &&
       !temIndicadorNomeOuCodigo
     ) {
       throw new BadRequestException(
-        'Cabeçalho obrigatório: indicadorId ou nomeIndicador/codigoIndicador, ano, trimestre, valorRealizado.',
+        'Cabeçalho obrigatório: deve conter pelo menos um identificador do indicador (indicadorId, nomeIndicador ou codigoIndicador), além de nucleo, programa, ano, trimestre e valorRealizado. A unidade de medida é opcional.',
+      );
+    }
+
+    if (!temNucleoReferenciado || !temProgramaReferenciado) {
+      throw new BadRequestException(
+        'Cabeçalho obrigatório: deve conter nucleo e programa (ou nucleoId e programaId), além de ano, trimestre e valorRealizado. A unidade de medida é opcional.',
       );
     }
 
     if (colunas.ano < 0 || colunas.trimestre < 0 || colunas.valor < 0) {
       throw new BadRequestException(
-        'Cabeçalho obrigatório: ano, trimestre e valorRealizado.',
+        'Cabeçalho obrigatório: ano, trimestre e valorRealizado. Campos obrigatórios adicionais: nucleo e programa. A unidade de medida é opcional.',
       );
     }
 
@@ -128,7 +136,7 @@ export class ImportacaoService {
       const programaNome =
         colunas.programaNome >= 0 ? campos[colunas.programaNome]?.trim() || undefined : undefined;
       const unidadeMedida =
-        colunas.unidadeMedida >= 0 ? campos[colunas.unidadeMedida]?.trim() || null : null;
+        colunas.unidadeMedida >= 0 ? campos[colunas.unidadeMedida]?.trim() || 'unidade' : 'unidade';
       const anoTexto = campos[colunas.ano];
       const ano = Number(anoTexto);
       const trimestre = campos[colunas.trimestre]?.toUpperCase() as TrimestreEnum;
@@ -138,6 +146,10 @@ export class ImportacaoService {
 
       if ((!indicadorId && !indicadorNome && !indicadorCodigo) || !anoTexto || !Number.isInteger(ano) || ano < 1900 || ano > 2200) {
         erros.push({ linha: numero, mensagem: 'Indicador ou ano inválido.' });
+        return;
+      }
+      if ((!nucleoId && !nucleoNome) || (!programaId && !programaNome)) {
+        erros.push({ linha: numero, mensagem: 'Núcleo e programa são obrigatórios.' });
         return;
       }
       if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(trimestre)) {
@@ -211,7 +223,7 @@ export class ImportacaoService {
         }
 
         if (linha.nucleoNome && !nucleoVinculado) {
-          erros.push({ linha: linha.numero, mensagem: 'Núcleo não encontrado ou inativo.' });
+          erros.push({ linha: linha.numero, mensagem: 'Núcleo não encontrado ou inativo. Cadastre o núcleo antes de importar os indicadores.' });
           continue;
         }
 
@@ -238,7 +250,7 @@ export class ImportacaoService {
         }
 
         if (linha.programaNome && !programaVinculado) {
-          erros.push({ linha: linha.numero, mensagem: 'Programa não encontrado, inativo ou incompatível com o núcleo.' });
+          erros.push({ linha: linha.numero, mensagem: 'Programa não encontrado, inativo ou incompatível com o núcleo. Cadastre o programa antes de importar os indicadores.' });
           continue;
         }
 
@@ -275,7 +287,7 @@ export class ImportacaoService {
                 nome,
                 codigo,
                 descricao: null,
-                unidadeMedida: linha.unidadeMedida,
+                unidadeMedida: linha.unidadeMedida || 'unidade',
                 escopo: nucleoVinculado || programaVinculado ? EscopoIndicador.NUCLEO : EscopoIndicador.INSTITUCIONAL,
                 tipoDado: TipoDadoIndicador.NUMERICO,
                 nucleoId: nucleoVinculado?.id ?? null,
