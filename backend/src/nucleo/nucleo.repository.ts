@@ -99,4 +99,13 @@ export class NucleoRepository {
     });
     return count > 0;
   }
+
+  // Desativação mantém o núcleo e seus vínculos; não altera deletedAt.
+  async deactivate(id: string) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null, status: 'ATIVO' },
+      data: { status: 'INATIVO' },
+    });
+    return count > 0;
+  }
 }
