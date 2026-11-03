@@ -8,6 +8,8 @@ export interface Indicador {
   simbolUni?: string;
   meta?: string;
   valAtual: string;
+  ano?: number;
+  trimestre?: string;
   nucleo?: Nucleo;
   programa?: Programa;
   status: string;
