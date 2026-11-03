@@ -254,6 +254,26 @@ describe('DashboardService', () => {
       });
     });
 
+    it('devolve os mesmos dados de série sem acoplar a resposta a um tipo de gráfico', async () => {
+      repository.findIndicadores.mockResolvedValue([indicador]);
+
+      const resposta = await service.findIndicadores(
+        anual,
+        usuario(Role.ADMINISTRADOR),
+      );
+
+      expect(resposta.indicadores[0]).toMatchObject({
+        realizado: 950,
+        registros: [
+          { trimestre: TrimestreEnum.Q1, valorRealizado: 320 },
+          { trimestre: TrimestreEnum.Q2, valorRealizado: 630 },
+        ],
+      });
+      expect(resposta).not.toHaveProperty('tipoGrafico');
+      expect(resposta.indicadores[0]).not.toHaveProperty('tipoGrafico');
+      expect(repository.findIndicadores).toHaveBeenCalledTimes(1);
+    });
+
     it('para indicador percentual usa a última medição informada', async () => {
       repository.findIndicadores.mockResolvedValue([
         {

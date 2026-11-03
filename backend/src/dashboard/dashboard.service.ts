@@ -8,6 +8,10 @@ import {
 import { AuthenticatedUser } from '../auth/interface/request.interface';
 import { FilterDashboardDto } from './dto/filter-dashboard.dto';
 import {
+  DashboardIndicadorDto,
+  DashboardIndicadoresResponseDto,
+} from './dto/dashboard-indicadores-response.dto';
+import {
   DashboardRepository,
   IndicadorDashboard,
 } from './dashboard.repository';
@@ -37,7 +41,7 @@ export class DashboardService {
   async findIndicadores(
     filtros: FilterDashboardDto,
     usuario: AuthenticatedUser,
-  ) {
+  ): Promise<DashboardIndicadoresResponseDto> {
     const {
       ano,
       trimestre,
@@ -124,7 +128,7 @@ export class DashboardService {
 }
 
 // Compara o realizado no período com a meta (anual ou do trimestre filtrado)
-function consolidar(indicador: IndicadorDashboard) {
+function consolidar(indicador: IndicadorDashboard): DashboardIndicadorDto {
   const { metas, registros, ...dados } = indicador;
   const meta = paraNumero(metas[0]?.valorMeta ?? null);
   const realizado = calcularRealizado(indicador.tipoDado, registros);

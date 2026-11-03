@@ -20,6 +20,8 @@ export function DashboardIndicadoresSwagger() {
       summary: 'Indicadores do dashboard',
       description:
         'Agrega metas e medições dos indicadores no ano (ou trimestre) e compara o realizado com a meta. ' +
+        'A resposta é independente do tipo de gráfico: use realizado para comparações e registros ordenados por trimestre para séries temporais. ' +
+        'O cliente pode alternar a visualização sem enviar novas requisições; não há parâmetro de tipo de gráfico. ' +
         'ADMINISTRADOR vê todos os indicadores e medições (RN03); DIRETORES_NUCLEOS vê apenas os ' +
         'indicadores dos seus núcleos (RN02); EQUIPE_COMUNICACAO e EQUIPE_GESTAO veem apenas medições ' +
         'APROVADO ou PUBLICADO (RN01). Sem indicadores disponíveis, retorna a lista vazia.',
