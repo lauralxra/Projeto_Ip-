@@ -233,7 +233,9 @@ describe('NucleoService', () => {
       repository.findAtivoById.mockResolvedValue(nucleo);
       repository.deactivate.mockResolvedValue(true);
 
-      await expect(service.deactivate('nucleo-uuid', autor)).resolves.toBeUndefined();
+      await expect(
+        service.deactivate('nucleo-uuid', autor),
+      ).resolves.toBeUndefined();
 
       expect(repository.deactivate).toHaveBeenCalledWith('nucleo-uuid');
       expect(audit.registrarAcao).toHaveBeenCalledWith({
