@@ -1,9 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TrimestreEnum } from '@prisma/client';
+import { StatusAprovacao, TrimestreEnum } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
-export class DashboardQueryDto {
+export class FilterDashboardDto {
   @ApiPropertyOptional({
     example: 2026,
     description: 'Ano de referência das metas e medições (padrão: ano atual)',
@@ -31,4 +31,39 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsUUID('all', { message: 'O núcleo deve ser um UUID válido.' })
   nucleoId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Retorna apenas este indicador',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('all', { message: 'O indicador deve ser um UUID válido.' })
+  indicadorId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Retorna apenas os indicadores deste programa',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('all', { message: 'O programa deve ser um UUID válido.' })
+  programaId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Retorna apenas os indicadores desta ação',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('all', { message: 'A ação deve ser um UUID válido.' })
+  acaoId?: string;
+
+  @ApiPropertyOptional({
+    enum: StatusAprovacao,
+    description:
+      'Filtra pelo status da medição. PENDENTE, EM_PREENCHIMENTO e NECESSITA_CORRECAO são exclusivos da Administração.',
+  })
+  @IsOptional()
+  @IsEnum(StatusAprovacao, {
+    message: 'O status de aprovação informado é inválido.',
+  })
+  status?: StatusAprovacao;
 }
