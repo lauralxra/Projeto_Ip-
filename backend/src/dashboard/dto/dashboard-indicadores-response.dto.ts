@@ -82,7 +82,11 @@ export class DashboardIndicadorDto {
   })
   percentualAtingido!: number | null;
 
-  @ApiProperty({ type: [DashboardRegistroDto] })
+  @ApiProperty({
+    type: [DashboardRegistroDto],
+    description:
+      'Medições ordenadas por trimestre para o cliente montar séries temporais ou agregações visuais. O conjunto de dados independe do tipo de gráfico selecionado.',
+  })
   registros!: DashboardRegistroDto[];
 }
 
@@ -96,6 +100,10 @@ export class DashboardIndicadoresResponseDto {
   @ApiProperty({ example: 12 })
   total!: number;
 
-  @ApiProperty({ type: [DashboardIndicadorDto] })
+  @ApiProperty({
+    type: [DashboardIndicadorDto],
+    description:
+      'Dados neutros de visualização: use realizado para comparações/categorias e registros para séries temporais. A troca do gráfico é apenas no cliente e não requer outra consulta à API.',
+  })
   indicadores!: DashboardIndicadorDto[];
 }
