@@ -9,8 +9,7 @@ import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
-import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
-import { programasCadastrados } from './dados/programas';
+import type { Nucleo } from './dados/nucleos';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
     // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -416,28 +415,10 @@ const [programasDoBanco, setProgramasDoBanco] = useState<Programa[]>([]);
     const [filtroPrograma, setFiltroPrograma] = useState('');
     const [filtroAprovacao, setFiltroAprovacao] = useState('');
 
-    const NucleosDoUser = nucleosDoBanco.length > 0 ? nucleosDoBanco : UsuarioAtual.nucleos.length > 0 ? UsuarioAtual.nucleos : NucleosCadastrados;
+    const NucleosDoUser = nucleosDoBanco.length > 0 ? nucleosDoBanco : UsuarioAtual.nucleos ?? [];
     const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla))).filter(Boolean);
 
-    const programasFallback = programasCadastrados.map((item) => ({
-        id: item.id,
-        nome: item.nome,
-        descricao: item.descricao ?? '',
-        nucleo: item.nucleo ? {
-            id: item.nucleo.id,
-            nome: item.nucleo.nome,
-            sigla: item.nucleo.sigla,
-            descricao: item.nucleo.descricao ?? '',
-            corBg: 'bg-[#832b62]',
-            corIcone: 'text-white',
-        } : undefined,
-        dataDeInicio: '',
-        status: 'ATIVO',
-        acoes: [],
-        indicadores: [],
-    }));
-
-    const programasDoUsuario = programasDoBanco.length > 0 ? programasDoBanco : programasFallback;
+    const programasDoUsuario = programasDoBanco;
 
     // 2. Aplica o filtro dinâmico do select de núcleos selecionado na tela
     const programasDoNucleo = programasDoUsuario.filter(n => {
@@ -572,7 +553,7 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         return;
     }
 
-    if (formProgramId && ![...programasDoBanco, ...programasFallback].some(n => n.id === formProgramId)) {
+    if (formProgramId && !programasDoBanco.some(n => n.id === formProgramId)) {
         alert('Selecione um programa válido antes de criar o indicador.');
         return;
     }
@@ -582,7 +563,7 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         : undefined;
 
     const programSelecionado = formProgramId
-        ? [...programasDoBanco, ...programasFallback].find(n => n.id === formProgramId)
+        ? programasDoBanco.find(n => n.id === formProgramId)
         : undefined;
 
     const tipoDado =
@@ -1175,9 +1156,13 @@ const progressoGeral = React.useMemo(() => {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasDoBanco.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
-                                ))}
+                                {programasDoBanco.length === 0 ? (
+                                    <option value="">Nenhum programa cadastrado</option>
+                                ) : (
+                                    programasDoBanco.map((opt) => (
+                                        <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                    ))
+                                )}
                             </select>
                         </div>
                     </div>
@@ -1333,9 +1318,13 @@ const progressoGeral = React.useMemo(() => {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasDoBanco.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
-                                ))}
+                                {programasDoBanco.length === 0 ? (
+                                    <option value="">Nenhum programa cadastrado</option>
+                                ) : (
+                                    programasDoBanco.map((opt) => (
+                                        <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <div>
