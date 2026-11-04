@@ -1,6 +1,12 @@
-﻿import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+﻿import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import {
   EscopoIndicador,
+  Nucleo,
+  Programa,
   Role,
   StatusImportacao,
   TipoDadoIndicador,
@@ -37,9 +43,14 @@ export class ImportacaoService {
       throw new BadRequestException('O arquivo CSV está vazio.');
     }
 
-    const linhas = conteudo.replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
+    const linhas = conteudo
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .filter((l) => l.trim());
     if (linhas.length < 2) {
-      throw new BadRequestException('O CSV precisa conter cabeçalho e pelo menos uma linha de dados.');
+      throw new BadRequestException(
+        'O CSV precisa conter cabeçalho e pelo menos uma linha de dados.',
+      );
     }
 
     const separar = (linha: string, delimitador: string) => {
@@ -66,21 +77,46 @@ export class ImportacaoService {
       return campos;
     };
 
-    const delimitador = (linhas[0].match(/;/g) ?? []).length >
-      (linhas[0].match(/,/g) ?? []).length ? ';' : ',';
+    const delimitador =
+      (linhas[0].match(/;/g) ?? []).length >
+      (linhas[0].match(/,/g) ?? []).length
+        ? ';'
+        : ',';
     const cabecalho = separar(linhas[0], delimitador).map((c) =>
       c.toLowerCase().replace(/[\s_]/g, ''),
     );
-    const indice = (nomes: string[]) => cabecalho.findIndex((c) => nomes.includes(c));
+    const indice = (nomes: string[]) =>
+      cabecalho.findIndex((c) => nomes.includes(c));
 
     const colunas = {
       indicadorId: indice(['indicadorid', 'idindicador']),
-      nomeIndicador: indice(['nomeindicador', 'indicadornome', 'nome', 'nome_do_indicador']),
-      codigoIndicador: indice(['codigoindicador', 'codigo', 'codigo_do_indicador']),
+      nomeIndicador: indice([
+        'nomeindicador',
+        'indicadornome',
+        'nome',
+        'nome_do_indicador',
+      ]),
+      codigoIndicador: indice([
+        'codigoindicador',
+        'codigo',
+        'codigo_do_indicador',
+      ]),
       nucleoId: indice(['nucleoid', 'idnucleo']),
-      nucleoNome: indice(['nucleo', 'nomenucleo', 'nome_do_nucleo', 'nucleo_nome', 'siglanucleo', 'nucleo_sigla']),
+      nucleoNome: indice([
+        'nucleo',
+        'nomenucleo',
+        'nome_do_nucleo',
+        'nucleo_nome',
+        'siglanucleo',
+        'nucleo_sigla',
+      ]),
       programaId: indice(['programaid', 'idprograma']),
-      programaNome: indice(['programa', 'nomeprograma', 'nome_do_programa', 'programa_nome']),
+      programaNome: indice([
+        'programa',
+        'nomeprograma',
+        'nome_do_programa',
+        'programa_nome',
+      ]),
       unidadeMedida: indice(['unidademedida', 'unidade', 'unidade_medida']),
       escopo: indice(['escopo']),
       tipoDado: indice(['tipodado', 'tipo_dado']),
@@ -92,13 +128,12 @@ export class ImportacaoService {
     const temIndicadorReferenciado = colunas.indicadorId >= 0;
     const temIndicadorNomeOuCodigo =
       colunas.nomeIndicador >= 0 || colunas.codigoIndicador >= 0;
-    const temNucleoReferenciado = colunas.nucleoId >= 0 || colunas.nucleoNome >= 0;
-    const temProgramaReferenciado = colunas.programaId >= 0 || colunas.programaNome >= 0;
+    const temNucleoReferenciado =
+      colunas.nucleoId >= 0 || colunas.nucleoNome >= 0;
+    const temProgramaReferenciado =
+      colunas.programaId >= 0 || colunas.programaNome >= 0;
 
-    if (
-      !temIndicadorReferenciado &&
-      !temIndicadorNomeOuCodigo
-    ) {
+    if (!temIndicadorReferenciado && !temIndicadorNomeOuCodigo) {
       throw new BadRequestException(
         'Cabeçalho obrigatório: deve conter pelo menos um identificador do indicador (indicadorId, nomeIndicador ou codigoIndicador), além de nucleo, programa, ano, trimestre e valorRealizado. A unidade de medida é opcional.',
       );
@@ -122,38 +157,71 @@ export class ImportacaoService {
     linhas.slice(1).forEach((linha, i) => {
       const numero = i + 2;
       const campos = separar(linha, delimitador);
-      const indicadorId = colunas.indicadorId >= 0 ? campos[colunas.indicadorId]?.trim() : undefined;
+      const indicadorId =
+        colunas.indicadorId >= 0
+          ? campos[colunas.indicadorId]?.trim()
+          : undefined;
       const indicadorNome =
-        colunas.nomeIndicador >= 0 ? campos[colunas.nomeIndicador]?.trim() : undefined;
+        colunas.nomeIndicador >= 0
+          ? campos[colunas.nomeIndicador]?.trim()
+          : undefined;
       const indicadorCodigo =
-        colunas.codigoIndicador >= 0 ? campos[colunas.codigoIndicador]?.trim() : undefined;
+        colunas.codigoIndicador >= 0
+          ? campos[colunas.codigoIndicador]?.trim()
+          : undefined;
       const nucleoId =
-        colunas.nucleoId >= 0 ? campos[colunas.nucleoId]?.trim() || undefined : undefined;
+        colunas.nucleoId >= 0
+          ? campos[colunas.nucleoId]?.trim() || undefined
+          : undefined;
       const nucleoNome =
-        colunas.nucleoNome >= 0 ? campos[colunas.nucleoNome]?.trim() || undefined : undefined;
+        colunas.nucleoNome >= 0
+          ? campos[colunas.nucleoNome]?.trim() || undefined
+          : undefined;
       const programaId =
-        colunas.programaId >= 0 ? campos[colunas.programaId]?.trim() || undefined : undefined;
+        colunas.programaId >= 0
+          ? campos[colunas.programaId]?.trim() || undefined
+          : undefined;
       const programaNome =
-        colunas.programaNome >= 0 ? campos[colunas.programaNome]?.trim() || undefined : undefined;
+        colunas.programaNome >= 0
+          ? campos[colunas.programaNome]?.trim() || undefined
+          : undefined;
       const unidadeMedida =
-        colunas.unidadeMedida >= 0 ? campos[colunas.unidadeMedida]?.trim() || 'unidade' : 'unidade';
+        colunas.unidadeMedida >= 0
+          ? campos[colunas.unidadeMedida]?.trim() || 'unidade'
+          : 'unidade';
       const anoTexto = campos[colunas.ano];
       const ano = Number(anoTexto);
-      const trimestre = campos[colunas.trimestre]?.toUpperCase() as TrimestreEnum;
+      const trimestre = campos[
+        colunas.trimestre
+      ]?.toUpperCase() as TrimestreEnum;
       const valorTexto = campos[colunas.valor]?.trim().replace(',', '.');
       const valorRealizado =
-        valorTexto === '' || valorTexto === undefined ? null : Number(valorTexto);
+        valorTexto === '' || valorTexto === undefined
+          ? null
+          : Number(valorTexto);
 
-      if ((!indicadorId && !indicadorNome && !indicadorCodigo) || !anoTexto || !Number.isInteger(ano) || ano < 1900 || ano > 2200) {
+      if (
+        (!indicadorId && !indicadorNome && !indicadorCodigo) ||
+        !anoTexto ||
+        !Number.isInteger(ano) ||
+        ano < 1900 ||
+        ano > 2200
+      ) {
         erros.push({ linha: numero, mensagem: 'Indicador ou ano inválido.' });
         return;
       }
       if ((!nucleoId && !nucleoNome) || (!programaId && !programaNome)) {
-        erros.push({ linha: numero, mensagem: 'Núcleo e programa são obrigatórios.' });
+        erros.push({
+          linha: numero,
+          mensagem: 'Núcleo e programa são obrigatórios.',
+        });
         return;
       }
       if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(trimestre)) {
-        erros.push({ linha: numero, mensagem: 'Trimestre deve ser Q1, Q2, Q3 ou Q4.' });
+        erros.push({
+          linha: numero,
+          mensagem: 'Trimestre deve ser Q1, Q2, Q3 ou Q4.',
+        });
         return;
       }
       if (valorRealizado !== null && !Number.isFinite(valorRealizado)) {
@@ -181,7 +249,9 @@ export class ImportacaoService {
       include: { nucleos: { select: { nucleoId: true } } },
     });
     if (!usuario || usuario.perfil !== role) {
-      throw new ForbiddenException('Usuário inválido ou perfil alterado. Entre novamente.');
+      throw new ForbiddenException(
+        'Usuário inválido ou perfil alterado. Entre novamente.',
+      );
     }
 
     const nucleosPermitidos = new Set(usuario.nucleos.map((n) => n.nucleoId));
@@ -199,7 +269,7 @@ export class ImportacaoService {
 
     for (const linha of validas) {
       try {
-        let nucleoVinculado = null as any;
+        let nucleoVinculado: Nucleo | null = null;
 
         if (linha.nucleoId) {
           nucleoVinculado = await this.prisma.nucleo.findFirst({
@@ -223,11 +293,15 @@ export class ImportacaoService {
         }
 
         if (linha.nucleoNome && !nucleoVinculado) {
-          erros.push({ linha: linha.numero, mensagem: 'Núcleo não encontrado ou inativo. Cadastre o núcleo antes de importar os indicadores.' });
+          erros.push({
+            linha: linha.numero,
+            mensagem:
+              'Núcleo não encontrado ou inativo. Cadastre o núcleo antes de importar os indicadores.',
+          });
           continue;
         }
 
-        let programaVinculado = null as any;
+        let programaVinculado: Programa | null = null;
 
         if (linha.programaId) {
           programaVinculado = await this.prisma.programa.findFirst({
@@ -250,11 +324,20 @@ export class ImportacaoService {
         }
 
         if (linha.programaNome && !programaVinculado) {
-          erros.push({ linha: linha.numero, mensagem: 'Programa não encontrado, inativo ou incompatível com o núcleo. Cadastre o programa antes de importar os indicadores.' });
+          erros.push({
+            linha: linha.numero,
+            mensagem:
+              'Programa não encontrado, inativo ou incompatível com o núcleo. Cadastre o programa antes de importar os indicadores.',
+          });
           continue;
         }
 
-        if (nucleoVinculado && programaVinculado && programaVinculado.nucleoId && nucleoVinculado.id !== programaVinculado.nucleoId) {
+        if (
+          nucleoVinculado &&
+          programaVinculado &&
+          programaVinculado.nucleoId &&
+          nucleoVinculado.id !== programaVinculado.nucleoId
+        ) {
           erros.push({
             linha: linha.numero,
             mensagem: 'Núcleo e programa informados são incompatíveis.',
@@ -264,12 +347,19 @@ export class ImportacaoService {
 
         let indicador = linha.indicadorId
           ? await this.prisma.indicador.findFirst({
-              where: { id: linha.indicadorId, deletedAt: null, status: 'ATIVO' },
+              where: {
+                id: linha.indicadorId,
+                deletedAt: null,
+                status: 'ATIVO',
+              },
             })
           : null;
 
         if (!indicador && (linha.indicadorNome || linha.indicadorCodigo)) {
-          const nome = linha.indicadorNome?.trim() || linha.indicadorCodigo?.trim() || 'Indicador importado';
+          const nome =
+            linha.indicadorNome?.trim() ||
+            linha.indicadorCodigo?.trim() ||
+            'Indicador importado';
           const codigo = linha.indicadorCodigo?.trim() || null;
 
           indicador =
@@ -278,7 +368,11 @@ export class ImportacaoService {
                 where: {
                   OR: [
                     { codigo, deletedAt: null, status: 'ATIVO' },
-                    { nome: { equals: nome, mode: 'insensitive' }, deletedAt: null, status: 'ATIVO' },
+                    {
+                      nome: { equals: nome, mode: 'insensitive' },
+                      deletedAt: null,
+                      status: 'ATIVO',
+                    },
                   ],
                 },
               }))) ||
@@ -288,7 +382,10 @@ export class ImportacaoService {
                 codigo,
                 descricao: null,
                 unidadeMedida: linha.unidadeMedida || 'unidade',
-                escopo: nucleoVinculado || programaVinculado ? EscopoIndicador.NUCLEO : EscopoIndicador.INSTITUCIONAL,
+                escopo:
+                  nucleoVinculado || programaVinculado
+                    ? EscopoIndicador.NUCLEO
+                    : EscopoIndicador.INSTITUCIONAL,
                 tipoDado: TipoDadoIndicador.NUMERICO,
                 nucleoId: nucleoVinculado?.id ?? null,
                 programaId: programaVinculado?.id ?? null,
@@ -297,7 +394,10 @@ export class ImportacaoService {
         }
 
         if (!indicador) {
-          erros.push({ linha: linha.numero, mensagem: 'Indicador não encontrado ou inativo.' });
+          erros.push({
+            linha: linha.numero,
+            mensagem: 'Indicador não encontrado ou inativo.',
+          });
           continue;
         }
 
@@ -306,18 +406,23 @@ export class ImportacaoService {
           indicador.nucleoId !== null &&
           !nucleosPermitidos.has(indicador.nucleoId)
         ) {
-          erros.push({ linha: linha.numero, mensagem: 'Sem permissão para este núcleo.' });
+          erros.push({
+            linha: linha.numero,
+            mensagem: 'Sem permissão para este núcleo.',
+          });
           continue;
         }
 
-        const registroExistente = await this.prisma.indicadorRegistro.findFirst({
-          where: {
-            indicadorId: indicador.id,
-            ano: linha.ano,
-            trimestre: linha.trimestre,
-            deletedAt: null,
+        const registroExistente = await this.prisma.indicadorRegistro.findFirst(
+          {
+            where: {
+              indicadorId: indicador.id,
+              ano: linha.ano,
+              trimestre: linha.trimestre,
+              deletedAt: null,
+            },
           },
-        });
+        );
 
         if (registroExistente) {
           await this.prisma.indicadorRegistro.update({
@@ -344,7 +449,8 @@ export class ImportacaoService {
         console.error(`Erro ao importar linha ${linha.numero}:`, erro);
         erros.push({
           linha: linha.numero,
-          mensagem: 'Falha ao gravar o registro; verifique se os dados são válidos.',
+          mensagem:
+            'Falha ao gravar o registro; verifique se os dados são válidos.',
         });
       }
     }
@@ -361,10 +467,9 @@ export class ImportacaoService {
       data: {
         status,
         linhasOk,
-        erros: erros as object[],
+        erros,
         finalizadoEm: new Date(),
       },
     });
   }
 }
-

@@ -18,8 +18,8 @@ export class ProgramaController {
     return this.programaService.contarAtivos();
   }
   @Get('por-nucleo')
-    @UseGuards(JwtAuthGuard)
-    contarPorNucleo() {
-        return this.programaService.contarPorNucleo();
-    }
+  @UseGuards(JwtAuthGuard)
+  contarPorNucleo() {
+    return this.programaService.contarPorNucleo();
+  }
 }

@@ -1,5 +1,4 @@
-﻿
-import {
+﻿import {
   Controller,
   Post,
   Req,
@@ -36,8 +35,7 @@ export class ImportacaoController {
   importarCsv(
     @UploadedFile()
     arquivo:
-      | { originalname: string; mimetype: string; buffer: Buffer }
-      | undefined,
+      { originalname: string; mimetype: string; buffer: Buffer } | undefined,
     @Req() req: RequisicaoAutenticada,
   ) {
     const perfisPermitidos: Role[] = [
@@ -47,15 +45,11 @@ export class ImportacaoController {
     ];
 
     if (!perfisPermitidos.includes(req.user.role)) {
-      throw new ForbiddenException(
-        'Seu perfil não pode importar indicadores.',
-      );
+      throw new ForbiddenException('Seu perfil não pode importar indicadores.');
     }
 
     if (!arquivo) {
-      throw new BadRequestException(
-        'Envie um arquivo no campo "arquivo".',
-      );
+      throw new BadRequestException('Envie um arquivo no campo "arquivo".');
     }
 
     const nome = arquivo.originalname.toLowerCase();
@@ -72,9 +66,7 @@ export class ImportacaoController {
         const primeiraAba = workbook.SheetNames[0];
 
         if (!primeiraAba) {
-          throw new BadRequestException(
-            'A planilha não contém nenhuma aba.',
-          );
+          throw new BadRequestException('A planilha não contém nenhuma aba.');
         }
 
         const planilha = workbook.Sheets[primeiraAba];

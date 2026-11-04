@@ -2,7 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
-import {Imagens} from './config/assets';
+import { Imagens } from './config/assets';
 
 export default function TelaLogin() {
   const [email, setEmail] = useState('');
@@ -69,7 +69,6 @@ export default function TelaLogin() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[580px]">
-        
         <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight font-semibold tracking-tight">
             Indicadores Institucionais <br className="hidden sm:inline" />
@@ -91,7 +90,11 @@ export default function TelaLogin() {
           <div className="bg-white rounded-[32px] p-8 sm:p-10 md:p-12 shadow-2xl w-full max-w-md border border-white/20">
             <div className="flex justify-start mb-4">
               <div className="w-12 h-12 rounded-full bg-[#fce8f3] flex items-center justify-center text-xl">
-                <img alt="" className="relative h-[135.8%] left-0 max-w-none top-[-0.07%] w-[135.8%]" src={Imagens.LogoIPE}/>
+                <img
+                  alt=""
+                  className="relative h-[135.8%] left-0 max-w-none top-[-0.07%] w-[135.8%]"
+                  src={Imagens.LogoIPE}
+                />
               </div>
             </div>
 
@@ -156,7 +159,7 @@ export default function TelaLogin() {
                 >
                   Esqueci minha senha
                 </a>
-                
+
                 <Link
                   to="/cadastro"
                   className="text-[#9d3878] font-semibold hover:underline"
@@ -179,4 +182,3 @@ export default function TelaLogin() {
     </div>
   );
 }
-

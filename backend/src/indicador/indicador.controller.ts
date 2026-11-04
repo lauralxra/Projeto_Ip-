@@ -1,5 +1,4 @@
-﻿
-import {
+﻿import {
   Body,
   Controller,
   Delete,
@@ -14,6 +13,7 @@ import {
   Role,
   EscopoIndicador,
   TipoDadoIndicador,
+  TrimestreEnum,
 } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -89,9 +89,7 @@ export class IndicadorController {
       throw new BadRequestException('O nome do indicador é obrigatório.');
     }
 
-    if (
-      !Object.values(EscopoIndicador).includes(dados.escopo)
-    ) {
+    if (!Object.values(EscopoIndicador).includes(dados.escopo)) {
       throw new BadRequestException('Escopo inválido.');
     }
 
@@ -260,7 +258,7 @@ export class IndicadorController {
       where: {
         indicadorId: indicador.id,
         ano,
-        trimestre: dados.trimestre as any,
+        trimestre: dados.trimestre as TrimestreEnum,
         deletedAt: null,
       },
     });
@@ -277,7 +275,7 @@ export class IndicadorController {
           data: {
             indicadorId: indicador.id,
             ano,
-            trimestre: dados.trimestre as any,
+            trimestre: dados.trimestre as TrimestreEnum,
             valorRealizado: valor,
             responsavelId: req.user.id,
           },

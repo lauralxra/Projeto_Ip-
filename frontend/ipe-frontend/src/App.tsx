@@ -16,11 +16,11 @@ export default function App() {
       <Routes>
         {/* rota inicial */}
         <Route path="/" element={<Navigate to="/login" replace />} />
-        
+
         <Route path="/login" element={<TelaLogin />} />
         {/*<Route path="/cadastro" element={<TelaCadastro />} />*/}
 
-        {UsuarioAtual ? "" : <Navigate to="/login" replace/>}
+        {UsuarioAtual ? '' : <Navigate to="/login" replace />}
 
         <Route path="/dashboard" element={<TelaDashboard />} />
         <Route path="/nucleos" element={<TelaNucleos />} />

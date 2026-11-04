@@ -11,10 +11,17 @@ import { ProgramaModule } from './programa/programa.module';
 import { NucleoModule } from './nucleo/nucleo.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, AuditModule, ImportacaoModule, IndicadorModule, ProgramaModule, NucleoModule,],
+  imports: [
+    PrismaModule,
+    UserModule,
+    AuthModule,
+    AuditModule,
+    ImportacaoModule,
+    IndicadorModule,
+    ProgramaModule,
+    NucleoModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
-

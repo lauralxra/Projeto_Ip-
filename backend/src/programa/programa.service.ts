@@ -5,30 +5,30 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ProgramaService {
   constructor(private readonly prisma: PrismaService) {}
 
-    listarAtivos() {
-        return this.prisma.programa.findMany({
-        where: {
-            status: 'ATIVO',
-            deletedAt: null,
-        },
-        select: {
+  listarAtivos() {
+    return this.prisma.programa.findMany({
+      where: {
+        status: 'ATIVO',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        nucleoId: true,
+        nucleo: {
+          select: {
             id: true,
             nome: true,
-            descricao: true,
-            nucleoId: true,
-            nucleo: {
-            select: {
-                id: true,
-                nome: true,
-                sigla: true,
-            },
-            },
+            sigla: true,
+          },
         },
-        orderBy: {
-            nome: 'asc',
-        },
-        });
-    }
+      },
+      orderBy: {
+        nome: 'asc',
+      },
+    });
+  }
 
   contarAtivos() {
     return this.prisma.programa.count({

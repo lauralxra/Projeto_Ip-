@@ -56,7 +56,9 @@ async function main() {
     });
 
     if (existente) {
-      console.log(`Indicador ${dados.codigo} já existe; mantido sem alterações.`);
+      console.log(
+        `Indicador ${dados.codigo} já existe; mantido sem alterações.`,
+      );
       continue;
     }
 
@@ -80,7 +82,13 @@ async function main() {
       codigo: { in: ['TESTE-001', 'TESTE-002'] },
       deletedAt: null,
     },
-    select: { id: true, codigo: true, nome: true, escopo: true, nucleoId: true },
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      escopo: true,
+      nucleoId: true,
+    },
     orderBy: { codigo: 'asc' },
   });
 

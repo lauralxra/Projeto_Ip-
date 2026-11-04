@@ -1,5 +1,5 @@
-import { NucleosCadastrados, type Nucleo } from "./nucleos";
-import type { Programa } from "./programas";
+import { NucleosCadastrados, type Nucleo } from './nucleos';
+import type { Programa } from './programas';
 
 export interface Indicador {
   id: string;
@@ -24,7 +24,7 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '1248',
     nucleo: NucleosCadastrados[1],
     status: 'ativo',
-    aprovado: true
+    aprovado: true,
   },
   {
     id: '1',
@@ -35,7 +35,7 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '65',
     nucleo: NucleosCadastrados[0],
     status: 'ativo',
-    aprovado: false
+    aprovado: false,
   },
   {
     id: '2',
@@ -46,7 +46,7 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '12',
     nucleo: NucleosCadastrados[2],
     status: 'ativo',
-    aprovado: false
+    aprovado: false,
   },
   {
     id: '3',
@@ -56,7 +56,7 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '13',
     nucleo: NucleosCadastrados[2],
     status: 'ativo',
-    aprovado: true
+    aprovado: true,
   },
   {
     id: '4',
@@ -65,7 +65,7 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '2102',
     nucleo: NucleosCadastrados[1],
     status: 'ativo',
-    aprovado: true
+    aprovado: true,
   },
   {
     id: '5',
@@ -75,6 +75,6 @@ export const IndicadoresCadastrados: Indicador[] = [
     valAtual: '1213922',
     nucleo: NucleosCadastrados[0],
     status: 'ativo',
-    aprovado: true
-  }
+    aprovado: true,
+  },
 ];

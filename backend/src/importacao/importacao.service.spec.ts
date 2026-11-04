@@ -42,9 +42,7 @@ describe('ImportacaoService', () => {
         'user-1',
         Role.ADMINISTRADOR,
       ),
-    ).rejects.toThrow(
-      'Cabeçalho obrigatório: deve conter nucleo e programa',
-    );
+    ).rejects.toThrow('Cabeçalho obrigatório: deve conter nucleo e programa');
   });
 
   it('deve usar unidade como padrão quando o CSV não informa unidade de medida', async () => {
