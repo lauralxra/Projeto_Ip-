@@ -9,7 +9,7 @@ export default function TelaLogin() {
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  // Estados para tratamento da autenticaÃ§Ã£o
+  // Estados para tratamento da autenticação
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -21,7 +21,7 @@ export default function TelaLogin() {
     setCarregando(true);
 
     try {
-      // 1. Faz a requisiÃ§Ã£o de login para a API em NestJS
+      // 1. Faz a requisição de login para a API em NestJS
       const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: {
@@ -59,7 +59,7 @@ export default function TelaLogin() {
     } catch (err: any) {
       // Exibe a mensagem de erro no card e impede o acesso
       setMensagemErro(
-        err.message || 'Erro ao conectar ao servidor de autenticaÃ§Ã£o.',
+        err.message || 'Erro ao conectar ao servidor de autenticação.',
       );
     } finally {
       setCarregando(false);
@@ -69,20 +69,20 @@ export default function TelaLogin() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[580px]">
-        {/* ApresentaÃ§Ã£o */}
+        
         <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight font-semibold tracking-tight">
             Indicadores Institucionais <br className="hidden sm:inline" />
-            em um sÃ³ lugar
+            em um só lugar
           </h1>
           <p className="text-white/90 text-sm md:text-base leading-relaxed max-w-lg font-light">
-            Centralize metas, resultados e sÃ©ries histÃ³ricas dos nÃºcleos de
-            InovaÃ§Ã£o, Parcerias, Empreendedorismo e InternacionalizaÃ§Ã£o, com
+            Centralize metas, resultados e séries históricas dos núcleos de
+            Inovação, Parcerias, Empreendedorismo e Internacionalização, com
             dashboards, filtros cruzados e rastreabilidade.
           </p>
           <div className="pt-12 sm:pt-24 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-white/80 font-medium">
-            <span>Instituto IPÃŠ</span> â€¢ <span>UFRPE</span> â€¢{' '}
-            <span>Termos</span> â€¢ <span>Contate-nos</span>
+            <span>Instituto IPÊ</span> - <span>UFRPE</span> -{' '}
+            <span>Termos</span> - <span>Contate-nos</span>
           </div>
         </div>
 
@@ -99,10 +99,10 @@ export default function TelaLogin() {
               Bem-vindo(a) de Volta!
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-6">
-              Insira suas informaÃ§Ãµes para logar na plataforma IPÃŠ - Indicadores
+              Insira suas informações para logar na plataforma IPÊ - Indicadores
             </p>
 
-            {/* Alerta de erro de autenticaÃ§Ã£o */}
+            {/* erro de autenticação */}
             {mensagemErro && (
               <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 mb-4 leading-relaxed font-medium">
                 {mensagemErro}
@@ -156,6 +156,7 @@ export default function TelaLogin() {
                 >
                   Esqueci minha senha
                 </a>
+                
                 <Link
                   to="/cadastro"
                   className="text-[#9d3878] font-semibold hover:underline"
