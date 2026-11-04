@@ -4,7 +4,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -116,6 +116,12 @@ function Top() {
           <p className="font-normal text-[15px] text-white">Indicador</p>
         </div>
         <div className="flex flex-1 items-center justify-center">
+            <p className="font-normal text-[15px] text-white">Ano</p>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+            <p className="font-normal text-[15px] text-white">Trimestre</p>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
             <p className="font-normal text-[15px] text-white">Unidade</p>
         </div>
         <div className="flex flex-1 items-center justify-center">
@@ -158,6 +164,12 @@ function Lista( { leList, editIndic, setIndicVal, delIndic, aprovIndic }: { leLi
                     <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
                         <div className="flex flex-1 flex-col font-normal justify-center text-black">
                             <p>{indicador.nome}</p>
+                        </div>
+                        <div className="flex flex-1 flex-col font-normal justify-center text-black">
+                            <p>{indicador.ano ?? '-'}</p>
+                        </div>
+                        <div className="flex flex-1 flex-col font-normal justify-center text-black">
+                            <p>{indicador.trimestre ?? '-'}</p>
                         </div>
                         <div className="flex flex-1 flex-col font-normal justify-center text-black">
                             <p>{indicador.unidade}</p>
@@ -250,7 +262,6 @@ const [indicadores, setIndicadores] = useState<Indicador[]>([]);
 const [nucleosDoBanco, setNucleosDoBanco] = useState<Nucleo[]>([]);
 const [programasDoBanco, setProgramasDoBanco] = useState<Programa[]>([]);
 
-useEffect(() => {
     const carregarIndicadores = async () => {
         const token = localStorage.getItem('access_token');
 
@@ -291,6 +302,8 @@ useEffect(() => {
                     valAtual: registro?.valorRealizado != null
                         ? String(registro.valorRealizado)
                         : '0',
+                    ano: registro?.ano ?? undefined,
+                    trimestre: registro?.trimestre ?? undefined,
                     nucleo: item.nucleo ?? undefined,
                     programa: item.programa ?? undefined,
                     status: item.status,
@@ -305,8 +318,9 @@ useEffect(() => {
         }
     };
 
-    carregarIndicadores();
-        }, []);
+    useEffect(() => {
+        carregarIndicadores();
+    }, []);
         
     useEffect(() => {
         const carregarNucleos = async () => {
@@ -401,8 +415,8 @@ useEffect(() => {
     const [filtroPrograma, setFiltroPrograma] = useState('');
     const [filtroAprovacao, setFiltroAprovacao] = useState('');
 
-    const NucleosDoUser = nucleosDoBanco;
-    const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla)));
+    const NucleosDoUser = nucleosDoBanco.length > 0 ? nucleosDoBanco : UsuarioAtual.nucleos ?? [];
+    const listaNucleosNome = Array.from(new Set(NucleosDoUser.map(i => i.sigla))).filter(Boolean);
 
     const programasDoUsuario = programasDoBanco;
 
@@ -436,27 +450,42 @@ useEffect(() => {
         n.unidade.toLowerCase().includes(termoPesquisa.toLowerCase())
     );
 
-    const indicadoresFiltrados = indicPorNome.filter(n => {
-        // Se filtroNucleo for vazio, aceita todos. Se for "Nenhum", filtra os que não têm núcleo. Senão filtra pelo nome.
-        const matchNucleo = filtroNucleo === '' 
-            ? true 
-            : filtroNucleo === 'Nenhum' 
-                ? !n.nucleo 
-                : n.nucleo?.sigla === filtroNucleo;
-                
-        const matchPrograma = filtroPrograma === '' 
-            ? true 
-            : filtroPrograma === 'Nenhum' 
-                ? !n.programa 
-                : n.programa?.nome === filtroPrograma;
+    const getOrdemTrimestre = (trimestre?: string) => {
+        if (!trimestre) return 0;
 
-        const matchAprov = filtroAprovacao === ''
-            ? true
-            : filtroAprovacao === 'Aprovado'
-                ? n.aprovado : !n.aprovado
-        //const matchPrograma = filtroPrograma ? n.programa === filtroPrograma : true;
-        return matchNucleo && matchPrograma && matchAprov;
-    });
+        const valor = trimestre.toUpperCase();
+        const mapa: Record<string, number> = { Q1: 1, T1: 1, Q2: 2, T2: 2, Q3: 3, T3: 3, Q4: 4, T4: 4 };
+        return mapa[valor] ?? 0;
+    };
+
+    const indicadoresFiltrados = [...indicPorNome]
+        .filter(n => {
+            const matchNucleo = filtroNucleo === '' 
+                ? true 
+                : filtroNucleo === 'Nenhum' 
+                    ? !n.nucleo 
+                    : n.nucleo?.sigla === filtroNucleo;
+
+            const matchPrograma = filtroPrograma === '' 
+                ? true 
+                : filtroPrograma === 'Nenhum' 
+                    ? !n.programa 
+                    : n.programa?.nome === filtroPrograma;
+
+            const matchAprov = filtroAprovacao === ''
+                ? true
+                : filtroAprovacao === 'Aprovado'
+                    ? n.aprovado : !n.aprovado;
+
+            return matchNucleo && matchPrograma && matchAprov;
+        })
+        .sort((a, b) => {
+            const anoA = a.ano ?? -Infinity;
+            const anoB = b.ano ?? -Infinity;
+
+            if (anoA !== anoB) return anoB - anoA;
+            return getOrdemTrimestre(b.trimestre) - getOrdemTrimestre(a.trimestre);
+        });
 
     const [formNome, setNomeForm] = useState('');
     const [formUnidade, setUnidadeForm] = useState('');
@@ -465,7 +494,7 @@ useEffect(() => {
     const [formMeta, setMetaForm] = useState('');
     const [formValor, setValorForm] = useState('');
     const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
-    const [formTrimestre, setFormTrimestre] = useState('T4');
+    const [formTrimestre, setFormTrimestre] = useState('Q4');
     const [formStatus, setStatusForm] = useState('');
     const [formAprovacao, setAprovacaoForm] = useState(false);
     const [formDesaprovMotivo, setMotivo] = useState('');
@@ -495,6 +524,9 @@ useEffect(() => {
         setUnidadeForm('');
         setFormNucleoId('');
         setProgramId('');
+        setValorForm('0');
+        setFormAno(String(new Date().getFullYear()));
+        setFormTrimestre('Q4');
         setStatusForm('ativo');
         setModalNovoAberto(true);
     };
@@ -513,6 +545,16 @@ const handleCriarIndic = async (e: React.FormEvent) => {
 
     if (!nome) {
         alert('Informe o nome do indicador.');
+        return;
+    }
+
+    if (formNucleoId && !NucleosDoUser.some(n => n.id === formNucleoId)) {
+        alert('Selecione um núcleo válido antes de criar o indicador.');
+        return;
+    }
+
+    if (formProgramId && !programasDoBanco.some(n => n.id === formProgramId)) {
+        alert('Selecione um programa válido antes de criar o indicador.');
         return;
     }
 
@@ -540,6 +582,10 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         programaId: programSelecionado?.id || null,
     };
 
+    const valorInicial = Number(formValor ?? '0');
+    const anoInicial = Number(formAno);
+    const trimestreInicial = formTrimestre;
+
     try {
         const resposta = await fetch('http://localhost:3000/api/indicadores', {
             method: 'POST',
@@ -558,11 +604,30 @@ const handleCriarIndic = async (e: React.FormEvent) => {
             );
         }
 
+        const valorParaSalvar = Number.isFinite(valorInicial) ? valorInicial : 0;
+
+        if (valorParaSalvar >= 0 && Number.isInteger(anoInicial) && anoInicial >= 2000 && anoInicial <= 2100) {
+            await fetch(`http://localhost:3000/api/indicadores/${resultado.id}/registros`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    ano: anoInicial,
+                    trimestre: trimestreInicial,
+                    valorRealizado: valorParaSalvar,
+                }),
+            });
+        }
+
         const novo: Indicador = {
             id: resultado.id,
             nome: resultado.nome,
             unidade: resultado.unidadeMedida || 'Unidade',
             simbolUni: getUnitSimb(),
+            ano: anoInicial,
+            trimestre: trimestreInicial,
             nucleo: resultado.nucleo
                 ? {
                     id: resultado.nucleo.id,
@@ -580,7 +645,7 @@ const handleCriarIndic = async (e: React.FormEvent) => {
                     nome: resultado.programa.nome,
                     } as Programa
                 : undefined,
-            valAtual: '0',
+            valAtual: String(valorParaSalvar),
             status: resultado.status || 'ATIVO',
             aprovado: false,
         };
@@ -591,6 +656,9 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         setUnidadeForm('');
         setFormNucleoId('');
         setProgramId('');
+        setValorForm('0');
+        setFormAno(String(new Date().getFullYear()));
+        setFormTrimestre('Q4');
 
         alert('Indicador cadastrado com sucesso!');
     } catch (erro) {
@@ -609,7 +677,7 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         setIndicSelecionado(indicador);
         setValorForm(indicador.valAtual);
         setFormAno(String(new Date().getFullYear()));
-        setFormTrimestre('T4');
+        setFormTrimestre('Q4');
         inserindoValor(true);
     };
 
@@ -700,6 +768,7 @@ const handleCriarIndic = async (e: React.FormEvent) => {
     };
 
     const [modalDeletando, setDeletando] = useState(false);
+    const [modalLimparAberto, setModalLimparAberto] = useState(false);
     const abrirDeletarModal = (indicador: Indicador) => {
         setIndicSelecionado(indicador);
         setDeletando(true);
@@ -709,6 +778,50 @@ const handleCriarIndic = async (e: React.FormEvent) => {
         if (!indicSelecionado) return;
         setIndicadores(indicadores.filter(n => n.id !== indicSelecionado.id));
         setDeletando(false);
+    };
+
+    const limparTodosIndicadores = async () => {
+        const token = localStorage.getItem('access_token');
+
+        if (!token) {
+            alert('Sua sessão expirou. Faça login novamente.');
+            return;
+        }
+
+        try {
+            const resposta = await fetch('http://localhost:3000/api/indicadores', {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const resultado = await resposta.json().catch(() => ({}));
+
+            if (!resposta.ok) {
+                throw new Error(resultado.message || 'Não foi possível limpar os indicadores.');
+            }
+
+            setIndicadores([]);
+            setModalLimparAberto(false);
+            setTermoPesquisa('');
+            setFiltroNucleo('');
+            setFiltroPrograma('');
+            setFiltroAprovacao('');
+
+            alert(
+                resultado.removidos > 0
+                    ? `Todos os ${resultado.removidos} indicadores ativos foram removidos.`
+                    : 'Não há indicadores ativos para limpar.'
+            );
+        } catch (erro) {
+            console.error('Erro ao limpar indicadores:', erro);
+            alert(
+                erro instanceof Error
+                    ? erro.message
+                    : 'Erro ao limpar indicadores.'
+            );
+        }
     };
 
     const [modalAprovacao, setModelAprov] = useState(false);
@@ -792,6 +905,8 @@ const progressoGeral = React.useMemo(() => {
             if (!resposta.ok) {
                 throw new Error(resultado.message || "Não foi possível importar o arquivo.");
             }
+
+            await carregarIndicadores();
 
             const resumo = [
                 `Importação finalizada: ${resultado.status}`,
@@ -889,6 +1004,16 @@ const progressoGeral = React.useMemo(() => {
                         {UsuarioAtual.tipo == "ADM" ?
                             <>
                             <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
+
+                            <button
+                                type="button"
+                                onClick={() => setModalLimparAberto(true)}
+                                className="group flex items-center justify-center gap-2 border-[2px] border-[#3b142f] bg-white hover:bg-[#f8f1f6] text-[#3b142f] h-[48px] px-[16px] py-[4px] rounded-[9px] shrink-0 transition-colors cursor-pointer shadow-[0_1px_2px_rgba(59,20,47,0.08)]"
+                                title="Limpar todos os indicadores"
+                            >
+                                <Trash2 size={16} className="text-[#3b142f] group-hover:text-[#591b3e]" />
+                                <span className="font-normal text-[15px] whitespace-nowrap">Limpar todos</span>
+                            </button>
                             
                             {/* Botão importar */}
                             <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
@@ -976,6 +1101,41 @@ const progressoGeral = React.useMemo(() => {
                             </select>
                         </div>
                         <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Valor inicial</label>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formValor}
+                                onChange={(e) => setValorForm(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Ano</label>
+                            <input
+                                type="number"
+                                min="2000"
+                                max="2100"
+                                value={formAno}
+                                onChange={(e) => setFormAno(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Trimestre</label>
+                            <select
+                                value={formTrimestre}
+                                onChange={(e) => setFormTrimestre(e.target.value)}
+                                className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                            >
+                                <option value="Q1">1º trimestre (Q1)</option>
+                                <option value="Q2">2º trimestre (Q2)</option>
+                                <option value="Q3">3º trimestre (Q3)</option>
+                                <option value="Q4">4º trimestre (Q4)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-xs font-bold text-slate-700 mb-1">Núcleo</label>
                             <select 
                             value={formNucleoId}
@@ -996,9 +1156,13 @@ const progressoGeral = React.useMemo(() => {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasDoBanco.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
-                                ))}
+                                {programasDoBanco.length === 0 ? (
+                                    <option value="">Nenhum programa cadastrado</option>
+                                ) : (
+                                    programasDoBanco.map((opt) => (
+                                        <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                    ))
+                                )}
                             </select>
                         </div>
                     </div>
@@ -1154,9 +1318,13 @@ const progressoGeral = React.useMemo(() => {
                             className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
                             >
                                 <option value="">Sem programa</option>
-                                {programasDoBanco.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>{opt.nome}</option>
-                                ))}
+                                {programasDoBanco.length === 0 ? (
+                                    <option value="">Nenhum programa cadastrado</option>
+                                ) : (
+                                    programasDoBanco.map((opt) => (
+                                        <option key={opt.id} value={opt.id}>{opt.nome}</option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <div>
@@ -1221,6 +1389,40 @@ const progressoGeral = React.useMemo(() => {
                     </div>
                 </div>
             </div>
+            )}
+
+            {modalLimparAberto && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5eaf2] text-[#3b142f]">
+                            <Trash2 size={22} />
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-3">Limpar indicadores</h2>
+                        <p className="text-sm text-slate-600 mb-1">
+                            Você deseja remover <span className="font-bold text-slate-800">todos os indicadores ativos</span> do sistema?
+                        </p>
+                        <p className="text-xs text-slate-500 mb-6">
+                            Essa ação não pode ser desfeita e vai ocultar os indicadores cadastrados no momento.
+                        </p>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => setModalLimparAberto(false)}
+                                className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={limparTodosIndicadores}
+                                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
+                            >
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
             
             {/* aprovacao */}
