@@ -1,3 +1,19 @@
+# [1.1.0-dev.3](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.2...v1.1.0-dev.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* **docker:** copy vendor folder before npm ci ([a8491a0](https://github.com/lauralxra/Projeto_Ip-/commit/a8491a0919db609289c9e1c5f4702e540bcd38b8))
+* **frontend:** corrigir criação e validação de indicadores ([ed30d91](https://github.com/lauralxra/Projeto_Ip-/commit/ed30d91a83280527c626aadca219f5d43282b4d5))
+* **frontend:** remover fallback mockado do filtro de programas ([f8830ae](https://github.com/lauralxra/Projeto_Ip-/commit/f8830ae16915164086331a75ad49453126b8adda))
+* **importacao:** exigir núcleo e programa existentes ([d8a59aa](https://github.com/lauralxra/Projeto_Ip-/commit/d8a59aa22e78e9a3a7631f42d77bdd1570ccbe72))
+
+
+### Features
+
+* **importacao:** validar e persistir indicadores com contexto de núcleo e programa ([4119e0e](https://github.com/lauralxra/Projeto_Ip-/commit/4119e0e917c3b8fcd086aeeded3254429c88c136))
+* integra indicadores e dashboards com backend e permite importação e exportação (ainda não está 100% concluído) ([e95c353](https://github.com/lauralxra/Projeto_Ip-/commit/e95c35370fea53993b52b9330d663c4703708ad6))
+
 # [1.1.0-dev.2](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.1...v1.1.0-dev.2) (2026-10-27)
 
 
