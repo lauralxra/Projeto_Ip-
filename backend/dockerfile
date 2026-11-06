@@ -7,6 +7,7 @@ WORKDIR /app
 # --- DEV: usado pelo docker-compose (hot reload, Prisma CLI e ferramentas de dev) ---
 FROM base AS dev
 COPY backend/package*.json ./
+COPY backend/vendor ./vendor
 # --ignore-scripts: o postinstall roda `prisma generate`, que precisa do schema (copiado depois)
 RUN npm ci --ignore-scripts
 ENV NODE_ENV=development
@@ -16,6 +17,7 @@ CMD ["npm", "run", "start:dev"]
 # --- BUILDER: compila o NestJS (gera o Prisma Client e a pasta dist/) ---
 FROM base AS builder
 COPY backend/package*.json ./
+COPY backend/vendor ./vendor
 RUN npm ci --ignore-scripts
 COPY backend/ ./
 RUN npx prisma generate && npm run build
@@ -24,6 +26,7 @@ RUN npx prisma generate && npm run build
 FROM base AS runner
 ENV NODE_ENV=production
 COPY backend/package*.json ./
+COPY backend/vendor ./vendor
 # bcrypt é módulo nativo: --ignore-scripts pula o download do binário, então reconstruímos
 RUN npm ci --omit=dev --ignore-scripts && npm rebuild bcrypt
 # O Prisma Client gerado (src/generated/prisma) já vai compilado dentro de dist/

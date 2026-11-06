@@ -20,6 +20,7 @@ import { CreateUserSwagger } from './swagger/user.post.swagger';
 import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { NucleoService } from '../nucleo/nucleo.service';
 import { NucleosAssociadosSwagger } from './swagger/user.nucleos.swagger';
+import { ContagemUsuariosSwagger } from './swagger/user.contagem.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
@@ -59,6 +60,14 @@ export class UserController {
   @Roles(Role.ADMINISTRADOR)
   findAll() {
     return this.userService.findAll();
+  }
+
+  // Declarada antes de ':id' para não ser capturada como identificador
+  @Get('contagem')
+  @UseGuards(JwtAuthGuard)
+  @ContagemUsuariosSwagger()
+  countAtivos() {
+    return this.userService.countAtivos();
   }
 
   @Get(':id')
