@@ -1,1 +1,0 @@
-ALTER TYPE "acao_auditoria" ADD VALUE 'ENCERRAR_SESSAO';

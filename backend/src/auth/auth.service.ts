@@ -6,7 +6,6 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AcaoAuditoria } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,12 +13,13 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interface/jwt-payload.interface';
 import { AuditService } from '../audit/audit.service';
-import { BCRYPT_ROUNDS } from '../common/security.constants';
 
 export interface MetaRequisicao {
   ip: string;
   userAgent?: string;
 }
+
+const BCRYPT_ROUNDS = 12;
 
 // Hash fictício: mantém o tempo de resposta igual quando o e-mail não existe
 const DUMMY_HASH = bcrypt.hashSync('senha-ficticia', BCRYPT_ROUNDS);
@@ -141,19 +141,6 @@ export class AuthService {
         createdAt: usuario.createdAt,
       },
     };
-  }
-
-  async logout(userId: string, ip: string) {
-    await this.audit.registrarAcao({
-      userId,
-      acao: AcaoAuditoria.ENCERRAR_SESSAO,
-      entidade: 'Sessao',
-      entidadeId: userId,
-      dadosNovos: { evento: 'logout' },
-      ip,
-    });
-
-    return { message: 'Sessão encerrada com sucesso' };
   }
 
   async registrarTentativaInvalida(
