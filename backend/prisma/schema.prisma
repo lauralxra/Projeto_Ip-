@@ -128,7 +128,6 @@ enum AcaoAuditoria {
   DEVOLVER
   PUBLICAR
   IMPORTAR
-  ENCERRAR_SESSAO
 
   @@map("acao_auditoria")
 }
