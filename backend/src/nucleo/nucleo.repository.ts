@@ -59,6 +59,14 @@ export class NucleoRepository {
     });
   }
 
+  async usuarioVinculado(nucleoId: string, userId: string) {
+    const vinculo = await this.prisma.userNucleo.findUnique({
+      where: { userId_nucleoId: { userId, nucleoId } },
+      select: { nucleoId: true },
+    });
+    return vinculo !== null;
+  }
+
   findAssociadosByUserId(userId: string) {
     return this.prisma.nucleo.findMany({
       where: {
