@@ -1,3 +1,38 @@
+# [1.1.0-dev.4](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.3...v1.1.0-dev.4) (2026-11-06)
+
+
+### Bug Fixes
+
+* Teste e Correção da API para Login, Cadastro e Atualização do Usuário ([88db937](https://github.com/lauralxra/Projeto_Ip-/commit/88db9375a46394f4da13188639fa61a9f2556dda))
+
+
+### Features
+
+* add create user ([849165a](https://github.com/lauralxra/Projeto_Ip-/commit/849165aaa7ea6733285de882d2424930864792bc))
+* add new function for audit ([61566cc](https://github.com/lauralxra/Projeto_Ip-/commit/61566cc2458e283c0291fb72303f4f1650a128a1))
+* **api:** add global /api route prefix ([d84d832](https://github.com/lauralxra/Projeto_Ip-/commit/d84d8324fe3d9435b9337ac03e48b03cb367a118))
+* **api:** adiciona módulos base das entidades ([2512d3c](https://github.com/lauralxra/Projeto_Ip-/commit/2512d3c7b0177906e080bffc803464e9ffb4fb7b))
+* **auth:** add logout endpoint ([d7188c3](https://github.com/lauralxra/Projeto_Ip-/commit/d7188c32e628a9a9c94a5debc7e8a0f887467d7c))
+* **auth:** adiciona guard de autenticação JWT para rotas protegidas ([223e125](https://github.com/lauralxra/Projeto_Ip-/commit/223e12574a7a418971559d459b23c1f3c02faeba))
+* **common:** add Prisma exception filter for standardized HTTP errors ([456bb19](https://github.com/lauralxra/Projeto_Ip-/commit/456bb190fb6bb71e6e27ec8b516d412fcac0f270))
+* conecting audit module and user repository on this module ([015d324](https://github.com/lauralxra/Projeto_Ip-/commit/015d3240b09f1ee0b75fb1517b21b8a2f2e408fb))
+* **dashboard:** add GET /api/dashboard/indicators with RBAC-filtered aggregates ([cbdf032](https://github.com/lauralxra/Projeto_Ip-/commit/cbdf032849a336da38cc2c70037a911fe8284bc9))
+* **dashboard:** formalize chart-agnostic response contract ([53b9365](https://github.com/lauralxra/Projeto_Ip-/commit/53b9365962c7003d3e51f23db68af0db73f8ed52))
+* **dashboard:** support combined filters ([0358445](https://github.com/lauralxra/Projeto_Ip-/commit/035844585043002dcff9b34431e816e1857fa48c))
+* esta ligado ao commit anterior ([d87b6b0](https://github.com/lauralxra/Projeto_Ip-/commit/d87b6b02415973004df6510fa28d22ccfb0a08a1))
+* extra functions to locate in database ([f30d40a](https://github.com/lauralxra/Projeto_Ip-/commit/f30d40a8ee946aeb19d29c85bbf40a77b690f732))
+* **nucleo:** add audited deactivation endpoint ([1e51efe](https://github.com/lauralxra/Projeto_Ip-/commit/1e51efe8be7a51ec41767214cda8ebbbe7607183))
+* **nucleo:** add DELETE /api/nucleos/:id with soft delete and audit ([ed17692](https://github.com/lauralxra/Projeto_Ip-/commit/ed17692acc2bf446510156a45f54c5b4e7100f2b))
+* **nucleo:** add GET /api/nucleos search with filters and RBAC scope ([39744b1](https://github.com/lauralxra/Projeto_Ip-/commit/39744b1118ee28ccd0f965618f89bb0d1b478cc1))
+* **nucleo:** add POST /api/nucleos endpoint restricted to admins ([abe0c25](https://github.com/lauralxra/Projeto_Ip-/commit/abe0c25812a44a657b947c041a40233a11c9ea93))
+* **nucleo:** implement GET /api/nucleos and /:id excluding soft-deleted nucleos ([36b7611](https://github.com/lauralxra/Projeto_Ip-/commit/36b7611a09f29a73d6ecba44c3c739bc8065fe2e))
+* **nucleo:** implement GET /nucleos/:id endpoint with RBAC scope ([229a5f4](https://github.com/lauralxra/Projeto_Ip-/commit/229a5f453d5ad2ac7a85145774509be029bc0632))
+* **nucleo:** query nuclei associated with a user ([e1dc1ed](https://github.com/lauralxra/Projeto_Ip-/commit/e1dc1edc07edf38577bf7d063f45e7b9dca95231))
+* upgrading post endpoint ([a75300f](https://github.com/lauralxra/Projeto_Ip-/commit/a75300fb4682321e16bc37ba71c4203c41691a9a))
+* user dtos ([ffd413c](https://github.com/lauralxra/Projeto_Ip-/commit/ffd413cf04ba70b7f91f5787c5a492260c175b24))
+* **user:** expose associated nuclei endpoint ([7af9390](https://github.com/lauralxra/Projeto_Ip-/commit/7af939069072fca7027ec9f030fc83fc108d2894))
+* **users:** implementa atualização do nome ([a3d724f](https://github.com/lauralxra/Projeto_Ip-/commit/a3d724f819ae9f65910a414982f2324a086e70a6))
+
 # [1.1.0-dev.3](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.2...v1.1.0-dev.3) (2026-11-04)
 
 
