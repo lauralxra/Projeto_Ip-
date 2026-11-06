@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -20,6 +21,7 @@ describe('NucleoService', () => {
     findConflito: jest.Mock;
     findAssociadosByUserId: jest.Mock;
     findAtivoById: jest.Mock;
+    usuarioVinculado: jest.Mock;
     create: jest.Mock;
     findAtivoComVinculos: jest.Mock;
     softDelete: jest.Mock;
@@ -40,6 +42,7 @@ describe('NucleoService', () => {
       findConflito: jest.fn(),
       findAssociadosByUserId: jest.fn(),
       findAtivoById: jest.fn(),
+      usuarioVinculado: jest.fn(),
       create: jest.fn(),
       findAtivoComVinculos: jest.fn(),
       softDelete: jest.fn(),
@@ -296,6 +299,71 @@ describe('NucleoService', () => {
         NotFoundException,
       );
       expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne', () => {
+    const nucleo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo de Educação Ambiental',
+      sigla: 'NEA',
+      descricao: null,
+      corHex: '#2E7D32',
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'perfil %s consulta qualquer núcleo sem checar vínculo',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).resolves.toEqual(nucleo);
+        expect(repository.usuarioVinculado).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s consulta núcleo ao qual está vinculado',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+        repository.usuarioVinculado.mockResolvedValue(true);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).resolves.toEqual(nucleo);
+        expect(repository.usuarioVinculado).toHaveBeenCalledWith(
+          'nucleo-uuid',
+          'user-uuid',
+        );
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s sem vínculo com o núcleo recebe 403',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+        repository.usuarioVinculado.mockResolvedValue(false);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it('núcleo inexistente ou excluído retorna 404 antes de checar vínculo', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.findOne('nucleo-uuid', {
+          id: 'user-uuid',
+          role: Role.DIRETORES_NUCLEOS,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.usuarioVinculado).not.toHaveBeenCalled();
     });
   });
 

@@ -2,6 +2,7 @@ import {
   CanActivate,
   ConflictException,
   ExecutionContext,
+  ForbiddenException,
   INestApplication,
   NotFoundException,
   UnauthorizedException,
@@ -34,6 +35,7 @@ describe('NucleoController (HTTP)', () => {
     remove: jest.Mock;
     deactivate: jest.Mock;
     search: jest.Mock;
+    findOne: jest.Mock;
   };
   const payload = { nome: 'Núcleo de Educação Ambiental', sigla: 'nea' };
 
@@ -43,6 +45,7 @@ describe('NucleoController (HTTP)', () => {
       remove: jest.fn().mockResolvedValue(undefined),
       deactivate: jest.fn().mockResolvedValue(undefined),
       search: jest.fn().mockResolvedValue({ itens: [], total: 0 }),
+      findOne: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NucleoController],
@@ -323,6 +326,70 @@ describe('NucleoController (HTTP)', () => {
           statusCode: 500,
           message: 'Erro interno ao acessar o banco de dados.',
           error: 'Internal Server Error',
+        });
+    });
+  });
+
+  describe('GET /nucleos/:id', () => {
+    const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    it('retorna o núcleo e repassa o usuário autenticado ao service', async () => {
+      await request(app.getHttpServer())
+        .get(`/nucleos/${id}`)
+        .set('x-test-role', Role.DIRETORES_NUCLEOS)
+        .expect(200)
+        .expect({ id: 'nucleo-uuid' });
+
+      expect(nucleoService.findOne).toHaveBeenCalledWith(id, {
+        id: 'autor-uuid',
+        role: Role.DIRETORES_NUCLEOS,
+      });
+    });
+
+    it('sem token retorna 401 e nada é consultado', async () => {
+      await request(app.getHttpServer()).get(`/nucleos/${id}`).expect(401);
+
+      expect(nucleoService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('id que não é UUID retorna 400', async () => {
+      await request(app.getHttpServer())
+        .get('/nucleos/abc')
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(400);
+
+      expect(nucleoService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('núcleo inexistente retorna 404 padronizado', async () => {
+      nucleoService.findOne.mockRejectedValue(
+        new NotFoundException('Núcleo não encontrado.'),
+      );
+
+      await request(app.getHttpServer())
+        .get(`/nucleos/${id}`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(404)
+        .expect({
+          statusCode: 404,
+          message: 'Núcleo não encontrado.',
+          error: 'Not Found',
+        });
+    });
+
+    it('núcleo não permitido retorna 403', async () => {
+      nucleoService.findOne.mockRejectedValue(
+        new ForbiddenException('Você não possui acesso a este núcleo.'),
+      );
+
+      await request(app.getHttpServer())
+        .get(`/nucleos/${id}`)
+        .set('x-test-role', Role.DIRETORES_NUCLEOS)
+        .expect(403)
+        .expect({
+          statusCode: 403,
+          message: 'Você não possui acesso a este núcleo.',
+          error: 'Forbidden',
         });
     });
   });
