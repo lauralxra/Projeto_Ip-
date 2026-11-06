@@ -10,6 +10,8 @@ import {
   ParseUUIDPipe,
   Req,
   UseGuards,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
@@ -42,48 +44,52 @@ export class UserController {
     return this.userService.create(createUserDto, { id: req.user.id, ip });
   }
 
-@Get()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-findAll() {
-  return this.userService.findAll();
-}
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  findAll() {
+    return this.userService.findAll();
+  }
+  @Get('profile/email-change/confirm')
+  confirmEmailChange(@Query('token') token: string) {
+    if (!token) {
+      throw new BadRequestException('Token não informado.');
+    }
+    return this.userService.confirmEmailChange(token);
+  }
 
-@Get(':id')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-findOne(@Param('id') id: string) {
-  return this.userService.findById(id);
-}
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  findOne(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
 
-@Patch(':id')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-@UpdateUserSwagger()
-update(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Body() updateUserDto: UpdateUserDto,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.userService.update(id, updateUserDto);
-}
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @UpdateUserSwagger()
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.userService.update(id, updateUserDto);
+  }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }
-@Post('profile/email-change')
-@UseGuards(JwtAuthGuard)
-requestEmailChange(
-  @Body() dto: RequestEmailChangeDto,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.userService.requestEmailChange(
-    req.user.id,
-    dto,
-    { id: req.user.id, ip },
-  );
-}
+  @Post('profile/email-change')
+  @UseGuards(JwtAuthGuard)
+  requestEmailChange(
+    @Body() dto: RequestEmailChangeDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.requestEmailChange(req.user.id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
 }

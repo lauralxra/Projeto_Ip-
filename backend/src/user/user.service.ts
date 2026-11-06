@@ -16,7 +16,6 @@ import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { RequestEmailChangeDto } from './dto/request-email-change.dto';
 
-
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
 @Injectable()
@@ -211,67 +210,104 @@ export class UserService {
     return `This action removes a #${id} user`;
   }
   async requestEmailChange(
-  id: string,
-  dto: RequestEmailChangeDto,
-  autor: AutorAcao,
-) {
-  
-  if (dto.newEmail !== dto.confirmNewEmail) {
-    throw new ConflictException('Os e-mails não coincidem.');
+    id: string,
+    dto: RequestEmailChangeDto,
+    autor: AutorAcao,
+  ) {
+    if (dto.newEmail !== dto.confirmNewEmail) {
+      throw new ConflictException('Os e-mails não coincidem.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    if (dto.newEmail === user.email) {
+      throw new ConflictException(
+        'O novo e-mail não pode ser igual ao e-mail atual.',
+      );
+    }
+
+    const senhaValida = await bcrypt.compare(
+      dto.currentPassword,
+      user.senhaHash,
+    );
+    if (!senhaValida) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    const emailEmUso = await this.userRepository.findActiveByEmail(
+      dto.newEmail,
+    );
+    if (emailEmUso && emailEmUso.id !== id) {
+      throw new ConflictException(
+        'Este e-mail já está em uso por outra conta.',
+      );
+    }
+
+    const token = crypto.randomUUID();
+    const expiracao = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
+
+    await this.prisma.emailChangeToken.create({
+      data: {
+        userId: id,
+        newEmail: dto.newEmail,
+        token,
+        expiresAt: expiracao,
+      },
+    });
+
+    // Simulação de uma confirmação de email
+    console.log(`[EMAIL SIMULADO] Enviar para: ${dto.newEmail}`);
+    console.log(
+      `[EMAIL SIMULADO] Link: http://localhost:5173/confirmar-email?token=${token}`,
+    );
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { email: user.email },
+      dadosNovos: { email: dto.newEmail, status: 'pendente_confirmacao' },
+      ip: autor.ip,
+    });
+
+    return {
+      message:
+        'Solicitação de troca de e-mail registrada. Verifique o novo e-mail para confirmar.',
+    };
   }
-  
-  const user = await this.prisma.user.findUnique({ where: { id } });
-  if (!user) {
-    throw new NotFoundException('Usuário não encontrado.');
+  async confirmEmailChange(token: string) {
+    const emailChangeToken = await this.prisma.emailChangeToken.findUnique({
+      where: { token },
+    });
+
+    if (!emailChangeToken) {
+      throw new NotFoundException('Token inválido.');
+    }
+
+    if (emailChangeToken.used) {
+      throw new ConflictException('Este token já foi utilizado.');
+    }
+
+    if (new Date() > emailChangeToken.expiresAt) {
+      throw new ConflictException(
+        'Token expirado. Solicite uma nova troca de e-mail.',
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: emailChangeToken.userId },
+      data: { email: emailChangeToken.newEmail },
+    });
+
+    await this.prisma.emailChangeToken.update({
+      where: { token },
+      data: { used: true },
+    });
+
+    return { message: 'E-mail atualizado com sucesso.' };
   }
-
-  if (dto.newEmail === user.email) {
-    throw new ConflictException('O novo e-mail não pode ser igual ao e-mail atual.');
-  }
-
-  
-  const senhaValida = await bcrypt.compare(dto.currentPassword, user.senhaHash);
-  if (!senhaValida) {
-    throw new UnauthorizedException('Senha atual incorreta.');
-  }
-
-  
-  const emailEmUso = await this.userRepository.findActiveByEmail(dto.newEmail);
-  if (emailEmUso && emailEmUso.id !== id) {
-    throw new ConflictException('Este e-mail já está em uso por outra conta.');
-  }
-
-  
-
-  
-  const token = crypto.randomUUID();
-  const expiracao = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
-
-  await this.prisma.emailChangeToken.create({
-    data: {
-      userId: id,
-      newEmail: dto.newEmail,
-      token,
-      expiresAt: expiracao,
-    },
-  });
-
-  // Simulação de uma confirmação de email
-  console.log(`[EMAIL SIMULADO] Enviar para: ${dto.newEmail}`);
-  console.log(`[EMAIL SIMULADO] Link: http://localhost:5173/confirmar-email?token=${token}`);
-
-  await this.audit.registrarAcao({
-    userId: autor.id,
-    acao: AcaoAuditoria.ATUALIZAR,
-    entidade: 'User',
-    entidadeId: id,
-    dadosAntigos: { email: user.email },
-    dadosNovos: { email: dto.newEmail, status: 'pendente_confirmacao' },
-    ip: autor.ip,
-  });
-
-  return {
-    message: 'Solicitação de troca de e-mail registrada. Verifique o novo e-mail para confirmar.',
-  };
-}
 }
