@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AcaoAuditoria, Prisma } from '@prisma/client';
+import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,6 +13,7 @@ import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
+import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -202,6 +203,62 @@ export class UserService {
     });
 
     return usuarioAtualizado;
+  }
+  async updatePermissions(
+    id: string,
+    dto: UpdateUserPermissionsDto,
+    autor: AutorAcao,
+  ) {
+    // 1. Busca o usuário
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // 2. Valida se perfis que precisam de núcleo têm nucleoIds
+    const perfisSemNucleo: Role[] = [
+      Role.ADMINISTRADOR,
+      Role.EQUIPE_COMUNICACAO,
+    ];
+    const precisaNucleo = dto.role && !perfisSemNucleo.includes(dto.role);
+
+    if (precisaNucleo && (!dto.nucleoIds || dto.nucleoIds.length === 0)) {
+      throw new ConflictException(
+        'Usuários com perfil DN ou EG precisam ter ao menos um núcleo associado.',
+      );
+    }
+
+    // 3. Atualiza o perfil
+    if (dto.role) {
+      await this.userRepository.updatePermissions(id, dto.role);
+    }
+
+    // 4. Sincroniza os núcleos
+    if (dto.nucleoIds !== undefined) {
+      await this.userRepository.syncNucleos(id, dto.nucleoIds);
+    }
+
+    // 5. Busca núcleos anteriores pra auditoria
+    const nucleosAntigos = await this.userRepository.findNucleosByUserId(id);
+
+    // 6. Registra auditoria
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: {
+        perfil: usuarioAtual.perfil,
+        nucleos: nucleosAntigos.map((n) => n.nucleoId),
+      },
+      dadosNovos: {
+        perfil: dto.role,
+        nucleos: dto.nucleoIds,
+      },
+      ip: autor.ip,
+    });
+
+    return { message: 'Permissões atualizadas com sucesso.' };
   }
 
   remove(id: string) {

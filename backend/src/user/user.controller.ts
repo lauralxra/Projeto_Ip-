@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
+import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -41,35 +42,45 @@ export class UserController {
     return this.userService.create(createUserDto, { id: req.user.id, ip });
   }
 
-@Get()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-findAll() {
-  return this.userService.findAll();
-}
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  findAll() {
+    return this.userService.findAll();
+  }
 
-@Get(':id')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-findOne(@Param('id') id: string) {
-  return this.userService.findById(id);
-}
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  findOne(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
 
-@Patch(':id')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-@UpdateUserSwagger()
-update(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Body() updateUserDto: UpdateUserDto,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.userService.updateName(id, updateUserDto.name, {
-    id: req.user.id,
-    ip,
-  });
-}
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @UpdateUserSwagger()
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.userService.update(id, updateUserDto);
+  }
+
+  @Patch(':id/permissions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  updatePermissions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserPermissionsDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.updatePermissions(id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
 
   @Delete(':id')
   remove(@Param('id') id: string) {

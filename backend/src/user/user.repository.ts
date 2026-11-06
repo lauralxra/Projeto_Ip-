@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Nunca expõe senhaHash
@@ -40,5 +40,27 @@ export class UserRepository {
       where: { id, deletedAt: null },
       data: { nome },
     });
+  }
+  updatePermissions(id: string, role: Role) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { perfil: role },
+    });
+  }
+
+  findNucleosByUserId(userId: string) {
+    return this.prisma.userNucleo.findMany({
+      where: { userId },
+      select: { nucleoId: true },
+    });
+  }
+
+  syncNucleos(userId: string, nucleoIds: string[]) {
+    return this.prisma.$transaction([
+      this.prisma.userNucleo.deleteMany({ where: { userId } }),
+      this.prisma.userNucleo.createMany({
+        data: nucleoIds.map((nucleoId) => ({ userId, nucleoId })),
+      }),
+    ]);
   }
 }
