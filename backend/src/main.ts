@@ -6,6 +6,13 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Permite as requisições do frontend Vite/React
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+    credentials: true,
+  });
+
   app.setGlobalPrefix(process.env.API_PREFIX ?? 'api');
   app.useGlobalPipes(
     new ValidationPipe({

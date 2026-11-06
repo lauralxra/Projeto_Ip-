@@ -22,7 +22,10 @@ import { CreateNucleoDto } from './dto/create-nucleo.dto';
 import { SearchNucleoDto } from './dto/search-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
 import { CreateNucleoSwagger } from './swagger/nucleo.post.swagger';
-import { SearchNucleoSwagger } from './swagger/nucleo.get.swagger';
+import {
+  FindOneNucleoSwagger,
+  SearchNucleoSwagger,
+} from './swagger/nucleo.get.swagger';
 import { DeleteNucleoSwagger } from './swagger/nucleo.delete.swagger';
 import { DeactivateNucleoSwagger } from './swagger/nucleo.deactivate.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -57,8 +60,13 @@ export class NucleoController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.nucleoService.findOne(id);
+  @UseGuards(JwtAuthGuard)
+  @FindOneNucleoSwagger()
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.nucleoService.findOne(id, req.user);
   }
 
   @Patch(':id')

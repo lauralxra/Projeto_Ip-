@@ -41,4 +41,8 @@ export class UserRepository {
       data: { nome },
     });
   }
+
+  countAtivos() {
+    return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
+  }
 }
