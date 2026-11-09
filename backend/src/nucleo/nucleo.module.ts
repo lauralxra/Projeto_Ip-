@@ -9,5 +9,6 @@ import { AuditModule } from '../audit/audit.module';
   imports: [AuthModule, AuditModule],
   controllers: [NucleoController],
   providers: [NucleoService, NucleoRepository],
+  exports: [NucleoService],
 })
 export class NucleoModule {}

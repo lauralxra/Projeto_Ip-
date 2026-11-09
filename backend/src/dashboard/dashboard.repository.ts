@@ -14,6 +14,70 @@ export interface FiltroIndicadores {
 export class DashboardRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async usuarioPodeAcessarFiltros(
+    userId: string,
+    filtros: {
+      nucleoId?: string;
+      indicadorId?: string;
+      programaId?: string;
+      acaoId?: string;
+    },
+  ) {
+    const verificacoes: Promise<boolean>[] = [];
+    const escopoNucleo = { nucleo: { users: { some: { userId } } } };
+
+    if (filtros.nucleoId) {
+      verificacoes.push(
+        this.prisma.userNucleo
+          .findFirst({
+            where: { userId, nucleoId: filtros.nucleoId },
+            select: { userId: true },
+          })
+          .then((vinculo) => vinculo !== null),
+      );
+    }
+    if (filtros.indicadorId) {
+      verificacoes.push(
+        this.prisma.indicador
+          .findFirst({
+            where: {
+              id: filtros.indicadorId,
+              deletedAt: null,
+              ...escopoNucleo,
+            },
+            select: { id: true },
+          })
+          .then((indicador) => indicador !== null),
+      );
+    }
+    if (filtros.programaId) {
+      verificacoes.push(
+        this.prisma.indicador
+          .findFirst({
+            where: {
+              programaId: filtros.programaId,
+              deletedAt: null,
+              ...escopoNucleo,
+            },
+            select: { id: true },
+          })
+          .then((indicador) => indicador !== null),
+      );
+    }
+    if (filtros.acaoId) {
+      verificacoes.push(
+        this.prisma.indicador
+          .findFirst({
+            where: { acaoId: filtros.acaoId, deletedAt: null, ...escopoNucleo },
+            select: { id: true },
+          })
+          .then((indicador) => indicador !== null),
+      );
+    }
+
+    return (await Promise.all(verificacoes)).every(Boolean);
+  }
+
   // Uma única consulta traz indicadores, núcleo, meta do período e medições visíveis (RNF01)
   findIndicadores({ where, registros, ano, trimestreMeta }: FiltroIndicadores) {
     return this.prisma.indicador.findMany({

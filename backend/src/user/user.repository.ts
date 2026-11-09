@@ -48,5 +48,7 @@ export class UserRepository {
     where: { id, deletedAt: null },
     data: { fotoUrl },
   });
+  countAtivos() {
+    return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
   }
 }

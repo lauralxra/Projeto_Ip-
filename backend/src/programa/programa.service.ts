@@ -1,26 +1,54 @@
 import { Injectable } from '@nestjs/common';
-import { CreateProgramaDto } from './dto/create-programa.dto';
-import { UpdateProgramaDto } from './dto/update-programa.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ProgramaService {
-  create(_createProgramaDto: CreateProgramaDto) {
-    return 'This action adds a new programa';
+  constructor(private readonly prisma: PrismaService) {}
+
+  listarAtivos() {
+    return this.prisma.programa.findMany({
+      where: {
+        status: 'ATIVO',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        nucleoId: true,
+        nucleo: {
+          select: {
+            id: true,
+            nome: true,
+            sigla: true,
+          },
+        },
+      },
+      orderBy: {
+        nome: 'asc',
+      },
+    });
   }
 
-  findAll() {
-    return `This action returns all programa`;
+  contarAtivos() {
+    return this.prisma.programa.count({
+      where: {
+        status: 'ATIVO',
+        deletedAt: null,
+      },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} programa`;
-  }
-
-  update(id: number, _updateProgramaDto: UpdateProgramaDto) {
-    return `This action updates a #${id} programa`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} programa`;
+  contarPorNucleo() {
+    return this.prisma.programa.groupBy({
+      by: ['nucleoId'],
+      where: {
+        status: 'ATIVO',
+        deletedAt: null,
+      },
+      _count: {
+        id: true,
+      },
+    });
   }
 }

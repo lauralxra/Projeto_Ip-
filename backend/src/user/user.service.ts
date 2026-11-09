@@ -8,7 +8,6 @@ import {
 import { AcaoAuditoria, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
@@ -74,6 +73,10 @@ export class UserService {
     };
   }
 
+  countAtivos() {
+    return this.userRepository.countAtivos();
+  }
+
   async findAll() {
     return this.prisma.user.findMany({
       select: {
@@ -110,66 +113,6 @@ export class UserService {
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
     };
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const { name, email, password, role, confirmPassword } = updateUserDto;
-
-    if (password && password !== confirmPassword) {
-      throw new ConflictException('As senhas não coincidem.');
-    }
-
-    if (email && email !== user.email) {
-      const existingUser = await this.userRepository.findActiveByEmail(email);
-
-      if (existingUser && existingUser.id !== id) {
-        throw new ConflictException(EMAIL_EM_USO);
-      }
-    }
-
-    const data: Prisma.UserUpdateInput = {};
-
-    if (name !== undefined) data.nome = name;
-    if (email !== undefined) data.email = email;
-    if (role !== undefined) data.perfil = role;
-
-    if (password) {
-      data.senhaHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    }
-
-    try {
-      return await this.prisma.user.update({
-        where: { id },
-        data,
-        select: {
-          id: true,
-          nome: true,
-          email: true,
-          fotoUrl: true,
-          perfil: true,
-          ativo: true,
-          ultimoAcesso: true,
-          createdAt: true,
-          updatedAt: true,
-          deletedAt: true,
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(EMAIL_EM_USO);
-      }
-
-      throw error;
-    }
   }
 
   async updateName(id: string, name: string, autor: AutorAcao) {
