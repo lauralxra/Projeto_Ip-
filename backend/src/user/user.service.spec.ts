@@ -17,6 +17,9 @@ describe('UserService', () => {
     create: jest.Mock;
     findActiveById: jest.Mock;
     updateName: jest.Mock;
+    updatePermissions: jest.Mock;
+    syncNucleos: jest.Mock;
+    findNucleosByUserId: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
@@ -35,6 +38,9 @@ describe('UserService', () => {
       create: jest.fn(),
       findActiveById: jest.fn(),
       updateName: jest.fn(),
+      updatePermissions: jest.fn().mockResolvedValue({ count: 1 }),
+      syncNucleos: jest.fn(),
+      findNucleosByUserId: jest.fn().mockResolvedValue([]),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
     service = new UserService(
@@ -191,6 +197,125 @@ describe('UserService', () => {
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updatePermissions', () => {
+    const usuario = {
+      id: 'usuario-uuid',
+      nome: 'Maria',
+      email: 'maria@exemplo.com',
+      perfil: Role.DIRETORES_NUCLEOS as Role | null,
+      ativo: true,
+      createdAt,
+    };
+
+    beforeEach(() => {
+      repository.findActiveById.mockResolvedValue(usuario);
+    });
+
+    it('audita os núcleos anteriores à sincronização, não os já alterados', async () => {
+      let vinculos = [{ nucleoId: 'nucleo-antigo' }];
+      repository.findNucleosByUserId.mockImplementation(() =>
+        Promise.resolve(vinculos),
+      );
+      repository.syncNucleos.mockImplementation(
+        (_id: string, nucleoIds: string[]) => {
+          vinculos = nucleoIds.map((nucleoId) => ({ nucleoId }));
+          return Promise.resolve([]);
+        },
+      );
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { nucleoIds: ['nucleo-novo'] },
+        autor,
+      );
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: {
+            perfil: Role.DIRETORES_NUCLEOS,
+            nucleos: ['nucleo-antigo'],
+          },
+          dadosNovos: {
+            perfil: Role.DIRETORES_NUCLEOS,
+            nucleos: ['nucleo-novo'],
+          },
+        }),
+      );
+    });
+
+    it('recusa remover todos os núcleos de um DN mesmo sem informar o perfil', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-antigo' },
+      ]);
+
+      await expect(
+        service.updatePermissions('usuario-uuid', { nucleoIds: [] }, autor),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('recusa promover a EG usuário sem núcleo e sem informar nucleoIds', async () => {
+      repository.findActiveById.mockResolvedValue({
+        ...usuario,
+        perfil: Role.EQUIPE_COMUNICACAO,
+      });
+
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.EQUIPE_GESTAO },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
+    });
+
+    it('permite trocar para EG mantendo os núcleos já associados', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-antigo' },
+      ]);
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { role: Role.EQUIPE_GESTAO },
+        autor,
+      );
+
+      expect(repository.updatePermissions).toHaveBeenCalledWith(
+        'usuario-uuid',
+        Role.EQUIPE_GESTAO,
+      );
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+    });
+
+    it('permite perfil ADMINISTRADOR sem núcleos', async () => {
+      await service.updatePermissions(
+        'usuario-uuid',
+        { role: Role.ADMINISTRADOR },
+        autor,
+      );
+
+      expect(repository.updatePermissions).toHaveBeenCalledWith(
+        'usuario-uuid',
+        Role.ADMINISTRADOR,
+      );
+    });
+
+    it('retorna 404 para usuário inexistente ou excluído', async () => {
+      repository.findActiveById.mockResolvedValue(null);
+
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.ADMINISTRADOR },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
     });
   });
 });
