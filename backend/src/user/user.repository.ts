@@ -7,6 +7,7 @@ export const publicUserSelect = {
   id: true,
   nome: true,
   email: true,
+  fotoUrl: true, 
   perfil: true,
   ativo: true,
   createdAt: true,
@@ -42,6 +43,11 @@ export class UserRepository {
     });
   }
 
+  updatePhoto(id: string, fotoUrl: string) {
+  return this.prisma.user.updateMany({
+    where: { id, deletedAt: null },
+    data: { fotoUrl },
+  });
   countAtivos() {
     return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
   }

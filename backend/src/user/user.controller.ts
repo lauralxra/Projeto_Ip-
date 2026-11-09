@@ -25,6 +25,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
+import { UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -70,6 +74,57 @@ export class UserController {
     return this.userService.countAtivos();
   }
 
+@Patch(':id')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMINISTRADOR)
+@UpdateUserSwagger()
+update(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Body() updateUserDto: UpdateUserDto,
+  @Req() req: AuthenticatedRequest,
+  @Ip() ip: string,
+) {
+  return this.userService.update(id, updateUserDto);
+}
+@Patch('profile/photo')
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(
+  FileInterceptor('photo', {
+    storage: diskStorage({
+      destination: './uploads/photos',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `photo-${uniqueSuffix}${extname(file.originalname)}`);
+      },
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) {
+        return cb(
+          new BadRequestException('Formato de imagem inválido. Use JPEG, PNG ou WEBP.'),
+          false,
+        );
+      }
+      cb(null, true);
+    },
+  }),
+)
+updatePhoto(
+  @UploadedFile() file: Express.Multer.File,
+  @Req() req: AuthenticatedRequest,
+  @Ip() ip: string,
+) {
+  if (!file) {
+    throw new BadRequestException('Nenhum arquivo enviado.');
+  }
+
+  const fotoUrl = `/uploads/photos/${file.filename}`;
+  return this.userService.updatePhoto(req.user.id, fotoUrl, {
+    id: req.user.id,
+    ip,
+  });
+}
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
