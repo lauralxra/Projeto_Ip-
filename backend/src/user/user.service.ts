@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { AcaoAuditoria, Prisma } from '@prisma/client';
+import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +13,7 @@ import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
+import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 import { unlink } from 'fs';
 import { join } from 'path';
 
@@ -149,44 +150,108 @@ export class UserService {
 
     return usuarioAtualizado;
   }
-
-  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao, oldFotoUrl?: string) {
-  const usuarioAtual = await this.userRepository.findActiveById(id);
-  if (!usuarioAtual) {
-    throw new NotFoundException('Usuário não encontrado.');
-  }
-
-  try {
-    const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
-    if (count === 0) {
+  async updatePermissions(
+    id: string,
+    dto: UpdateUserPermissionsDto,
+    autor: AutorAcao,
+  ) {
+    // 1. Busca o usuário
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    // Remove a foto antiga do disco
-    if (usuarioAtual.fotoUrl) {
-      const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
-      unlink(oldPath, (err) => {
-        if (err) console.warn(`[FOTO] Não foi possível remover foto antiga: ${err.message}`);
-      });
+    // 2. Lê os núcleos atuais antes de alterar, para validar e auditar
+    const vinculosAtuais = await this.userRepository.findNucleosByUserId(id);
+    const nucleosAntigos = vinculosAtuais.map((n) => n.nucleoId);
+    const perfilFinal = dto.role ?? usuarioAtual.perfil;
+    const nucleosFinais = dto.nucleoIds ?? nucleosAntigos;
+
+    // 3. Valida o estado final: perfis DN e EG precisam de ao menos um núcleo
+    const perfisSemNucleo: Role[] = [
+      Role.ADMINISTRADOR,
+      Role.EQUIPE_COMUNICACAO,
+    ];
+    const precisaNucleo =
+      perfilFinal !== null && !perfisSemNucleo.includes(perfilFinal);
+
+    if (precisaNucleo && nucleosFinais.length === 0) {
+      throw new ConflictException(
+        'Usuários com perfil DN ou EG precisam ter ao menos um núcleo associado.',
+      );
     }
 
+    // 4. Atualiza o perfil
+    if (dto.role) {
+      await this.userRepository.updatePermissions(id, dto.role);
+    }
+
+    // 5. Sincroniza os núcleos
+    if (dto.nucleoIds !== undefined) {
+      await this.userRepository.syncNucleos(id, dto.nucleoIds);
+    }
+
+    // 6. Registra auditoria
     await this.audit.registrarAcao({
       userId: autor.id,
       acao: AcaoAuditoria.ATUALIZAR,
       entidade: 'User',
       entidadeId: id,
-      dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
-      dadosNovos: { fotoUrl },
+      dadosAntigos: {
+        perfil: usuarioAtual.perfil,
+        nucleos: nucleosAntigos,
+      },
+      dadosNovos: {
+        perfil: perfilFinal,
+        nucleos: nucleosFinais,
+      },
       ip: autor.ip,
     });
 
-    return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
-
-  } catch (error) {
-    if (error instanceof NotFoundException) throw error;
-    throw new InternalServerErrorException('Erro ao atualizar a foto de perfil.');
+    return { message: 'Permissões atualizadas com sucesso.' };
   }
-}
+
+  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao) {
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    try {
+      const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
+      if (count === 0) {
+        throw new NotFoundException('Usuário não encontrado.');
+      }
+
+      // Remove a foto antiga do disco
+      if (usuarioAtual.fotoUrl) {
+        const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
+        unlink(oldPath, (err) => {
+          if (err)
+            console.warn(
+              `[FOTO] Não foi possível remover foto antiga: ${err.message}`,
+            );
+        });
+      }
+
+      await this.audit.registrarAcao({
+        userId: autor.id,
+        acao: AcaoAuditoria.ATUALIZAR,
+        entidade: 'User',
+        entidadeId: id,
+        dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
+        dadosNovos: { fotoUrl },
+        ip: autor.ip,
+      });
+
+      return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        'Erro ao atualizar a foto de perfil.',
+      );
+    }
+  }
 
   remove(id: string) {
     return `This action removes a #${id} user`;

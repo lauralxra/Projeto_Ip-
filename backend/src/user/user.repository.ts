@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Nunca expõe senhaHash
@@ -7,7 +7,7 @@ export const publicUserSelect = {
   id: true,
   nome: true,
   email: true,
-  fotoUrl: true, 
+  fotoUrl: true,
   perfil: true,
   ativo: true,
   createdAt: true,
@@ -42,12 +42,36 @@ export class UserRepository {
       data: { nome },
     });
   }
+  updatePermissions(id: string, role: Role) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { perfil: role },
+    });
+  }
+
+  findNucleosByUserId(userId: string) {
+    return this.prisma.userNucleo.findMany({
+      where: { userId },
+      select: { nucleoId: true },
+    });
+  }
+
+  syncNucleos(userId: string, nucleoIds: string[]) {
+    return this.prisma.$transaction([
+      this.prisma.userNucleo.deleteMany({ where: { userId } }),
+      this.prisma.userNucleo.createMany({
+        data: nucleoIds.map((nucleoId) => ({ userId, nucleoId })),
+      }),
+    ]);
+  }
 
   updatePhoto(id: string, fotoUrl: string) {
-  return this.prisma.user.updateMany({
-    where: { id, deletedAt: null },
-    data: { fotoUrl },
-  });
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { fotoUrl },
+    });
+  }
+
   countAtivos() {
     return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
   }
