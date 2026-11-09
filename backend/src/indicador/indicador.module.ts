@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
-import { IndicadorService } from './indicador.service';
+﻿import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { IndicadorController } from './indicador.controller';
 
 @Module({
+  imports: [AuthModule],
   controllers: [IndicadorController],
-  providers: [IndicadorService],
 })
 export class IndicadorModule {}

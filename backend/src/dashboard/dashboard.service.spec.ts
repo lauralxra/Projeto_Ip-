@@ -11,7 +11,10 @@ import { DashboardService } from './dashboard.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
-  let repository: { findIndicadores: jest.Mock };
+  let repository: {
+    findIndicadores: jest.Mock;
+    usuarioPodeAcessarFiltros: jest.Mock;
+  };
   const anual = { ano: 2026 };
   const usuario = (role: Role) => ({ id: 'user-uuid', role });
 
@@ -46,7 +49,10 @@ describe('DashboardService', () => {
     (repository.findIndicadores.mock.calls[0] as [FiltroIndicadores])[0];
 
   beforeEach(() => {
-    repository = { findIndicadores: jest.fn().mockResolvedValue([]) };
+    repository = {
+      findIndicadores: jest.fn().mockResolvedValue([]),
+      usuarioPodeAcessarFiltros: jest.fn().mockResolvedValue(true),
+    };
     service = new DashboardService(
       repository as unknown as DashboardRepository,
     );
@@ -99,17 +105,102 @@ describe('DashboardService', () => {
 
     it('aplica núcleo e trimestre pedidos sem remover a restrição do perfil', async () => {
       await service.findIndicadores(
-        { ano: 2026, trimestre: TrimestreEnum.Q3, nucleoId: 'nucleo-uuid' },
+        {
+          ano: 2026,
+          trimestre: TrimestreEnum.Q3,
+          nucleoId: 'nucleo-uuid',
+          indicadorId: 'indicador-uuid',
+          programaId: 'programa-uuid',
+          acaoId: 'acao-uuid',
+        },
         usuario(Role.DIRETORES_NUCLEOS),
       );
 
       expect(filtroUsado()).toMatchObject({
         where: {
           nucleoId: 'nucleo-uuid',
+          id: 'indicador-uuid',
+          programaId: 'programa-uuid',
+          acaoId: 'acao-uuid',
           nucleo: { users: { some: { userId: 'user-uuid' } } },
         },
         registros: { trimestre: TrimestreEnum.Q3 },
         trimestreMeta: TrimestreEnum.Q3,
+      });
+      expect(repository.usuarioPodeAcessarFiltros).toHaveBeenCalledWith(
+        'user-uuid',
+        {
+          nucleoId: 'nucleo-uuid',
+          indicadorId: 'indicador-uuid',
+          programaId: 'programa-uuid',
+          acaoId: 'acao-uuid',
+        },
+      );
+    });
+
+    it('aplica todos os filtros combinados como interseção', async () => {
+      await service.findIndicadores(
+        {
+          ano: 2026,
+          trimestre: TrimestreEnum.Q3,
+          nucleoId: 'nucleo-uuid',
+          indicadorId: 'indicador-uuid',
+          programaId: 'programa-uuid',
+          acaoId: 'acao-uuid',
+          status: StatusAprovacao.APROVADO,
+        },
+        usuario(Role.ADMINISTRADOR),
+      );
+
+      expect(filtroUsado()).toEqual({
+        where: {
+          deletedAt: null,
+          nucleoId: 'nucleo-uuid',
+          id: 'indicador-uuid',
+          programaId: 'programa-uuid',
+          acaoId: 'acao-uuid',
+        },
+        registros: {
+          deletedAt: null,
+          ano: 2026,
+          trimestre: TrimestreEnum.Q3,
+          statusAprovacao: { in: [StatusAprovacao.APROVADO] },
+        },
+        ano: 2026,
+        trimestreMeta: TrimestreEnum.Q3,
+      });
+    });
+
+    it('nega ao Diretor filtro por núcleo sem vínculo', async () => {
+      repository.usuarioPodeAcessarFiltros.mockResolvedValue(false);
+
+      await expect(
+        service.findIndicadores(
+          { ano: 2026, nucleoId: 'outro-nucleo-uuid' },
+          usuario(Role.DIRETORES_NUCLEOS),
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(repository.findIndicadores).not.toHaveBeenCalled();
+    });
+
+    it('restringe status de revisão aos administradores', async () => {
+      await expect(
+        service.findIndicadores(
+          { ano: 2026, status: StatusAprovacao.PENDENTE },
+          usuario(Role.DIRETORES_NUCLEOS),
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(repository.findIndicadores).not.toHaveBeenCalled();
+    });
+
+    it('respeita status aprovado explicitamente para perfis de leitura restrita', async () => {
+      await service.findIndicadores(
+        { ano: 2026, status: StatusAprovacao.APROVADO },
+        usuario(Role.EQUIPE_GESTAO),
+      );
+
+      expect(filtroUsado().registros.statusAprovacao).toEqual({
+        in: [StatusAprovacao.APROVADO],
       });
     });
   });
@@ -161,6 +252,26 @@ describe('DashboardService', () => {
           },
         ],
       });
+    });
+
+    it('devolve os mesmos dados de série sem acoplar a resposta a um tipo de gráfico', async () => {
+      repository.findIndicadores.mockResolvedValue([indicador]);
+
+      const resposta = await service.findIndicadores(
+        anual,
+        usuario(Role.ADMINISTRADOR),
+      );
+
+      expect(resposta.indicadores[0]).toMatchObject({
+        realizado: 950,
+        registros: [
+          { trimestre: TrimestreEnum.Q1, valorRealizado: 320 },
+          { trimestre: TrimestreEnum.Q2, valorRealizado: 630 },
+        ],
+      });
+      expect(resposta).not.toHaveProperty('tipoGrafico');
+      expect(resposta.indicadores[0]).not.toHaveProperty('tipoGrafico');
+      expect(repository.findIndicadores).toHaveBeenCalledTimes(1);
     });
 
     it('para indicador percentual usa a última medição informada', async () => {

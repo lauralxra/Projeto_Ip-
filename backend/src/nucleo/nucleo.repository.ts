@@ -13,6 +13,13 @@ export const nucleoSelect = {
   createdAt: true,
 } as const;
 
+export const nucleoAssociadoSelect = {
+  id: true,
+  nome: true,
+  sigla: true,
+  imagemUrl: true,
+} as const;
+
 @Injectable()
 export class NucleoRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -52,6 +59,25 @@ export class NucleoRepository {
     });
   }
 
+  async usuarioVinculado(nucleoId: string, userId: string) {
+    const vinculo = await this.prisma.userNucleo.findUnique({
+      where: { userId_nucleoId: { userId, nucleoId } },
+      select: { nucleoId: true },
+    });
+    return vinculo !== null;
+  }
+
+  findAssociadosByUserId(userId: string) {
+    return this.prisma.nucleo.findMany({
+      where: {
+        deletedAt: null,
+        users: { some: { userId } },
+      },
+      select: nucleoAssociadoSelect,
+      orderBy: { nome: 'asc' },
+    });
+  }
+
   create(data: Prisma.NucleoCreateInput) {
     return this.prisma.nucleo.create({ data, select: nucleoSelect });
   }
@@ -78,6 +104,15 @@ export class NucleoRepository {
     const { count } = await this.prisma.nucleo.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
+    });
+    return count > 0;
+  }
+
+  // Desativação mantém o núcleo e seus vínculos; não altera deletedAt.
+  async deactivate(id: string) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null, status: 'ATIVO' },
+      data: { status: 'INATIVO' },
     });
     return count > 0;
   }

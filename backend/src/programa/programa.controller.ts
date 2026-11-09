@@ -1,45 +1,25 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ProgramaService } from './programa.service';
-import { CreateProgramaDto } from './dto/create-programa.dto';
-import { UpdateProgramaDto } from './dto/update-programa.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('programa')
+@Controller('programas')
 export class ProgramaController {
   constructor(private readonly programaService: ProgramaService) {}
 
-  @Post()
-  create(@Body() createProgramaDto: CreateProgramaDto) {
-    return this.programaService.create(createProgramaDto);
-  }
-
   @Get()
-  findAll() {
-    return this.programaService.findAll();
+  @UseGuards(JwtAuthGuard)
+  listarAtivos() {
+    return this.programaService.listarAtivos();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.programaService.findOne(+id);
+  @Get('contagem')
+  @UseGuards(JwtAuthGuard)
+  contarAtivos() {
+    return this.programaService.contarAtivos();
   }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateProgramaDto: UpdateProgramaDto,
-  ) {
-    return this.programaService.update(+id, updateProgramaDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.programaService.remove(+id);
+  @Get('por-nucleo')
+  @UseGuards(JwtAuthGuard)
+  contarPorNucleo() {
+    return this.programaService.contarPorNucleo();
   }
 }

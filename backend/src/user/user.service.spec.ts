@@ -137,11 +137,10 @@ describe('UserService', () => {
         .mockResolvedValueOnce({ ...usuario, nome: 'Maria Silva' });
       repository.updateName.mockResolvedValue({ count: 1 });
 
-      const result = await service.updateName(
-        'usuario-uuid',
-        'Maria Silva',
-        { id: 'usuario-uuid', ip: '203.0.113.7' },
-      );
+      const result = await service.updateName('usuario-uuid', 'Maria Silva', {
+        id: 'usuario-uuid',
+        ip: '203.0.113.7',
+      });
 
       expect(repository.updateName).toHaveBeenCalledWith(
         'usuario-uuid',

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,7 +14,8 @@ import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { AuthenticatedUser } from '../auth/interface/request.interface';
 
-// RN01: Administrador e Equipe de Comunicação pesquisam todos os núcleos
+// Administrador e Equipe de Comunicação acessam todos os núcleos; os demais perfis
+// (Diretor de Núcleo e Equipe de Gestão) só os núcleos aos quais estão vinculados (RF23)
 const PERFIS_ACESSO_GLOBAL: Role[] = [
   Role.ADMINISTRADOR,
   Role.EQUIPE_COMUNICACAO,
@@ -124,12 +126,26 @@ export class NucleoService {
     return { itens, total, pagina, limite };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, usuario: AuthenticatedUser) {
     const nucleo = await this.nucleoRepository.findAtivoById(id);
     if (!nucleo) {
       throw new NotFoundException('Núcleo não encontrado.');
     }
+
+    // RN01/RN02: sem acesso global, o usuário precisa estar vinculado ao núcleo
+    if (
+      !PERFIS_ACESSO_GLOBAL.includes(usuario.role) &&
+      !(await this.nucleoRepository.usuarioVinculado(id, usuario.id))
+    ) {
+      throw new ForbiddenException('Você não possui acesso a este núcleo.');
+    }
+
+    // RN03: findAtivoById já seleciona apenas os campos previstos (nucleoSelect)
     return nucleo;
+  }
+
+  findAssociados(userId: string) {
+    return this.nucleoRepository.findAssociadosByUserId(userId);
   }
 
   update(id: number, _updateNucleoDto: UpdateNucleoDto) {
@@ -167,6 +183,32 @@ export class NucleoService {
       dadosAntigos: {
         ...dadosNucleo,
         createdAt: dadosNucleo.createdAt.toISOString(),
+      },
+      ip: autor.ip,
+    });
+  }
+
+  async deactivate(id: string, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    const desativado = await this.nucleoRepository.deactivate(id);
+    if (!desativado) {
+      throw new NotFoundException('Núcleo não encontrado ou já desativado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.DESATIVAR,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },
+      dadosNovos: {
+        ...nucleo,
+        status: 'INATIVO',
+        createdAt: nucleo.createdAt.toISOString(),
       },
       ip: autor.ip,
     });

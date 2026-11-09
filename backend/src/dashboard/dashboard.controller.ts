@@ -9,7 +9,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { DashboardService } from './dashboard.service';
-import { DashboardQueryDto } from './dto/dashboard-query.dto';
+import { FilterDashboardDto } from './dto/filter-dashboard.dto';
 import { DashboardIndicadoresSwagger } from './swagger/dashboard.indicators.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -34,7 +34,7 @@ export class DashboardController {
   )
   @DashboardIndicadoresSwagger()
   findIndicadores(
-    @Query() filtros: DashboardQueryDto,
+    @Query() filtros: FilterDashboardDto,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.dashboardService.findIndicadores(filtros, req.user);

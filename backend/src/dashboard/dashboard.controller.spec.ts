@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   INestApplication,
   UnauthorizedException,
   ValidationPipe,
@@ -73,6 +74,18 @@ describe('DashboardController (HTTP)', () => {
     expect(dashboardService.findIndicadores).not.toHaveBeenCalled();
   });
 
+  it('Diretor que solicita núcleo sem vínculo recebe 403', async () => {
+    dashboardService.findIndicadores.mockRejectedValue(
+      new ForbiddenException(
+        'Você não possui acesso aos indicadores deste núcleo.',
+      ),
+    );
+
+    await get(Role.DIRETORES_NUCLEOS)
+      .query({ nucleoId: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
+      .expect(403);
+  });
+
   it.each([
     Role.ADMINISTRADOR,
     Role.DIRETORES_NUCLEOS,
@@ -96,6 +109,10 @@ describe('DashboardController (HTTP)', () => {
         ano: '2025',
         trimestre: 'Q4',
         nucleoId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        indicadorId: '3fa85f64-5717-4562-b3fc-2c963f66afa7',
+        programaId: '3fa85f64-5717-4562-b3fc-2c963f66afa8',
+        acaoId: '3fa85f64-5717-4562-b3fc-2c963f66afa9',
+        status: 'APROVADO',
       })
       .expect(200);
 
@@ -104,6 +121,10 @@ describe('DashboardController (HTTP)', () => {
         ano: 2025,
         trimestre: 'Q4',
         nucleoId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        indicadorId: '3fa85f64-5717-4562-b3fc-2c963f66afa7',
+        programaId: '3fa85f64-5717-4562-b3fc-2c963f66afa8',
+        acaoId: '3fa85f64-5717-4562-b3fc-2c963f66afa9',
+        status: 'APROVADO',
       },
       expect.anything(),
     );
@@ -113,7 +134,10 @@ describe('DashboardController (HTTP)', () => {
     { ano: '1999' },
     { trimestre: 'Q5' },
     { nucleoId: '123' },
-    { status: 'APROVADO' },
+    { indicadorId: '123' },
+    { programaId: '123' },
+    { acaoId: '123' },
+    { status: 'INVALIDO' },
   ])('filtro inválido %o retorna 400', async (query) => {
     await get(Role.ADMINISTRADOR).query(query).expect(400);
 

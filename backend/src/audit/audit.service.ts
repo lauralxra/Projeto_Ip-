@@ -51,4 +51,8 @@ export class AuditService {
       },
     });
   }
+
+  async findAll() {
+    return await this.prisma.auditLog.findMany();
+  }
 }

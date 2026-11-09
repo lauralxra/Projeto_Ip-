@@ -2,18 +2,20 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRepository } from './user.repository';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
+import { unlink } from 'fs';
+import { join } from 'path';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -72,6 +74,10 @@ export class UserService {
     };
   }
 
+  countAtivos() {
+    return this.userRepository.countAtivos();
+  }
+
   async findAll() {
     return this.prisma.user.findMany({
       select: {
@@ -108,66 +114,6 @@ export class UserService {
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
     };
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const { name, email, password, role, confirmPassword } = updateUserDto;
-
-    if (password && password !== confirmPassword) {
-      throw new ConflictException('As senhas não coincidem.');
-    }
-
-    if (email && email !== user.email) {
-      const existingUser = await this.userRepository.findActiveByEmail(email);
-
-      if (existingUser && existingUser.id !== id) {
-        throw new ConflictException(EMAIL_EM_USO);
-      }
-    }
-
-    const data: Prisma.UserUpdateInput = {};
-
-    if (name !== undefined) data.nome = name;
-    if (email !== undefined) data.email = email;
-    if (role !== undefined) data.perfil = role;
-
-    if (password) {
-      data.senhaHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    }
-
-    try {
-      return await this.prisma.user.update({
-        where: { id },
-        data,
-        select: {
-          id: true,
-          nome: true,
-          email: true,
-          fotoUrl: true,
-          perfil: true,
-          ativo: true,
-          ultimoAcesso: true,
-          createdAt: true,
-          updatedAt: true,
-          deletedAt: true,
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(EMAIL_EM_USO);
-      }
-
-      throw error;
-    }
   }
 
   async updateName(id: string, name: string, autor: AutorAcao) {
@@ -260,6 +206,44 @@ export class UserService {
 
     return { message: 'Permissões atualizadas com sucesso.' };
   }
+
+  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao, oldFotoUrl?: string) {
+  const usuarioAtual = await this.userRepository.findActiveById(id);
+  if (!usuarioAtual) {
+    throw new NotFoundException('Usuário não encontrado.');
+  }
+
+  try {
+    const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Remove a foto antiga do disco
+    if (usuarioAtual.fotoUrl) {
+      const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
+      unlink(oldPath, (err) => {
+        if (err) console.warn(`[FOTO] Não foi possível remover foto antiga: ${err.message}`);
+      });
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
+      dadosNovos: { fotoUrl },
+      ip: autor.ip,
+    });
+
+    return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
+
+  } catch (error) {
+    if (error instanceof NotFoundException) throw error;
+    throw new InternalServerErrorException('Erro ao atualizar a foto de perfil.');
+  }
+}
 
   remove(id: string) {
     return `This action removes a #${id} user`;
