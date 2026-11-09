@@ -161,31 +161,35 @@ export class UserService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    // 2. Valida se perfis que precisam de núcleo têm nucleoIds
+    // 2. Lê os núcleos atuais antes de alterar, para validar e auditar
+    const vinculosAtuais = await this.userRepository.findNucleosByUserId(id);
+    const nucleosAntigos = vinculosAtuais.map((n) => n.nucleoId);
+    const perfilFinal = dto.role ?? usuarioAtual.perfil;
+    const nucleosFinais = dto.nucleoIds ?? nucleosAntigos;
+
+    // 3. Valida o estado final: perfis DN e EG precisam de ao menos um núcleo
     const perfisSemNucleo: Role[] = [
       Role.ADMINISTRADOR,
       Role.EQUIPE_COMUNICACAO,
     ];
-    const precisaNucleo = dto.role && !perfisSemNucleo.includes(dto.role);
+    const precisaNucleo =
+      perfilFinal !== null && !perfisSemNucleo.includes(perfilFinal);
 
-    if (precisaNucleo && (!dto.nucleoIds || dto.nucleoIds.length === 0)) {
+    if (precisaNucleo && nucleosFinais.length === 0) {
       throw new ConflictException(
         'Usuários com perfil DN ou EG precisam ter ao menos um núcleo associado.',
       );
     }
 
-    // 3. Atualiza o perfil
+    // 4. Atualiza o perfil
     if (dto.role) {
       await this.userRepository.updatePermissions(id, dto.role);
     }
 
-    // 4. Sincroniza os núcleos
+    // 5. Sincroniza os núcleos
     if (dto.nucleoIds !== undefined) {
       await this.userRepository.syncNucleos(id, dto.nucleoIds);
     }
-
-    // 5. Busca núcleos anteriores pra auditoria
-    const nucleosAntigos = await this.userRepository.findNucleosByUserId(id);
 
     // 6. Registra auditoria
     await this.audit.registrarAcao({
@@ -195,11 +199,11 @@ export class UserService {
       entidadeId: id,
       dadosAntigos: {
         perfil: usuarioAtual.perfil,
-        nucleos: nucleosAntigos.map((n) => n.nucleoId),
+        nucleos: nucleosAntigos,
       },
       dadosNovos: {
-        perfil: dto.role,
-        nucleos: dto.nucleoIds,
+        perfil: perfilFinal,
+        nucleos: nucleosFinais,
       },
       ip: autor.ip,
     });
@@ -207,43 +211,47 @@ export class UserService {
     return { message: 'Permissões atualizadas com sucesso.' };
   }
 
-  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao, oldFotoUrl?: string) {
-  const usuarioAtual = await this.userRepository.findActiveById(id);
-  if (!usuarioAtual) {
-    throw new NotFoundException('Usuário não encontrado.');
-  }
-
-  try {
-    const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
-    if (count === 0) {
+  async updatePhoto(id: string, fotoUrl: string, autor: AutorAcao) {
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    // Remove a foto antiga do disco
-    if (usuarioAtual.fotoUrl) {
-      const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
-      unlink(oldPath, (err) => {
-        if (err) console.warn(`[FOTO] Não foi possível remover foto antiga: ${err.message}`);
+    try {
+      const { count } = await this.userRepository.updatePhoto(id, fotoUrl);
+      if (count === 0) {
+        throw new NotFoundException('Usuário não encontrado.');
+      }
+
+      // Remove a foto antiga do disco
+      if (usuarioAtual.fotoUrl) {
+        const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
+        unlink(oldPath, (err) => {
+          if (err)
+            console.warn(
+              `[FOTO] Não foi possível remover foto antiga: ${err.message}`,
+            );
+        });
+      }
+
+      await this.audit.registrarAcao({
+        userId: autor.id,
+        acao: AcaoAuditoria.ATUALIZAR,
+        entidade: 'User',
+        entidadeId: id,
+        dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
+        dadosNovos: { fotoUrl },
+        ip: autor.ip,
       });
+
+      return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        'Erro ao atualizar a foto de perfil.',
+      );
     }
-
-    await this.audit.registrarAcao({
-      userId: autor.id,
-      acao: AcaoAuditoria.ATUALIZAR,
-      entidade: 'User',
-      entidadeId: id,
-      dadosAntigos: { fotoUrl: usuarioAtual.fotoUrl ?? null },
-      dadosNovos: { fotoUrl },
-      ip: autor.ip,
-    });
-
-    return { message: 'Foto de perfil atualizada com sucesso.', fotoUrl };
-
-  } catch (error) {
-    if (error instanceof NotFoundException) throw error;
-    throw new InternalServerErrorException('Erro ao atualizar a foto de perfil.');
   }
-}
 
   remove(id: string) {
     return `This action removes a #${id} user`;
