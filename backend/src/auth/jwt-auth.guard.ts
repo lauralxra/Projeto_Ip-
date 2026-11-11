@@ -1,44 +1,33 @@
-﻿import {
+import {
   CanActivate,
   ExecutionContext,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Request } from 'express';
-import { Role } from '@prisma/client';
+import { AuthenticatedRequest } from './interface/request.interface';
+import { JwtPayload } from './interface/jwt-payload.interface';
 
-interface RequestComUsuario extends Request {
-  user?: { id: string; role: Role };
-}
-
+// Valida o Bearer token e preenche request.user para o RolesGuard
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<RequestComUsuario>();
-    const authorization = request.headers.authorization;
-    const [tipo, token] = authorization?.split(' ') ?? [];
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
 
-    if (tipo !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Token de acesso ausente ou inválido.');
+    if (type !== 'Bearer' || !token) {
+      throw new UnauthorizedException('Token de acesso não informado.');
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{
-        sub: string;
-        role: Role;
-      }>(token);
-
-      if (!payload.sub || !Object.values(Role).includes(payload.role)) {
-        throw new UnauthorizedException('Token inválido.');
-      }
-
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
       request.user = { id: payload.sub, role: payload.role };
-      return true;
     } catch {
-      throw new UnauthorizedException('Token inválido ou expirado.');
+      throw new UnauthorizedException('Token de acesso inválido ou expirado.');
     }
+
+    return true;
   }
 }
