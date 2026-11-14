@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -17,6 +18,7 @@ import { NotificacaoModule } from './notificacao/notificacao.module';
 import { ForumModule } from './forum/forum.module';
 import { FaqModule } from './faq/faq.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 @Module({
   imports: [
@@ -38,6 +40,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
     DashboardModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // RNF16: tratamento padronizado de erros do banco em todos os endpoints da API
+    { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+  ],
 })
 export class AppModule {}
