@@ -12,7 +12,6 @@ import {
   ParseUUIDPipe,
   Query,
   Req,
-  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -31,11 +30,9 @@ import { DeactivateNucleoSwagger } from './swagger/nucleo.deactivate.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
-import { PrismaExceptionFilter } from '../common/filters/prisma-exception.filter';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 @ApiTags('nucleo')
-@UseFilters(PrismaExceptionFilter)
 @Controller('nucleos')
 export class NucleoController {
   constructor(private readonly nucleoService: NucleoService) {}

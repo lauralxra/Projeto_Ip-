@@ -109,7 +109,8 @@ export class DashboardRepository {
           orderBy: { trimestre: 'asc' },
         },
       },
-      orderBy: { nome: 'asc' },
+      // Desempate por id para a ordem ser estável entre requisições
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
     });
   }
 }

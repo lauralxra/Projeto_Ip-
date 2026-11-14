@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, Role } from '@prisma/client';
 import request from 'supertest';
@@ -15,6 +16,7 @@ import { App } from 'supertest/types';
 import { NucleoController } from './nucleo.controller';
 import { NucleoService } from './nucleo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PrismaExceptionFilter } from '../common/filters/prisma-exception.filter';
 import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 // Simula o JwtAuthGuard: o perfil do usuário vem do header x-test-role; sem ele, 401
@@ -49,7 +51,10 @@ describe('NucleoController (HTTP)', () => {
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NucleoController],
-      providers: [{ provide: NucleoService, useValue: nucleoService }],
+      providers: [
+        { provide: NucleoService, useValue: nucleoService },
+        { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useClass(FakeJwtGuard)
