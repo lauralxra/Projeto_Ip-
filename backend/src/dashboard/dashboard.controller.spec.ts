@@ -157,6 +157,76 @@ describe('DashboardController (HTTP)', () => {
       ),
     );
 
-    await get(Role.ADMINISTRADOR).expect(503);
+    await get(Role.ADMINISTRADOR).expect(503).expect({
+      statusCode: 503,
+      message: 'Banco de dados indisponível. Tente novamente mais tarde.',
+      error: 'Service Unavailable',
+    });
+  });
+
+  it('erro inesperado do banco retorna 500 sem expor detalhes', async () => {
+    dashboardService.findIndicadores.mockRejectedValue(
+      new Prisma.PrismaClientUnknownRequestError('detalhe interno do SQL', {
+        clientVersion: 'test',
+      }),
+    );
+
+    const resposta = await get(Role.ADMINISTRADOR).expect(500);
+
+    expect(resposta.body).toEqual({
+      statusCode: 500,
+      message: 'Erro interno ao acessar o banco de dados.',
+      error: 'Internal Server Error',
+    });
+  });
+
+  describe('RN01: o tipo de gráfico não altera os dados', () => {
+    it.each(['tipoGrafico', 'chartType', 'tipo'])(
+      'rejeita o parâmetro de visualização %s (a troca é só no cliente)',
+      async (parametro) => {
+        await get(Role.ADMINISTRADOR)
+          .query({ [parametro]: 'pizza' })
+          .expect(400);
+
+        expect(dashboardService.findIndicadores).not.toHaveBeenCalled();
+      },
+    );
+
+    it('devolve o mesmo payload para os mesmos filtros', async () => {
+      const resposta = {
+        ano: 2026,
+        trimestre: null,
+        total: 1,
+        indicadores: [
+          {
+            id: 'ind-1',
+            codigo: 'IND-001',
+            nome: 'Pessoas atendidas',
+            tipoDado: 'NUMERICO',
+            unidadeMedida: 'pessoas',
+            escopo: 'NUCLEO',
+            nucleo: null,
+            meta: 1200,
+            realizado: 950,
+            percentualAtingido: 79.2,
+            registros: [
+              {
+                trimestre: 'Q1',
+                valorRealizado: 950,
+                metaAplicada: 300,
+                statusAprovacao: 'APROVADO',
+              },
+            ],
+          },
+        ],
+      };
+      dashboardService.findIndicadores.mockResolvedValue(resposta);
+
+      const primeira = await get(Role.ADMINISTRADOR).expect(200);
+      const segunda = await get(Role.ADMINISTRADOR).expect(200);
+
+      expect(primeira.body).toEqual(resposta);
+      expect(segunda.body).toEqual(primeira.body);
+    });
   });
 });
