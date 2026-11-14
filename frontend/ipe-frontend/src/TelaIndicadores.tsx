@@ -441,17 +441,21 @@ export default function TelaIndicadores() {
       if (!token) return;
 
       try {
-        const resposta = await fetch('http://localhost:3000/api/nucleos', {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const resposta = await fetch(
+          'http://localhost:3000/api/nucleos?status=ATIVO&limite=100',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         if (!resposta.ok) {
           throw new Error(`Erro ao carregar núcleos: ${resposta.status}`);
         }
 
-        const dados = await resposta.json();
+        // GET /nucleos é paginado: { itens, total, pagina, limite }
+        const { itens: dados } = await resposta.json();
 
         const nucleosReais: Nucleo[] = dados.map((item: any) => ({
           id: item.id,
