@@ -15,6 +15,7 @@ import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { RequestEmailChangeDto } from './dto/request-email-change.dto';
+import { MailService } from '../mail/mail.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -24,6 +25,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -258,11 +260,7 @@ export class UserService {
       },
     });
 
-    // Simulação de uma confirmação de email
-    console.log(`[EMAIL SIMULADO] Enviar para: ${dto.newEmail}`);
-    console.log(
-      `[EMAIL SIMULADO] Link: http://localhost:5173/confirmar-email?token=${token}`,
-    );
+    await this.mail.sendEmailChangeConfirmation(dto.newEmail, token);
 
     await this.audit.registrarAcao({
       userId: autor.id,

@@ -17,6 +17,7 @@ import { NotificacaoModule } from './notificacao/notificacao.module';
 import { ForumModule } from './forum/forum.module';
 import { FaqModule } from './faq/faq.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ForumModule,
     FaqModule,
     DashboardModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
