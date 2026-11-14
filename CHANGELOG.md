@@ -1,3 +1,20 @@
+# [1.1.0-dev.5](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.4...v1.1.0-dev.5) (2026-11-14)
+
+
+### Bug Fixes
+
+* ajustando erros no arquivo ([06f4413](https://github.com/lauralxra/Projeto_Ip-/commit/06f44130d61314cf967419981dd346dcac2c9e27))
+* ajuste na funcção de atualizar foto ([c5c7e07](https://github.com/lauralxra/Projeto_Ip-/commit/c5c7e07573910060af36aa2f323514f0da3486e3))
+* ajuste na lógica de atualização de  foto com audit ([4935075](https://github.com/lauralxra/Projeto_Ip-/commit/49350751a4f19742f488dc871b975753a06e2bc0))
+* **dashboard:** keep indicator ordering stable between requests ([0ad6c23](https://github.com/lauralxra/Projeto_Ip-/commit/0ad6c23ae9e08cddd64f7e1dc81c544fa7e0c287))
+
+
+### Features
+
+* **common:** register Prisma exception filter globally ([822e84e](https://github.com/lauralxra/Projeto_Ip-/commit/822e84e59b8793d7d4ad4c39068bb9e7601af40a))
+* **user:** add profile photo upload with old photo cleanup and error handling ([11129ad](https://github.com/lauralxra/Projeto_Ip-/commit/11129ad6284e199e63815f2e2d66a26a527c2a25))
+* **user:** add update permissions endpoint with rbac and nucleo validation ([2e28abc](https://github.com/lauralxra/Projeto_Ip-/commit/2e28abc563a06ca0438f1b7ebd3aebd6f05184d9))
+
 # [1.1.0-dev.4](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.3...v1.1.0-dev.4) (2026-11-06)
 
 
