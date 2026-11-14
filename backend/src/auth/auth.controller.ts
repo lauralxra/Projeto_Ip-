@@ -23,7 +23,6 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthenticatedRequest } from './interface/request.interface';
 import { LogoutSwagger } from './swagger/logout.swagger';
 
-
 @ApiTags('auth')
 @Roles(Role.ADMINISTRADOR)
 @Controller('auth')
