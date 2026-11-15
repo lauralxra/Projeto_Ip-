@@ -1,3 +1,10 @@
+# [1.1.0-dev.6](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.5...v1.1.0-dev.6) (2026-11-15)
+
+
+### Features
+
+* **deploy:** autorizando acesso ao dominio ([5626fe6](https://github.com/lauralxra/Projeto_Ip-/commit/5626fe6be51a8d4a278abe3e766bdb7c122cf806))
+
 # [1.1.0-dev.5](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.4...v1.1.0-dev.5) (2026-11-14)
 
 
