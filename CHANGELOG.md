@@ -1,3 +1,13 @@
+# [1.1.0-dev.7](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.6...v1.1.0-dev.7) (2026-11-15)
+
+
+### Features
+
+* **frontend:** conectar tela de dashboard com api base url ([8584cc9](https://github.com/lauralxra/Projeto_Ip-/commit/8584cc93a7d5174d6f14799d1ce15dd2b5788b03))
+* **frontend:** conectar tela de indicadores com api base url ([dcdb2b4](https://github.com/lauralxra/Projeto_Ip-/commit/dcdb2b47c7c752fa4e046ad8034b3f42e02b5f71))
+* **frontend:** conectar tela de login com api base url ([131e8d5](https://github.com/lauralxra/Projeto_Ip-/commit/131e8d5210791804fa4b3f1d3fdb6c2463473f3d))
+* **frontend:** criar modulo de configuracao de api e variaveis de ambiente ([78c09db](https://github.com/lauralxra/Projeto_Ip-/commit/78c09dba75e8c427376bbc0ffdf67f7843c65b84))
+
 # [1.1.0-dev.6](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.5...v1.1.0-dev.6) (2026-11-15)
 
 
