@@ -55,6 +55,7 @@ lerna-debug.log*
 !.env.vault
 .env.project
 .env.prod
+.env.production
 .env.staging
 # Prisma
 prisma/.env
