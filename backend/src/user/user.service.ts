@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +17,8 @@ import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 import { unlink } from 'fs';
 import { join } from 'path';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { MailService } from '../mail/mail.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -25,6 +28,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -252,6 +256,51 @@ export class UserService {
       );
     }
   }
+
+  async changePassword(id: string, dto: ChangePasswordDto, autor: AutorAcao) {
+  // 1. Busca o usuário com senha
+  const user = await this.prisma.user.findUnique({ where: { id } });
+  if (!user) {
+    throw new NotFoundException('Usuário não encontrado.');
+  }
+
+  // 2. Valida senha atual
+  const senhaValida = await bcrypt.compare(dto.currentPassword, user.senhaHash);
+  if (!senhaValida) {
+    throw new UnauthorizedException('Senha atual incorreta.');
+  }
+
+  // 3. Valida se nova senha é igual à atual
+  const mesmaSenha = await bcrypt.compare(dto.newPassword, user.senhaHash);
+  if (mesmaSenha) {
+    throw new ConflictException('A nova senha não pode ser idêntica à senha atual.');
+  }
+
+  // 4. Valida confirmação
+  if (dto.newPassword !== dto.confirmNewPassword) {
+    throw new ConflictException('As senhas digitadas não coincidem.');
+  }
+
+  // 5. Atualiza senha
+  const senhaHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+  await this.prisma.user.update({
+    where: { id },
+    data: { senhaHash },
+  });
+
+  // 6. Auditoria
+  await this.audit.registrarAcao({
+    userId: autor.id,
+    acao: AcaoAuditoria.ATUALIZAR,
+    entidade: 'User',
+    entidadeId: id,
+    dadosNovos: { senha: 'alterada' },
+    ip: autor.ip,
+  });
+  await this.mail.sendPasswordChanged(user.email);
+
+  return { message: 'Senha alterada com sucesso!' };
+}
 
   remove(id: string) {
     return `This action removes a #${id} user`;

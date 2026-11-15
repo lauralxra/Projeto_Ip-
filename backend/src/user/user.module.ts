@@ -5,9 +5,10 @@ import { UserRepository } from './user.repository';
 import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
 import { NucleoModule } from '../nucleo/nucleo.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [AuthModule, AuditModule, NucleoModule],
+  imports: [AuthModule, AuditModule, NucleoModule, MailModule],
   controllers: [UserController],
   providers: [UserService, UserRepository],
 })
