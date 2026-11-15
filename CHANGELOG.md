@@ -1,3 +1,10 @@
+# [1.1.0-dev.8](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.7...v1.1.0-dev.8) (2026-11-15)
+
+
+### Bug Fixes
+
+* **frontend:** remover env.production do versionamento ([aac8d07](https://github.com/lauralxra/Projeto_Ip-/commit/aac8d079ecb35d18ab9b867aa86335e119a57ad8))
+
 # [1.1.0-dev.7](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.6...v1.1.0-dev.7) (2026-11-15)
 
 
