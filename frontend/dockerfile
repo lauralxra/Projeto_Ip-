@@ -17,7 +17,10 @@ FROM base AS builder
 COPY frontend/ipe-frontend/package*.json ./
 RUN npm ci
 COPY frontend/ipe-frontend/ ./
-RUN npm run build
+# URL da API informada no build (docker build --build-arg VITE_API_BASE_URL=...).
+# Vazia, é removida para não sobrescrever o .env.production nem o fallback de config/api.ts
+ARG VITE_API_BASE_URL
+RUN if [ -z "$VITE_API_BASE_URL" ]; then unset VITE_API_BASE_URL; fi && npm run build
 
 # --- RUNNER: serve o build estático com Nginx (imagem final de produção) ---
 FROM nginx:1.27-alpine AS runner

@@ -35,10 +35,18 @@ services:
       context: .
       dockerfile: frontend/dockerfile
       target: dev
+      args:
+        # Usado só no build de produção (estágio builder do dockerfile)
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     container_name: ipe-frontend
     restart: unless-stopped
     ports:
       - '${FRONTEND_PORT:-5173}:5173'
+    # Sem valor: repassa a variável do servidor (ex.: EC2) só quando ela existir;
+    # caso contrário, o Vite usa o .env.development
+    environment:
+      - VITE_API_BASE_URL
+      - ALLOWED_HOSTS
     volumes:
       - ./frontend/ipe-frontend:/app
       - /app/node_modules
@@ -55,8 +63,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    # Acessível apenas pela própria máquina: o banco não fica exposto na internet
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
