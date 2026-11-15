@@ -378,7 +378,7 @@ export default function TelaDashboard() {
         const token = localStorage.getItem('access_token');
 
         const resposta = await fetch(
-          'http://localhost:3000/api/user/contagem',
+          'http://localhost:3000/api/users/contagem',
           {
             headers: {
               Authorization: `Bearer ${token}`,
