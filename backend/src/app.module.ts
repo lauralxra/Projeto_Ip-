@@ -19,7 +19,6 @@ import { ForumModule } from './forum/forum.module';
 import { FaqModule } from './faq/faq.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
-import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -38,8 +37,7 @@ import { MailModule } from './mail/mail.module';
     NotificacaoModule,
     ForumModule,
     FaqModule,
-    DashboardModule, 
-    MailModule
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
