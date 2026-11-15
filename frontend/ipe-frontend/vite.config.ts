@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -9,6 +10,10 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: ['projetoipe.duckdns.org'],
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
   },
   preview: {
     host: true,
