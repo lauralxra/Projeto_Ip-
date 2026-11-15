@@ -10,6 +10,7 @@ import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
+import { API_BASE_URL } from './config/api';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -373,7 +374,7 @@ export default function TelaIndicadores() {
     if (!token) return;
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
+      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -442,7 +443,7 @@ export default function TelaIndicadores() {
 
       try {
         const resposta = await fetch(
-          'http://localhost:3000/api/nucleos?status=ATIVO&limite=100',
+          `${API_BASE_URL}/nucleos?status=ATIVO&limite=100`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -483,7 +484,7 @@ export default function TelaIndicadores() {
       if (!token) return;
 
       try {
-        const resposta = await fetch('http://localhost:3000/api/programas', {
+        const resposta = await fetch(`${API_BASE_URL}/programas`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -728,7 +729,7 @@ export default function TelaIndicadores() {
     const trimestreInicial = formTrimestre;
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
+      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -753,21 +754,18 @@ export default function TelaIndicadores() {
         anoInicial >= 2000 &&
         anoInicial <= 2100
       ) {
-        await fetch(
-          `http://localhost:3000/api/indicadores/${resultado.id}/registros`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              ano: anoInicial,
-              trimestre: trimestreInicial,
-              valorRealizado: valorParaSalvar,
-            }),
+        await fetch(`${API_BASE_URL}/indicadores/${resultado.id}/registros`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            ano: anoInicial,
+            trimestre: trimestreInicial,
+            valorRealizado: valorParaSalvar,
+          }),
+        });
       }
 
       const novo: Indicador = {
@@ -841,7 +839,7 @@ export default function TelaIndicadores() {
 
     try {
       const resposta = await fetch(
-        `http://localhost:3000/api/indicadores/${indicSelecionado.id}/registros`,
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}/registros`,
         {
           method: 'POST',
           headers: {
@@ -940,7 +938,7 @@ export default function TelaIndicadores() {
     }
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
+      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1051,14 +1049,11 @@ export default function TelaIndicadores() {
     dados.append('arquivo', arquivo);
 
     try {
-      const resposta = await fetch(
-        'http://localhost:3000/api/importacoes/csv',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: dados,
-        },
-      );
+      const resposta = await fetch(`${API_BASE_URL}/importacoes/csv`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: dados,
+      });
 
       const resultado = await resposta.json();
 
