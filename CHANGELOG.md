@@ -1,3 +1,12 @@
+# [1.1.0-dev.9](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.8...v1.1.0-dev.9) (2026-11-15)
+
+
+### Bug Fixes
+
+* **backend:** accept multiple CORS origins from environment ([df5a8a6](https://github.com/lauralxra/Projeto_Ip-/commit/df5a8a6eb99bc385837ca5b1e71bfdc1fb5053c0))
+* **docker:** bind postgres port to localhost only ([0f43cb6](https://github.com/lauralxra/Projeto_Ip-/commit/0f43cb67f034f84836c8b78b2d65d18324f4378c))
+* **frontend:** read API URL and allowed hosts from server environment ([7ce194f](https://github.com/lauralxra/Projeto_Ip-/commit/7ce194f3f1ff363a254c57654322f00981d644c2))
+
 # [1.1.0-dev.8](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.7...v1.1.0-dev.8) (2026-11-15)
 
 
