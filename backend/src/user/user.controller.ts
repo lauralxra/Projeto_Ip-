@@ -32,6 +32,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -157,6 +158,18 @@ export class UserController {
       ip,
     });
   }
+  @Patch('profile/password')
+@UseGuards(JwtAuthGuard)
+changePassword(
+  @Body() dto: ChangePasswordDto,
+  @Req() req: AuthenticatedRequest,
+  @Ip() ip: string,
+) {
+  return this.userService.changePassword(req.user.id, dto, {
+    id: req.user.id,
+    ip,
+  });
+}
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
