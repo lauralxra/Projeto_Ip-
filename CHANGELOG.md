@@ -1,3 +1,20 @@
+# [1.1.0-dev.11](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.10...v1.1.0-dev.11) (2026-11-18)
+
+
+### Bug Fixes
+
+* **mail:** add sendMail and validate SMTP config on startup ([cb72949](https://github.com/lauralxra/Projeto_Ip-/commit/cb72949a0611046e1ed2522c949ad2b7c112efcf))
+* **user:** corrigir troca de senha com repositorio, notificacao, swagger e testes ([23828a9](https://github.com/lauralxra/Projeto_Ip-/commit/23828a954410528b1a4197d9924dce04f3b086cf))
+
+
+### Features
+
+* **mail:** add mail module as shared email service ([079f6ec](https://github.com/lauralxra/Projeto_Ip-/commit/079f6ecb2d33db67517608087ad3b315f5541057))
+* **mail:** adicionar e-mail de aviso de seguranca para troca de senha ([16aa3c7](https://github.com/lauralxra/Projeto_Ip-/commit/16aa3c7c572217f938f25ffd6c0e5c113a335fec))
+* **notificacao:** enviar aviso de troca de senha sem interromper o fluxo em falha de smtp ([1571d42](https://github.com/lauralxra/Projeto_Ip-/commit/1571d428356123b038ba69030b3c4e71f8b4b735))
+* **user:** add change password endpoint with email notification via gmail smtp ([340aff6](https://github.com/lauralxra/Projeto_Ip-/commit/340aff615e39c949aec452210993bc05e0293600))
+* **user:** validar complexidade, senhas comuns e confirmacao no dto de troca de senha ([a521b45](https://github.com/lauralxra/Projeto_Ip-/commit/a521b4547ded0710e75bc1393b3061fcb1288048))
+
 # [1.1.0-dev.10](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.9...v1.1.0-dev.10) (2026-11-18)
 
 
