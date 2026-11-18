@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { UserService } from './user.service';
 import {
@@ -88,6 +88,14 @@ export class UserController {
 
   @Patch('profile/photo')
   @UseGuards(JwtAuthGuard)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['photo'],
+      properties: { photo: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(FileInterceptor('photo', opcoesUploadImagem('photos')))
   updatePhoto(
     @UploadedFile() file: Express.Multer.File,
