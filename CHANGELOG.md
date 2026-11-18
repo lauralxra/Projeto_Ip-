@@ -1,3 +1,10 @@
+# [1.1.0-dev.18](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.17...v1.1.0-dev.18) (2026-11-18)
+
+
+### Bug Fixes
+
+* **deploy:** add prod docker-compose, nginx config and fix upload swagger ([cea931f](https://github.com/lauralxra/Projeto_Ip-/commit/cea931f731da0ab003fbbb79bb811f5d148ce6a5))
+
 # [1.1.0-dev.17](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.16...v1.1.0-dev.17) (2026-11-18)
 
 
