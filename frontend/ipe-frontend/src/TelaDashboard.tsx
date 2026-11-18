@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import {
@@ -136,6 +137,10 @@ function CardMetrica({
 }
 
 export default function TelaDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const indicadorIdParam = searchParams.get('indicadorId');
+  const nomeParam = searchParams.get('nome');
+
   const [pesquisaTexto, setPesquisaTexto] = useState('');
   const [nucleoFiltro, setNucleoFiltro] = useState('Todos os Núcleos');
   const [programaFiltro, setProgramaFiltro] = useState('Todos os Programas');
@@ -556,8 +561,12 @@ export default function TelaDashboard() {
     carregarProgramas();
   }, []);
 
-  // Filtros combinados: Núcleo, Programa do banco e Barra de Pesquisa
+  // Filtros combinados: Indicador específico via URL, Núcleo, Programa do banco e Barra de Pesquisa
   const indicadoresFiltrados = indicadores.filter((indicador) => {
+    if (indicadorIdParam && indicador.id !== indicadorIdParam) {
+      return false;
+    }
+
     const matchNucleo =
       nucleoFiltro === 'Todos os Núcleos' ||
       indicador.nucleo?.sigla === nucleoFiltro;
@@ -843,13 +852,20 @@ export default function TelaDashboard() {
               </p>
               {(pesquisaTexto ||
                 nucleoFiltro !== 'Todos os Núcleos' ||
-                programaFiltro !== 'Todos os Programas') && (
+                programaFiltro !== 'Todos os Programas' ||
+                indicadorIdParam) && (
                 <button
                   type="button"
                   onClick={() => {
                     setPesquisaTexto('');
                     setNucleoFiltro('Todos os Núcleos');
                     setProgramaFiltro('Todos os Programas');
+                    if (indicadorIdParam) {
+                      const params = new URLSearchParams(searchParams);
+                      params.delete('indicadorId');
+                      params.delete('nome');
+                      setSearchParams(params);
+                    }
                   }}
                   className="text-xs bg-[#832b62] text-white font-medium px-4 py-2 rounded-lg hover:bg-[#6e2352] transition-colors cursor-pointer"
                 >
@@ -858,7 +874,48 @@ export default function TelaDashboard() {
               )}
             </div>
           )}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Banner de filtro focado em indicador único vindo da Tela de Indicadores */}
+        {indicadorIdParam && (
+          <div className="bg-[#fcf2f7] border border-[#f5e1ed] rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#832b62] text-white rounded-xl shadow-xs">
+                <BarChart3 size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+                  Visualização focada no indicador
+                </p>
+                <h2 className="text-base font-bold text-slate-900">
+                  {indicadoresFiltrados[0]?.nome ||
+                    nomeParam ||
+                    'Indicador selecionado'}
+                </h2>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete('indicadorId');
+                params.delete('nome');
+                setSearchParams(params);
+              }}
+              className="flex items-center gap-1.5 text-xs bg-[#832b62] hover:bg-[#6e2352] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+            >
+              <span>Ver todos os indicadores</span>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        <div
+          className={`grid gap-6 ${
+            indicadorIdParam && indicadoresFiltrados.length === 1
+              ? 'grid-cols-1 max-w-4xl'
+              : 'grid-cols-1 lg:grid-cols-2'
+          }`}
+        >
           {indicadoresFiltrados.map((indicador) => {
             {
               /* Monta os dados históricos do indicador percorrendo o Map de TrimestresPassados */

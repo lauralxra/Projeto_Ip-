@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Svg } from './config/assets';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
@@ -329,10 +330,10 @@ function Lista({
                   <History className="size-full" />
                 </button>
 
-                <a
-                  title="Ver nos Dashboards"
-                  className="size-[24px]"
-                  href="/dashboard"
+                <Link
+                  title={`Ver gráfico do indicador "${indicador.nome}" no Dashboard`}
+                  className="size-[24px] hover:opacity-75 transition-opacity cursor-pointer"
+                  to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
                 >
                   <div className="size-full">
                     <svg
@@ -343,7 +344,7 @@ function Lista({
                       <path d={Svg.p19cd0a80} fill="#3C3B3B" />
                     </svg>
                   </div>
-                </a>
+                </Link>
 
                 {UsuarioAtual.tipo == 'ADM' ? (
                   <button
