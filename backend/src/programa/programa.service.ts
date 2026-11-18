@@ -15,6 +15,7 @@ export class ProgramaService {
         id: true,
         nome: true,
         descricao: true,
+        createdAt: true,
         nucleoId: true,
         nucleo: {
           select: {

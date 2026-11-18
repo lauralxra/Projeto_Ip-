@@ -83,7 +83,10 @@ export class UserService {
   }
 
   async findAll() {
+    // Usuários excluídos logicamente não aparecem na listagem
     return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      orderBy: { nome: 'asc' },
       select: {
         id: true,
         nome: true,
@@ -95,6 +98,13 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
+        // A tela de usuários exibe e edita os núcleos de cada um
+        nucleos: {
+          where: { nucleo: { deletedAt: null } },
+          select: {
+            nucleo: { select: { id: true, nome: true, sigla: true } },
+          },
+        },
       },
     });
   }
