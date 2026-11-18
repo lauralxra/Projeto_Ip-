@@ -132,6 +132,15 @@ export class MailService implements OnModuleInit {
       ].join('\n'),
     });
   }
+  async sendNotificacao(to: string, titulo: string, mensagem: string): Promise<void> {
+  await this.transporter.sendMail({
+    from: `"Sistema IPÊ" <${process.env.MAIL_FROM}>`,
+    to,
+    subject: titulo,
+    html: `<h2>${titulo}</h2><p>${mensagem}</p>`,
+  });
+  this.logger.log(`Notificação enviada para: ${to}`);
+}
 
   private async verificarConexao() {
     try {

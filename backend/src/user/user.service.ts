@@ -19,6 +19,7 @@ import { unlink } from 'fs';
 import { join } from 'path';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { NotificacaoService } from '../notificacao/notificacao.service';
+import { MailService } from '../mail/mail.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -28,7 +29,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
-    private readonly notificacao: NotificacaoService,
+    private readonly mail: MailService, 
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -296,10 +297,7 @@ export class UserService {
       ip: autor.ip,
     });
 
-    await this.notificacao.notificarSenhaAlterada({
-      email: user.email,
-      nome: user.nome,
-    });
+    await this.mail.sendPasswordChanged({ email: user.email, nome: user.nome });
 
     return { message: 'Senha alterada com sucesso.' };
   }
