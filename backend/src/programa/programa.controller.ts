@@ -1,16 +1,18 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
   Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Ip,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
   Req,
-  Ip,
   UseGuards,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
@@ -23,6 +25,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
+// RF23: o administrador cadastra, edita e remove programas; os demais perfis consultam
 @ApiTags('programas')
 @ApiBearerAuth('JWT-auth')
 @Controller('programas')
@@ -37,7 +40,7 @@ export class ProgramaController {
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.programaService.create(dto, req.user.id, ip);
+    return this.programaService.create(dto, { id: req.user.id, ip });
   }
 
   @Get()
@@ -46,9 +49,10 @@ export class ProgramaController {
     @Query() filtros: FilterProgramaDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.programaService.findAll(filtros, req.user.id);
+    return this.programaService.findAll(filtros, req.user);
   }
 
+  // Rotas estáticas ficam antes de ':id' para não serem capturadas como identificador
   @Get('contagem')
   @UseGuards(JwtAuthGuard)
   contarAtivos() {
@@ -63,8 +67,11 @@ export class ProgramaController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.programaService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.programaService.findOne(id, req.user);
   }
 
   @Patch(':id')
@@ -76,31 +83,44 @@ export class ProgramaController {
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.programaService.update(id, dto, req.user.id, ip);
+    return this.programaService.update(id, dto, { id: req.user.id, ip });
   }
-  @Patch(':id/desativar')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-desativar(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.programaService.desativar(id, req.user.id, ip);
-}
 
-@Patch(':id/arquivar')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMINISTRADOR)
-arquivar(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.programaService.arquivar(id, req.user.id, ip);
-}
+  @Patch(':id/desativar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  desativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.programaService.desativar(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/arquivar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  arquivar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.programaService.arquivar(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/reativar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  reativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.programaService.reativar(id, { id: req.user.id, ip });
+  }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
   remove(
@@ -108,6 +128,6 @@ arquivar(
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.programaService.remove(id, req.user.id, ip);
+    return this.programaService.remove(id, { id: req.user.id, ip });
   }
 }
