@@ -1,3 +1,22 @@
+# [1.1.0-dev.10](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.9...v1.1.0-dev.10) (2026-11-18)
+
+
+### Bug Fixes
+
+* **auth:** exigir jwt em todas as rotas por padrao com guard global e decorator public ([f64723e](https://github.com/lauralxra/Projeto_Ip-/commit/f64723e8229eda09fb37136774fbafc11314d657))
+* **auth:** manter validade padrao do jwt em 2h no exemplo de ambiente ([aabeecd](https://github.com/lauralxra/Projeto_Ip-/commit/aabeecd2db60fa7b613144ba666212d70b52eb0b))
+* **auth:** padronizar resposta de login para nao revelar e-mails cadastrados nem a senha durante o bloqueio ([8b9395b](https://github.com/lauralxra/Projeto_Ip-/commit/8b9395b51042b0b03c8bf7e2c325141b7af1303a))
+* **frontend:** proteger rotas internas exigindo sessao valida ([649b23a](https://github.com/lauralxra/Projeto_Ip-/commit/649b23a4a18db8e017ecbf4fd33591a8c8558c74))
+* **prisma:** adicionar unicidade parcial, check de escopo e trigger de auditoria imutavel ([b7b7fd7](https://github.com/lauralxra/Projeto_Ip-/commit/b7b7fd7ff9e38475f560add8f5b8253f94f825a5))
+* **seed:** remover senha padrao do administrador do codigo ([0a1a7e1](https://github.com/lauralxra/Projeto_Ip-/commit/0a1a7e17c5e4fc78faa56fb0696ca8a5e8a81ff1))
+
+
+### Features
+
+* add ipe-indicadores skill ([49b16b8](https://github.com/lauralxra/Projeto_Ip-/commit/49b16b8f6d492a2790e732f4fc3c6ceae5e82e34))
+* **frontend:** integrar tela de cadastro com a api ([a8894f7](https://github.com/lauralxra/Projeto_Ip-/commit/a8894f77c202d2254d90fa285d7331bb5fa71b10))
+* **user:** implementar exclusao logica de usuario com auditoria ([dfc2219](https://github.com/lauralxra/Projeto_Ip-/commit/dfc22195493d9484e1bb42e215050939daa00b9e))
+
 # [1.1.0-dev.9](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.8...v1.1.0-dev.9) (2026-11-15)
 
 
