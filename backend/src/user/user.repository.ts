@@ -83,4 +83,19 @@ export class UserRepository {
       data: { deletedAt: new Date(), ativo: false },
     });
   }
+
+  // Único método que lê o hash: usado só para conferir a senha atual
+  findActiveWithPasswordById(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, nome: true, email: true, senhaHash: true },
+    });
+  }
+
+  updatePassword(id: string, senhaHash: string) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { senhaHash },
+    });
+  }
 }

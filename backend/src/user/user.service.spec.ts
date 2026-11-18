@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -21,8 +23,11 @@ describe('UserService', () => {
     syncNucleos: jest.Mock;
     findNucleosByUserId: jest.Mock;
     softDelete: jest.Mock;
+    findActiveWithPasswordById: jest.Mock;
+    updatePassword: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
+  let notificacao: { notificarSenhaAlterada: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
   const dto = {
     name: 'Maria',
@@ -43,12 +48,16 @@ describe('UserService', () => {
       syncNucleos: jest.fn(),
       findNucleosByUserId: jest.fn().mockResolvedValue([]),
       softDelete: jest.fn().mockResolvedValue({ count: 1 }),
+      findActiveWithPasswordById: jest.fn(),
+      updatePassword: jest.fn().mockResolvedValue({ count: 1 }),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
+    notificacao = { notificarSenhaAlterada: jest.fn().mockResolvedValue(true) };
     service = new UserService(
       {} as PrismaService,
       repository as unknown as UserRepository,
       audit as unknown as AuditService,
+      notificacao as unknown as NotificacaoService,
     );
   });
 
@@ -356,6 +365,114 @@ describe('UserService', () => {
         NotFoundException,
       );
       expect(repository.softDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    const senhaAtual = 'SenhaAtual123';
+    const novaSenha = 'NovaSenhaForte2026';
+    let senhaHashAtual: string;
+    const dtoSenha = () => ({
+      currentPassword: senhaAtual,
+      newPassword: novaSenha,
+      confirmNewPassword: novaSenha,
+    });
+    const usuario = 'user-uuid';
+    const autorProprio = { id: usuario, ip: '203.0.113.7' };
+
+    beforeAll(async () => {
+      // Custo baixo só no teste, para não deixar a suíte lenta
+      senhaHashAtual = await bcrypt.hash(senhaAtual, 4);
+    });
+
+    beforeEach(() => {
+      repository.findActiveWithPasswordById.mockResolvedValue({
+        id: usuario,
+        nome: 'Maria',
+        email: 'maria@exemplo.com',
+        senhaHash: senhaHashAtual,
+      });
+    });
+
+    it('salva a nova senha com hash bcrypt, audita e envia o aviso por e-mail', async () => {
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).resolves.toEqual({ message: 'Senha alterada com sucesso.' });
+
+      const [, hashSalvo] = repository.updatePassword.mock.calls[0] as [
+        string,
+        string,
+      ];
+      expect(repository.updatePassword).toHaveBeenCalledWith(
+        usuario,
+        expect.any(String),
+      );
+      expect(hashSalvo).not.toBe(novaSenha);
+      await expect(bcrypt.compare(novaSenha, hashSalvo)).resolves.toBe(true);
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'User',
+          entidadeId: usuario,
+          dadosNovos: { senha: 'alterada' },
+        }),
+      );
+      const auditado = JSON.stringify(audit.registrarAcao.mock.calls[0]);
+      expect(auditado).not.toContain(novaSenha);
+      expect(auditado).not.toContain(hashSalvo);
+
+      expect(notificacao.notificarSenhaAlterada).toHaveBeenCalledWith({
+        email: 'maria@exemplo.com',
+        nome: 'Maria',
+      });
+    });
+
+    it('recusa senha atual incorreta com 401 sem alterar nada', async () => {
+      await expect(
+        service.changePassword(
+          usuario,
+          { ...dtoSenha(), currentPassword: 'Errada12345' },
+          autorProprio,
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+      expect(notificacao.notificarSenhaAlterada).not.toHaveBeenCalled();
+    });
+
+    it('recusa nova senha idêntica à atual (RN02)', async () => {
+      await expect(
+        service.changePassword(
+          usuario,
+          {
+            currentPassword: senhaAtual,
+            newPassword: senhaAtual,
+            confirmNewPassword: senhaAtual,
+          },
+          autorProprio,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para usuário inexistente ou excluído', async () => {
+      repository.findActiveWithPasswordById.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('conclui a troca mesmo se o aviso por e-mail falhar', async () => {
+      notificacao.notificarSenhaAlterada.mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).resolves.toEqual({ message: 'Senha alterada com sucesso.' });
+      expect(repository.updatePassword).toHaveBeenCalled();
+      expect(audit.registrarAcao).toHaveBeenCalled();
     });
   });
 });
