@@ -404,6 +404,7 @@ export default function TelaIndicadores() {
 
         return {
           id: item.id,
+          registroId: registro?.id,
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
@@ -885,39 +886,51 @@ export default function TelaIndicadores() {
     setEditAberto(true);
   };
 
-  const handleSalvarEdicao = (e: React.FormEvent) => {
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    let unitSimbol = getUnitSimb();
-    const nucleoSelecionado = formNucleoId
-      ? NucleosDoUser.find((n) => n.id === formNucleoId)
-      : undefined;
-    const programSelecionado = formProgramId
-      ? programasDoBanco.find((n) => n.id === formProgramId)
-      : undefined;
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              nome: formNome,
-              unidade: formUnidade,
-              simbolUni: unitSimbol,
-              nucleo: nucleoSelecionado,
-              programa: programSelecionado,
-              meta: formMeta || undefined,
-              status: formStatus,
-            }
-          : n,
-      ),
-    );
-    setEditAberto(false);
-    // Não existe PATCH /indicadores/:id no backend
-    alert(
-      'A edição de indicadores ainda não está disponível na API: a alteração vale só até recarregar a página.',
-    );
+    try {
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: formNome.trim(),
+            unidadeMedida: formUnidade || undefined,
+            nucleoId: formNucleoId || null,
+            programaId: formProgramId || null,
+            ...(formStatus ? { status: formStatus.toUpperCase() } : {}),
+          }),
+        },
+      );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(
+          erro.message || 'Não foi possível salvar a edição do indicador.',
+        );
+      }
+
+      await carregarIndicadores();
+      setEditAberto(false);
+      alert('Indicador atualizado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao atualizar indicador:', erro);
+      alert(
+        erro instanceof Error ? erro.message : 'Erro ao atualizar indicador.',
+      );
+    }
   };
 
   const [modalDeletando, setDeletando] = useState(false);
@@ -974,26 +987,68 @@ export default function TelaIndicadores() {
     setModelAprov(true);
   };
 
-  const handleAprovacao = (e: React.FormEvent) => {
+  const handleAprovacao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              aprovado: formAprovacao,
-            }
-          : n,
-      ),
-    );
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
 
-    formAprovacao
-      ? ''
-      : alert('Voce desaprovou por motivo: ' + formDesaprovMotivo);
+    if (!indicSelecionado.registroId) {
+      alert(
+        'Este indicador ainda não possui registro de medição para aprovar ou devolver.',
+      );
+      setModelAprov(false);
+      return;
+    }
 
-    setModelAprov(false);
+    try {
+      const rota = formAprovacao
+        ? `${API_BASE_URL}/registro/${indicSelecionado.registroId}/aprovar`
+        : `${API_BASE_URL}/registro/${indicSelecionado.registroId}/devolver`;
+
+      const opcoes: RequestInit = {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        ...(formAprovacao
+          ? {}
+          : {
+              body: JSON.stringify({
+                justificativa:
+                  formDesaprovMotivo.trim() || 'Devolvido para revisão.',
+              }),
+            }),
+      };
+
+      const resposta = await fetch(rota, opcoes);
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(
+          erro.message || 'Não foi possível alterar a aprovação do registro.',
+        );
+      }
+
+      await carregarIndicadores();
+      setModelAprov(false);
+      alert(
+        formAprovacao
+          ? 'Registro aprovado com sucesso!'
+          : 'Registro devolvido para correção!',
+      );
+    } catch (erro) {
+      console.error('Erro na aprovação/devolução:', erro);
+      alert(
+        erro instanceof Error
+          ? erro.message
+          : 'Erro ao processar fluxo de aprovação.',
+      );
+    }
   };
 
   const totalIndicadores = indicadoresFiltrados.length;

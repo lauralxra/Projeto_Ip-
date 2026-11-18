@@ -1,10 +1,11 @@
-﻿import {
+import {
   Injectable,
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import {
   EscopoIndicador,
+  Indicador,
   Nucleo,
   Programa,
   Role,
@@ -27,6 +28,7 @@ type LinhaCsv = {
   ano: number;
   trimestre: TrimestreEnum;
   valorRealizado: number | null;
+  meta?: number | null;
 };
 
 @Injectable()
@@ -123,6 +125,7 @@ export class ImportacaoService {
       ano: indice(['ano']),
       trimestre: indice(['trimestre', 'periodo']),
       valor: indice(['valorrealizado', 'valor']),
+      meta: indice(['meta', 'valormeta', 'metaaplicada', 'valor_meta']),
     };
 
     const temIndicadorReferenciado = colunas.indicadorId >= 0;
@@ -199,6 +202,12 @@ export class ImportacaoService {
         valorTexto === '' || valorTexto === undefined
           ? null
           : Number(valorTexto);
+      const metaTexto =
+        colunas.meta >= 0
+          ? campos[colunas.meta]?.trim().replace(',', '.')
+          : undefined;
+      const meta =
+        metaTexto === '' || metaTexto === undefined ? null : Number(metaTexto);
 
       if (
         (!indicadorId && !indicadorNome && !indicadorCodigo) ||
@@ -228,6 +237,10 @@ export class ImportacaoService {
         erros.push({ linha: numero, mensagem: 'Valor realizado inválido.' });
         return;
       }
+      if (meta !== null && !Number.isFinite(meta)) {
+        erros.push({ linha: numero, mensagem: 'Valor da meta inválido.' });
+        return;
+      }
       validas.push({
         numero,
         indicadorId,
@@ -241,6 +254,7 @@ export class ImportacaoService {
         ano,
         trimestre,
         valorRealizado,
+        meta,
       });
     });
 
@@ -266,6 +280,7 @@ export class ImportacaoService {
     });
 
     let linhasOk = 0;
+    const cacheIndicadores = new Map<string, Indicador>();
 
     for (const linha of validas) {
       try {
@@ -345,38 +360,63 @@ export class ImportacaoService {
           continue;
         }
 
-        let indicador = linha.indicadorId
-          ? await this.prisma.indicador.findFirst({
+        let indicador: Indicador | null = null;
+
+        if (linha.indicadorId) {
+          indicador = await this.prisma.indicador.findFirst({
+            where: {
+              id: linha.indicadorId,
+              deletedAt: null,
+              status: 'ATIVO',
+            },
+          });
+        }
+
+        const nome =
+          linha.indicadorNome?.trim() ||
+          linha.indicadorCodigo?.trim() ||
+          'Indicador importado';
+        const codigo = linha.indicadorCodigo?.trim() || null;
+
+        const chaveCache = linha.indicadorId
+          ? `id:${linha.indicadorId}`
+          : codigo
+            ? `cod:${codigo.toLowerCase()}`
+            : `nome:${nome.toLowerCase()}|n:${nucleoVinculado?.id ?? 'inst'}|p:${programaVinculado?.id ?? 'semprog'}`;
+
+        if (!indicador && cacheIndicadores.has(chaveCache)) {
+          indicador = cacheIndicadores.get(chaveCache) ?? null;
+        }
+
+        if (!indicador && (linha.indicadorNome || linha.indicadorCodigo)) {
+          if (codigo) {
+            indicador = await this.prisma.indicador.findFirst({
               where: {
-                id: linha.indicadorId,
+                codigo,
                 deletedAt: null,
                 status: 'ATIVO',
               },
-            })
-          : null;
+            });
+          }
 
-        if (!indicador && (linha.indicadorNome || linha.indicadorCodigo)) {
-          const nome =
-            linha.indicadorNome?.trim() ||
-            linha.indicadorCodigo?.trim() ||
-            'Indicador importado';
-          const codigo = linha.indicadorCodigo?.trim() || null;
+          if (!indicador && linha.indicadorNome) {
+            indicador = await this.prisma.indicador.findFirst({
+              where: {
+                nome: { equals: nome, mode: 'insensitive' },
+                deletedAt: null,
+                status: 'ATIVO',
+                ...(nucleoVinculado
+                  ? { nucleoId: nucleoVinculado.id }
+                  : { nucleoId: null }),
+                ...(programaVinculado
+                  ? { programaId: programaVinculado.id }
+                  : {}),
+              },
+            });
+          }
 
-          indicador =
-            (codigo &&
-              (await this.prisma.indicador.findFirst({
-                where: {
-                  OR: [
-                    { codigo, deletedAt: null, status: 'ATIVO' },
-                    {
-                      nome: { equals: nome, mode: 'insensitive' },
-                      deletedAt: null,
-                      status: 'ATIVO',
-                    },
-                  ],
-                },
-              }))) ||
-            (await this.prisma.indicador.create({
+          if (!indicador) {
+            indicador = await this.prisma.indicador.create({
               data: {
                 nome,
                 codigo,
@@ -390,7 +430,12 @@ export class ImportacaoService {
                 nucleoId: nucleoVinculado?.id ?? null,
                 programaId: programaVinculado?.id ?? null,
               },
-            }));
+            });
+          }
+
+          if (indicador) {
+            cacheIndicadores.set(chaveCache, indicador);
+          }
         }
 
         if (!indicador) {
@@ -424,13 +469,26 @@ export class ImportacaoService {
           },
         );
 
+        const dadosRegistro: {
+          valorRealizado: number | null;
+          importacaoId: string;
+          metaAplicada?: number;
+        } = {
+          valorRealizado: linha.valorRealizado,
+          importacaoId: importacao.id,
+        };
+        if (
+          linha.meta !== null &&
+          linha.meta !== undefined &&
+          Number.isFinite(linha.meta)
+        ) {
+          dadosRegistro.metaAplicada = linha.meta;
+        }
+
         if (registroExistente) {
           await this.prisma.indicadorRegistro.update({
             where: { id: registroExistente.id },
-            data: {
-              valorRealizado: linha.valorRealizado,
-              importacaoId: importacao.id,
-            },
+            data: dadosRegistro,
           });
         } else {
           await this.prisma.indicadorRegistro.create({
@@ -438,10 +496,44 @@ export class ImportacaoService {
               indicadorId: indicador.id,
               ano: linha.ano,
               trimestre: linha.trimestre,
-              valorRealizado: linha.valorRealizado,
-              importacaoId: importacao.id,
+              ...dadosRegistro,
             },
           });
+        }
+
+        if (
+          linha.meta !== null &&
+          linha.meta !== undefined &&
+          Number.isFinite(linha.meta)
+        ) {
+          const metaExistente = await this.prisma.meta.findFirst({
+            where: {
+              indicadorId: indicador.id,
+              ano: linha.ano,
+              trimestre: linha.trimestre,
+              deletedAt: null,
+            },
+          });
+
+          if (metaExistente) {
+            await this.prisma.meta.update({
+              where: { id: metaExistente.id },
+              data: {
+                valorMeta: linha.meta,
+                status: 'ATIVO',
+              },
+            });
+          } else {
+            await this.prisma.meta.create({
+              data: {
+                indicadorId: indicador.id,
+                ano: linha.ano,
+                trimestre: linha.trimestre,
+                valorMeta: linha.meta,
+                status: 'ATIVO',
+              },
+            });
+          }
         }
 
         linhasOk++;

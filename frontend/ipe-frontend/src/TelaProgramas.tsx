@@ -28,12 +28,6 @@ interface ProgramaApi {
 const NUCLEO_INSTITUCIONAL: Nucleo =
   NucleosCadastrados.find((n) => n.sigla === 'IPÊ') ?? NucleosCadastrados[0];
 
-// POST/PATCH/DELETE de programas ainda não existem no backend
-const avisarSemApi = (acao: string) =>
-  alert(
-    `${acao} programas ainda não está disponível na API: a alteração vale só até recarregar a página.`,
-  );
-
 function ProgramaObj({
   programaEmSi,
   editFunc,
@@ -233,28 +227,66 @@ export default function TelaProgramas() {
     setModalEdicao(true);
   };
 
-  const handleSalvarPrograma = (dadosProgram: Programa) => {
+  const handleSalvarPrograma = async (dadosProgram: Programa) => {
     const existe = programas.some((u) => u.id === dadosProgram.id);
 
-    if (existe) {
-      setProgramas(
-        programas.map((u) => (u.id === dadosProgram.id ? dadosProgram : u)),
-      );
-      setModalEdicao(false);
-    } else {
-      const programaComIdUnico = {
-        ...dadosProgram,
-        id:
-          dadosProgram.id ||
-          (typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random()}`),
-      };
-      setProgramas([...programas, programaComIdUnico]);
-      setModalCriacao(false);
+    try {
+      if (existe) {
+        const atualizado = await apiFetch<ProgramaApi>(
+          `/programas/${dadosProgram.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({
+              nome: dadosProgram.nome,
+              descricao: dadosProgram.descricao || undefined,
+              nucleoId: dadosProgram.nucleo?.id || null,
+            }),
+          },
+        );
+
+        setProgramas((prev) =>
+          prev.map((u) =>
+            u.id === dadosProgram.id
+              ? {
+                  ...dadosProgram,
+                  nome: atualizado.nome,
+                  descricao: atualizado.descricao ?? '',
+                  nucleo: atualizado.nucleo
+                    ? nucleoDaApi(atualizado.nucleo)
+                    : undefined,
+                }
+              : u,
+          ),
+        );
+        setModalEdicao(false);
+      } else {
+        const criado = await apiFetch<ProgramaApi>('/programas', {
+          method: 'POST',
+          body: JSON.stringify({
+            nome: dadosProgram.nome,
+            descricao: dadosProgram.descricao || undefined,
+            nucleoId: dadosProgram.nucleo?.id || undefined,
+          }),
+        });
+
+        const novoPrograma: Programa = {
+          id: criado.id,
+          nome: criado.nome,
+          descricao: criado.descricao ?? '',
+          nucleo: criado.nucleo ? nucleoDaApi(criado.nucleo) : undefined,
+          dataDeInicio: new Date(criado.createdAt),
+          status: 'Ativo',
+          participantes: [],
+        };
+
+        setProgramas((prev) => [...prev, novoPrograma]);
+        setModalCriacao(false);
+      }
+      setProgramaSelecionado(undefined);
+    } catch (erro) {
+      console.error('Erro ao salvar programa:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao salvar programa.');
     }
-    setProgramaSelecionado(undefined);
-    avisarSemApi(existe ? 'Editar' : 'Criar');
   };
 
   // Deletamento handling
@@ -264,11 +296,21 @@ export default function TelaProgramas() {
     setModalDeletarAberto(true);
   };
 
-  const handleDeletarProgram = () => {
+  const handleDeletarProgram = async () => {
     if (!programaSelecionado) return;
-    setProgramas(programas.filter((n) => n.id !== programaSelecionado.id));
-    setModalDeletarAberto(false);
-    avisarSemApi('Excluir');
+    try {
+      await apiFetch(`/programas/${programaSelecionado.id}`, {
+        method: 'DELETE',
+      });
+      setProgramas((prev) =>
+        prev.filter((n) => n.id !== programaSelecionado.id),
+      );
+      setModalDeletarAberto(false);
+      setProgramaSelecionado(undefined);
+    } catch (erro) {
+      console.error('Erro ao excluir programa:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao excluir programa.');
+    }
   };
 
   return (

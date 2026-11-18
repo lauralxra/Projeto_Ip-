@@ -3,6 +3,7 @@ import type { Programa } from './programas';
 
 export interface Indicador {
   id: string;
+  registroId?: string;
   nome: string;
   unidade: string;
   simbolUni?: string;

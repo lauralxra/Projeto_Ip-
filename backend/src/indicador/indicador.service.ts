@@ -18,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 
 export interface UsuarioAutenticado {
@@ -183,6 +184,115 @@ export class IndicadorService {
     });
 
     return indicador;
+  }
+
+  async update(id: string, dados: UpdateIndicadorDto, autor: AutorAcao) {
+    const indicador = await this.prisma.indicador.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+      },
+    });
+
+    if (!indicador) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    const nucleoId =
+      dados.nucleoId !== undefined ? dados.nucleoId : indicador.nucleoId;
+    const escopo = dados.escopo !== undefined ? dados.escopo : indicador.escopo;
+
+    if (escopo === EscopoIndicador.NUCLEO && !nucleoId) {
+      throw new BadRequestException(
+        'É obrigatório vincular um núcleo ao indicador com escopo de núcleo.',
+      );
+    }
+
+    if (escopo === EscopoIndicador.INSTITUCIONAL && nucleoId) {
+      throw new BadRequestException(
+        'Indicadores institucionais não devem ter núcleo vinculado.',
+      );
+    }
+
+    if (dados.nucleoId) {
+      const nucleo = await this.prisma.nucleo.findFirst({
+        where: { id: dados.nucleoId, deletedAt: null, status: 'ATIVO' },
+      });
+      if (!nucleo) {
+        throw new BadRequestException('Núcleo não encontrado ou inativo.');
+      }
+    }
+
+    if (dados.programaId) {
+      const programa = await this.prisma.programa.findFirst({
+        where: {
+          id: dados.programaId,
+          deletedAt: null,
+          status: 'ATIVO',
+          ...(nucleoId ? { nucleoId } : {}),
+        },
+      });
+      if (!programa) {
+        throw new BadRequestException(
+          'Programa não encontrado, inativo ou incompatível com o núcleo.',
+        );
+      }
+    }
+
+    const atualizado = await this.prisma.indicador.update({
+      where: { id },
+      data: {
+        ...(dados.nome ? { nome: dados.nome.trim() } : {}),
+        ...(dados.descricao !== undefined
+          ? { descricao: dados.descricao?.trim() || null }
+          : {}),
+        ...(dados.unidadeMedida !== undefined
+          ? { unidadeMedida: dados.unidadeMedida?.trim() || null }
+          : {}),
+        ...(dados.escopo ? { escopo: dados.escopo } : {}),
+        ...(dados.tipoDado ? { tipoDado: dados.tipoDado } : {}),
+        ...(dados.nucleoId !== undefined
+          ? { nucleoId: dados.nucleoId || null }
+          : {}),
+        ...(dados.programaId !== undefined
+          ? { programaId: dados.programaId || null }
+          : {}),
+        ...(dados.codigo !== undefined
+          ? { codigo: dados.codigo?.trim() || null }
+          : {}),
+      },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+        registros: {
+          where: { deletedAt: null },
+          orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
+        },
+      },
+    });
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Indicador',
+      entidadeId: id,
+      dadosAntigos: {
+        nome: indicador.nome,
+        escopo: indicador.escopo,
+        nucleoId: indicador.nucleoId,
+        programaId: indicador.programaId,
+      },
+      dadosNovos: {
+        nome: atualizado.nome,
+        escopo: atualizado.escopo,
+        nucleoId: atualizado.nucleoId,
+        programaId: atualizado.programaId,
+      },
+      ip: autor.ip,
+    });
+
+    return atualizado;
   }
 
   // RF03: remove um indicador por vez (exclusão lógica), levando junto metas e registros
