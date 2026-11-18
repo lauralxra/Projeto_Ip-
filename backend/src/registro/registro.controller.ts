@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -18,17 +19,22 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { RegistroService } from './registro.service';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
+import { FilterRegistroDto } from './dto/filter-registro.dto';
 
+// Valores trimestrais dos indicadores. A criação acontece em POST /indicadores/:id/registros.
 @ApiTags('registros')
 @ApiBearerAuth('JWT-auth')
-@Controller('registro')
+@Controller('registros')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RegistroController {
   constructor(private readonly registroService: RegistroService) {}
 
   @Get()
-  findAll(@Req() req: AuthenticatedRequest) {
-    return this.registroService.findAll(req.user);
+  findAll(
+    @Query() filtros: FilterRegistroDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.registroService.findAll(filtros, req.user);
   }
 
   @Get(':id')
@@ -58,6 +64,16 @@ export class RegistroController {
     @Ip() ip: string,
   ) {
     return this.registroService.inativar(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/reativar')
+  @Roles(Role.ADMINISTRADOR)
+  reativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.reativar(id, { id: req.user.id, ip });
   }
 
   @Delete(':id')
