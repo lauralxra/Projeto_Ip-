@@ -1,3 +1,13 @@
+# [1.1.0-dev.16](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.15...v1.1.0-dev.16) (2026-11-18)
+
+
+### Features
+
+* **auth:** return the profile photo path on login ([fe6cd30](https://github.com/lauralxra/Projeto_Ip-/commit/fe6cd30edfde9090ef5c2a2ff31d6042d21d37bc))
+* **frontend:** create, edit, change status and delete programs through the api ([1fce10d](https://github.com/lauralxra/Projeto_Ip-/commit/1fce10de9831411ccba8c173d638d1fbffe399e5))
+* **frontend:** save indicator approval through the api ([7a8b713](https://github.com/lauralxra/Projeto_Ip-/commit/7a8b7135b407e599610c1615e687041cbfc1e903))
+* **frontend:** show user photos and upload the profile photo ([8e53764](https://github.com/lauralxra/Projeto_Ip-/commit/8e53764a10a11717113c55b4e3e98d928844ba00))
+
 # [1.1.0-dev.15](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.14...v1.1.0-dev.15) (2026-11-18)
 
 
