@@ -233,8 +233,9 @@ export class RegistroService {
     });
   }
 
-  // Transição atômica de status: o updateMany só altera se o status ainda for
-  // um dos esperados, evitando que duas revisões simultâneas se sobreponham
+  // Transição atômica de status: confere a etapa atual e só grava se ela ainda for
+  // a lida, para duas revisões simultâneas não se sobreporem e a auditoria registrar
+  // o status anterior correto. Valor e indicador precisam estar ativos.
   private async transicionar(params: {
     id: string;
     de: StatusAprovacao[];
@@ -249,11 +250,24 @@ export class RegistroService {
     const { id, de, para } = params;
     const anterior = await this.prisma.indicadorRegistro.findFirst({
       where: { id, deletedAt: null, status: StatusRegistro.ATIVO },
-      select: { statusAprovacao: true },
+      select: {
+        statusAprovacao: true,
+        indicador: { select: { deletedAt: true, status: true } },
+      },
     });
 
-    if (!anterior) {
+    if (!anterior || anterior.indicador.deletedAt) {
       throw new NotFoundException('Registro não encontrado ou inativo.');
+    }
+
+    if (anterior.indicador.status !== StatusRegistro.ATIVO) {
+      throw new ConflictException(
+        'Não é possível revisar valores de um indicador inativo.',
+      );
+    }
+
+    if (!de.includes(anterior.statusAprovacao)) {
+      throw new ConflictException(params.mensagemConflito);
     }
 
     const { count } = await this.prisma.indicadorRegistro.updateMany({
@@ -261,13 +275,15 @@ export class RegistroService {
         id,
         deletedAt: null,
         status: StatusRegistro.ATIVO,
-        statusAprovacao: { in: de },
+        statusAprovacao: anterior.statusAprovacao,
       },
       data: { ...params.dados, statusAprovacao: para },
     });
 
     if (count === 0) {
-      throw new ConflictException(params.mensagemConflito);
+      throw new ConflictException(
+        'O registro foi alterado por outra operação. Recarregue e tente novamente.',
+      );
     }
 
     await this.audit.registrarAcao({
@@ -286,7 +302,7 @@ export class RegistroService {
     });
   }
 
-  // RF14: o núcleo envia o valor preenchido para a revisão da gestão
+  // RF14: o núcleo envia o valor preenchido para a revisão da Administração
   async enviarParaRevisao(id: string, usuario: AuthenticatedUser, ip?: string) {
     const registro = await this.prisma.indicadorRegistro.findFirst({
       where: { id, deletedAt: null, status: StatusRegistro.ATIVO },
@@ -334,7 +350,7 @@ export class RegistroService {
     });
   }
 
-  // RF15: a gestão devolve o valor ao núcleo explicando o que corrigir
+  // RN03: a Administração devolve o valor ao núcleo explicando o que corrigir
   async devolverComComentario(
     id: string,
     justificativa: string,
@@ -354,7 +370,7 @@ export class RegistroService {
     });
   }
 
-  // RF15: a gestão homologa o valor
+  // RF14: a Administração homologa o valor
   async aprovar(id: string, autor: AutorAcao) {
     const agora = new Date();
     return this.transicionar({

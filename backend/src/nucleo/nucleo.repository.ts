@@ -90,7 +90,9 @@ export class NucleoRepository {
         ...nucleoSelect,
         _count: {
           select: {
-            users: true,
+            // Usuários excluídos não impedem a exclusão (inclui vínculos antigos,
+            // anteriores à remoção automática na exclusão do usuário)
+            users: { where: { user: { deletedAt: null } } },
             programas: { where: { deletedAt: null } },
             indicadores: { where: { deletedAt: null } },
           },
