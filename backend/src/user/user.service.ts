@@ -317,7 +317,7 @@ export class UserService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    const { count } = await this.userRepository.softDelete(id);
+    const { count, nucleoIds } = await this.userRepository.softDelete(id);
     if (count === 0) {
       throw new NotFoundException('Usuário não encontrado.');
     }
@@ -327,8 +327,13 @@ export class UserService {
       acao: AcaoAuditoria.EXCLUIR_LOGICO,
       entidade: 'User',
       entidadeId: id,
-      dadosAntigos: { ativo: usuarioAtual.ativo, perfil: usuarioAtual.perfil },
-      dadosNovos: { ativo: false, excluido: true },
+      // Os vínculos com núcleos são removidos na exclusão e ficam registrados aqui
+      dadosAntigos: {
+        ativo: usuarioAtual.ativo,
+        perfil: usuarioAtual.perfil,
+        nucleos: nucleoIds,
+      },
+      dadosNovos: { ativo: false, excluido: true, nucleos: [] },
       ip: autor.ip,
     });
 
