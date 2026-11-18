@@ -13,6 +13,7 @@ import {
   Search,
   X,
   Camera,
+  Palette,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -137,6 +138,40 @@ function CardMetrica({
   );
 }
 
+const PALETA_CORES = [
+  { nome: 'Vinho IPÊ', hex: '#832b62' },
+  { nome: 'Azul', hex: '#2563eb' },
+  { nome: 'Verde', hex: '#059669' },
+  { nome: 'Laranja', hex: '#d97706' },
+  { nome: 'Roxo', hex: '#7c3aed' },
+  { nome: 'Vermelho', hex: '#dc2626' },
+  { nome: 'Ciano', hex: '#0891b2' },
+];
+
+function ajustarBrilho(hex: string, porcentagem: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  if (isNaN(num)) return hex;
+  let r = (num >> 16) + Math.round(255 * (porcentagem / 100));
+  let g = ((num >> 8) & 0x00ff) + Math.round(255 * (porcentagem / 100));
+  let b = (num & 0x0000ff) + Math.round(255 * (porcentagem / 100));
+
+  r = Math.min(255, Math.max(0, r));
+  g = Math.min(255, Math.max(0, g));
+  b = Math.min(255, Math.max(0, b));
+
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function gerarTonsFatia(corBase: string): string[] {
+  return [
+    corBase,
+    ajustarBrilho(corBase, 20),
+    ajustarBrilho(corBase, 40),
+    ajustarBrilho(corBase, -20),
+    ajustarBrilho(corBase, 60),
+  ];
+}
+
 export default function TelaDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const indicadorIdParam = searchParams.get('indicadorId');
@@ -159,6 +194,10 @@ export default function TelaDashboard() {
   >([]);
   const [menuExportacaoAberto, setMenuExportacaoAberto] = useState(false);
   const [tiposGraficos, setTiposGraficos] = useState<Record<string, string>>(
+    {},
+  );
+  const [corPadraoGlobal, setCorPadraoGlobal] = useState('#832b62');
+  const [coresGraficos, setCoresGraficos] = useState<Record<string, string>>(
     {},
   );
   const [exportando, setExportando] = useState<string | null>(null);
@@ -975,6 +1014,50 @@ export default function TelaDashboard() {
                 />
               </div>
 
+              {/* Seletor de Cor Geral dos Gráficos */}
+              <div
+                className="relative flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-xs"
+                title="Cor padrão para todos os gráficos"
+              >
+                <Palette size={13} className="text-slate-500" />
+                <span className="text-xs text-slate-600 font-medium hidden sm:inline">
+                  Cor:
+                </span>
+                <div className="flex items-center gap-1">
+                  {PALETA_CORES.slice(0, 5).map((p) => (
+                    <button
+                      key={p.hex}
+                      type="button"
+                      onClick={() => {
+                        setCorPadraoGlobal(p.hex);
+                        setCoresGraficos({});
+                      }}
+                      title={`Aplicar ${p.nome} em todos`}
+                      style={{ backgroundColor: p.hex }}
+                      className={`w-3.5 h-3.5 rounded-full cursor-pointer transition-transform ${
+                        corPadraoGlobal === p.hex
+                          ? 'ring-2 ring-offset-1 ring-slate-400 scale-110'
+                          : 'opacity-80 hover:opacity-100 hover:scale-105'
+                      }`}
+                    />
+                  ))}
+                  <label
+                    title="Escolher cor personalizada para todos"
+                    className="relative w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden hover:scale-105"
+                  >
+                    <input
+                      type="color"
+                      value={corPadraoGlobal}
+                      onChange={(e) => {
+                        setCorPadraoGlobal(e.target.value);
+                        setCoresGraficos({});
+                      }}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+
               {/* Botão Exportar com Opções */}
               <div id="menu-exportacao" className="relative">
                 <button
@@ -1203,6 +1286,8 @@ export default function TelaDashboard() {
                 };
               });
 
+            const corAtual = coresGraficos[indicador.id] || corPadraoGlobal;
+
             return (
               <div
                 key={indicador.id}
@@ -1292,27 +1377,73 @@ export default function TelaDashboard() {
                     )}
                 </div>
 
-                <div className="flex items-center justify-between mb-3 no-export">
-                  <span className="text-xs text-slate-500">
-                    Tipo de visualização
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 no-export">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Visualização</span>
 
-                  <select
-                    value={tiposGraficos[indicador.id] || 'area'}
-                    onChange={(e) =>
-                      setTiposGraficos((anteriores) => ({
-                        ...anteriores,
-                        [indicador.id]: e.target.value,
-                      }))
-                    }
-                    className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700"
-                  >
-                    <option value="area">Área</option>
-                    <option value="linha">Linha</option>
-                    <option value="coluna">Colunas</option>
-                    <option value="pizza">Pizza</option>
-                    <option value="rosca">Rosca</option>
-                  </select>
+                    <select
+                      value={tiposGraficos[indicador.id] || 'area'}
+                      onChange={(e) =>
+                        setTiposGraficos((anteriores) => ({
+                          ...anteriores,
+                          [indicador.id]: e.target.value,
+                        }))
+                      }
+                      className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none"
+                    >
+                      <option value="area">Área</option>
+                      <option value="linha">Linha</option>
+                      <option value="coluna">Colunas</option>
+                      <option value="pizza">Pizza</option>
+                      <option value="rosca">Rosca</option>
+                    </select>
+                  </div>
+
+                  {/* Seletor de Cores do Gráfico */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-500">Cor</span>
+                    <div className="flex items-center gap-1">
+                      {PALETA_CORES.map((paleta) => (
+                        <button
+                          key={paleta.hex}
+                          type="button"
+                          onClick={() =>
+                            setCoresGraficos((ant) => ({
+                              ...ant,
+                              [indicador.id]: paleta.hex,
+                            }))
+                          }
+                          title={paleta.nome}
+                          style={{ backgroundColor: paleta.hex }}
+                          className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                            corAtual === paleta.hex
+                              ? 'ring-2 ring-offset-1 ring-slate-400 scale-110'
+                              : 'hover:scale-105 opacity-80 hover:opacity-100'
+                          }`}
+                        />
+                      ))}
+                      <label
+                        title="Escolher cor personalizada"
+                        className="relative w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden hover:scale-105"
+                      >
+                        <input
+                          type="color"
+                          value={corAtual}
+                          onChange={(e) =>
+                            setCoresGraficos((ant) => ({
+                              ...ant,
+                              [indicador.id]: e.target.value,
+                            }))
+                          }
+                          className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                        />
+                        <Palette
+                          size={10}
+                          className="text-slate-500 pointer-events-none"
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="h-64 w-full">
@@ -1330,12 +1461,12 @@ export default function TelaDashboard() {
                             >
                               <stop
                                 offset="5%"
-                                stopColor="#832b62"
+                                stopColor={corAtual}
                                 stopOpacity={0.3}
                               />
                               <stop
                                 offset="95%"
-                                stopColor="#832b62"
+                                stopColor={corAtual}
                                 stopOpacity={0}
                               />
                             </linearGradient>
@@ -1347,7 +1478,7 @@ export default function TelaDashboard() {
                           <Area
                             type="monotone"
                             dataKey="valor"
-                            stroke="#832b62"
+                            stroke={corAtual}
                             strokeWidth={3}
                             fill={`url(#corIndicador-${indicador.id})`}
                           />
@@ -1363,7 +1494,7 @@ export default function TelaDashboard() {
                           <Line
                             type="monotone"
                             dataKey="valor"
-                            stroke="#832b62"
+                            stroke={corAtual}
                             strokeWidth={3}
                           />
                         </LineChart>
@@ -1377,7 +1508,7 @@ export default function TelaDashboard() {
                           <Tooltip />
                           <Bar
                             dataKey="valor"
-                            fill="#832b62"
+                            fill={corAtual}
                             radius={[5, 5, 0, 0]}
                           />
                         </BarChart>
@@ -1403,15 +1534,7 @@ export default function TelaDashboard() {
                             {dadosHistoricoTrimestres.map((_, index) => (
                               <Cell
                                 key={`fatia-${indicador.id}-${index}`}
-                                fill={
-                                  [
-                                    '#832b62',
-                                    '#a13680',
-                                    '#d18ab5',
-                                    '#e8b9d5',
-                                    '#6b3157',
-                                  ][index % 5]
-                                }
+                                fill={gerarTonsFatia(corAtual)[index % 5]}
                               />
                             ))}
                           </Pie>
@@ -1424,93 +1547,143 @@ export default function TelaDashboard() {
             );
           })}
 
-          <div
-            id="card-grafico-programas"
-            className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
-          >
-            <div className="flex items-start justify-between gap-3 mb-1">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">
-                  Programas em Execução por Núcleo
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Quantidade de programas ativos por núcleo
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={exportando === 'card-grafico-programas'}
-                onClick={() =>
-                  exportarCardPNG(
-                    'card-grafico-programas',
-                    'programas_por_nucleo',
-                  )
-                }
-                className="no-export flex items-center gap-1.5 text-xs text-[#832b62] hover:text-white bg-[#fcf2f7] hover:bg-[#832b62] border border-[#f5e1ed] hover:border-[#832b62] px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                title="Baixar imagem deste gráfico em PNG"
+          {(() => {
+            const corProgramas = coresGraficos['programas'] || corPadraoGlobal;
+            return (
+              <div
+                id="card-grafico-programas"
+                className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
               >
-                <Camera size={13} />
-                <span className="font-medium">
-                  {exportando === 'card-grafico-programas'
-                    ? 'Salvando...'
-                    : 'Salvar PNG'}
-                </span>
-              </button>
-            </div>
-            <div className="mb-4" />
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Programas em Execução por Núcleo
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Quantidade de programas ativos por núcleo
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={exportando === 'card-grafico-programas'}
+                    onClick={() =>
+                      exportarCardPNG(
+                        'card-grafico-programas',
+                        'programas_por_nucleo',
+                      )
+                    }
+                    className="no-export flex items-center gap-1.5 text-xs text-[#832b62] hover:text-white bg-[#fcf2f7] hover:bg-[#832b62] border border-[#f5e1ed] hover:border-[#832b62] px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                    title="Baixar imagem deste gráfico em PNG"
+                  >
+                    <Camera size={13} />
+                    <span className="font-medium">
+                      {exportando === 'card-grafico-programas'
+                        ? 'Salvando...'
+                        : 'Salvar PNG'}
+                    </span>
+                  </button>
+                </div>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={dadosProgramasPorNucleo}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
+                {/* Seletor de Cores do Card de Programas */}
+                <div className="flex items-center justify-end gap-1.5 mb-3 no-export">
+                  <span className="text-xs text-slate-500">Cor</span>
+                  <div className="flex items-center gap-1">
+                    {PALETA_CORES.map((paleta) => (
+                      <button
+                        key={paleta.hex}
+                        type="button"
+                        onClick={() =>
+                          setCoresGraficos((ant) => ({
+                            ...ant,
+                            programas: paleta.hex,
+                          }))
+                        }
+                        title={paleta.nome}
+                        style={{ backgroundColor: paleta.hex }}
+                        className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                          corProgramas === paleta.hex
+                            ? 'ring-2 ring-offset-1 ring-slate-400 scale-110'
+                            : 'hover:scale-105 opacity-80 hover:opacity-100'
+                        }`}
+                      />
+                    ))}
+                    <label
+                      title="Escolher cor personalizada"
+                      className="relative w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden hover:scale-105"
+                    >
+                      <input
+                        type="color"
+                        value={corProgramas}
+                        onChange={(e) =>
+                          setCoresGraficos((ant) => ({
+                            ...ant,
+                            programas: e.target.value,
+                          }))
+                        }
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                      />
+                      <Palette
+                        size={10}
+                        className="text-slate-500 pointer-events-none"
+                      />
+                    </label>
+                  </div>
+                </div>
 
-                  <XAxis
-                    dataKey="nucleo"
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    tickLine={false}
-                  />
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dadosProgramasPorNucleo}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
 
-                  <YAxis
-                    stroke="#94a3b8"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
+                      <XAxis
+                        dataKey="nucleo"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                      />
 
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '12px',
-                      borderColor: '#f1f5f9',
-                    }}
-                  />
+                      <YAxis
+                        stroke="#94a3b8"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={false}
+                      />
 
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    iconType="circle"
-                    wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-                  />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          borderRadius: '12px',
+                          borderColor: '#f1f5f9',
+                        }}
+                      />
 
-                  <Bar
-                    dataKey="programas"
-                    name="Programas"
-                    fill="#832b62"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                      />
+
+                      <Bar
+                        dataKey="programas"
+                        name="Programas"
+                        fill={corProgramas}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </main>
 
