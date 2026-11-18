@@ -3,6 +3,7 @@ import {
   Prisma,
   Role,
   StatusAprovacao,
+  StatusRegistro,
   TipoDadoIndicador,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/interface/request.interface';
@@ -85,8 +86,10 @@ export class DashboardService {
       );
     }
 
+    // RN06: dado inativo fica no histórico, fora dos cálculos do dashboard
     const registros: Prisma.IndicadorRegistroWhereInput = {
       deletedAt: null,
+      status: StatusRegistro.ATIVO,
       ano,
       ...(trimestre && { trimestre }),
       ...(statusVisiveis && { statusAprovacao: { in: statusVisiveis } }),
