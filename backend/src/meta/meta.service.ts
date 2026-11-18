@@ -6,23 +6,37 @@ import {
 } from '@nestjs/common';
 import {
   AcaoAuditoria,
+  EscopoIndicador,
   Prisma,
   Role,
   StatusAprovacao,
   StatusRegistro,
+  TipoDadoIndicador,
+  TrimestreEnum,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import type { AuthenticatedUser } from '../auth/interface/request.interface';
+import { calcularRealizado, percentualAtingido } from '../common/realizado';
 import { CreateMetaDto } from './dto/create-meta.dto';
 import { UpdateMetaDto } from './dto/update-meta.dto';
+import { FilterMetaDto } from './dto/filter-meta.dto';
 
-// RN01: só dado homologado chega à Comunicação
-const STATUS_VISIVEIS_COMUNICACAO: StatusAprovacao[] = [
+// Mesmo alcance do dashboard (RN01): Comunicação e Gestão veem todos os núcleos,
+// com o realizado só de valores homologados; a Direção de Núcleo vê os indicadores
+// institucionais e os dos seus núcleos. Só a Administração vê metas de indicadores inativos.
+const PERFIS_SOMENTE_HOMOLOGADOS: Role[] = [
+  Role.EQUIPE_COMUNICACAO,
+  Role.EQUIPE_GESTAO,
+];
+
+const STATUS_HOMOLOGADOS: StatusAprovacao[] = [
   StatusAprovacao.APROVADO,
   StatusAprovacao.PUBLICADO,
 ];
+
+const LIMITE_PERCENTUAL = 100;
 
 const INCLUDE_INDICADOR = {
   indicador: {
@@ -31,6 +45,7 @@ const INCLUDE_INDICADOR = {
       nome: true,
       codigo: true,
       unidadeMedida: true,
+      tipoDado: true,
       escopo: true,
       nucleoId: true,
       nucleo: { select: { id: true, nome: true, sigla: true } },
@@ -44,6 +59,14 @@ type MetaComIndicador = Prisma.MetaGetPayload<{
 
 const decimalParaAuditoria = (valor: Prisma.Decimal | null | undefined) =>
   valor === null || valor === undefined ? null : valor.toString();
+
+const descreverPeriodo = (ano: number, trimestre: TrimestreEnum | null) =>
+  trimestre
+    ? `Já existe uma meta para este indicador em ${trimestre}/${ano}.`
+    : `Já existe uma meta anual para este indicador em ${ano}.`;
+
+const ehViolacaoDeUnicidade = (erro: unknown) =>
+  erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002';
 
 @Injectable()
 export class MetaService {
@@ -60,8 +83,6 @@ export class MetaService {
     return vinculos.map((v) => v.nucleoId);
   }
 
-  // Administração vê tudo (inclusive metas inativas); Comunicação vê todos os
-  // núcleos; os demais perfis, só as metas dos indicadores dos seus núcleos
   private async filtroVisibilidade(
     usuario: AuthenticatedUser,
   ): Promise<Prisma.MetaWhereInput> {
@@ -73,38 +94,45 @@ export class MetaService {
       deletedAt: null,
       status: StatusRegistro.ATIVO,
     };
+    const indicadorAtivo: Prisma.IndicadorWhereInput = {
+      deletedAt: null,
+      status: StatusRegistro.ATIVO,
+    };
 
-    if (usuario.role === Role.EQUIPE_COMUNICACAO) {
-      return { ...base, indicador: { deletedAt: null } };
+    if (PERFIS_SOMENTE_HOMOLOGADOS.includes(usuario.role)) {
+      return { ...base, indicador: indicadorAtivo };
     }
 
     const nucleos = await this.nucleosDoUsuario(usuario.id);
     return {
       ...base,
-      indicador: { deletedAt: null, nucleoId: { in: nucleos } },
+      indicador: {
+        ...indicadorAtivo,
+        OR: [
+          { escopo: EscopoIndicador.INSTITUCIONAL },
+          { nucleoId: { in: nucleos } },
+        ],
+      },
     };
   }
 
-  // Comparação realizado x meta: anexa a cada meta o valor registrado no mesmo
-  // indicador, ano e trimestre. Metas anuais (sem trimestre) ficam com null.
+  // Comparação realizado x meta (RF21), com o mesmo cálculo do dashboard:
+  // meta trimestral usa o valor do trimestre; meta anual consolida o ano
+  // (soma para numérico e moeda, última medição para percentual).
   private async comRealizado(
     metas: MetaComIndicador[],
     somenteHomologados: boolean,
   ) {
-    const trimestrais = metas.filter((m) => m.trimestre !== null);
-
-    const registros = trimestrais.length
+    const registros = metas.length
       ? await this.prisma.indicadorRegistro.findMany({
           where: {
             deletedAt: null,
             status: StatusRegistro.ATIVO,
-            indicadorId: {
-              in: [...new Set(trimestrais.map((m) => m.indicadorId))],
-            },
-            ano: { in: [...new Set(trimestrais.map((m) => m.ano))] },
-            ...(somenteHomologados
-              ? { statusAprovacao: { in: STATUS_VISIVEIS_COMUNICACAO } }
-              : {}),
+            indicadorId: { in: [...new Set(metas.map((m) => m.indicadorId))] },
+            ano: { in: [...new Set(metas.map((m) => m.ano))] },
+            ...(somenteHomologados && {
+              statusAprovacao: { in: STATUS_HOMOLOGADOS },
+            }),
           },
           select: {
             indicadorId: true,
@@ -113,25 +141,55 @@ export class MetaService {
             valorRealizado: true,
             statusAprovacao: true,
           },
+          orderBy: { trimestre: 'asc' },
         })
       : [];
 
-    const chave = (indicadorId: string, ano: number, trimestre: string) =>
-      `${indicadorId}|${ano}|${trimestre}`;
-    const porPeriodo = new Map(
-      registros.map((r) => [chave(r.indicadorId, r.ano, r.trimestre), r]),
-    );
+    const porIndicadorEAno = new Map<string, typeof registros>();
+    for (const registro of registros) {
+      const chave = `${registro.indicadorId}|${registro.ano}`;
+      porIndicadorEAno.set(chave, [
+        ...(porIndicadorEAno.get(chave) ?? []),
+        registro,
+      ]);
+    }
 
     return metas.map((meta) => {
-      const registro = meta.trimestre
-        ? porPeriodo.get(chave(meta.indicadorId, meta.ano, meta.trimestre))
-        : undefined;
+      const doAno =
+        porIndicadorEAno.get(`${meta.indicadorId}|${meta.ano}`) ?? [];
+      const considerados = meta.trimestre
+        ? doAno.filter((r) => r.trimestre === meta.trimestre)
+        : doAno;
+
+      const valorMeta = meta.valorMeta.toNumber();
+      const valorRealizado = calcularRealizado(
+        meta.indicador.tipoDado,
+        considerados.map((r) => r.valorRealizado),
+      );
+
       return {
         ...meta,
-        valorRealizado: registro?.valorRealizado ?? null,
-        statusAprovacaoRealizado: registro?.statusAprovacao ?? null,
+        valorMeta,
+        valorRealizado,
+        percentualAtingido: percentualAtingido(valorRealizado, valorMeta),
+        // Na meta anual o realizado junta vários trimestres, cada um com seu status
+        statusAprovacaoRealizado: meta.trimestre
+          ? (considerados[0]?.statusAprovacao ?? null)
+          : null,
+        trimestresConsiderados: considerados.map((r) => r.trimestre),
       };
     });
+  }
+
+  private validarValor(tipoDado: TipoDadoIndicador, valorMeta: number) {
+    if (
+      tipoDado === TipoDadoIndicador.PERCENTUAL &&
+      valorMeta > LIMITE_PERCENTUAL
+    ) {
+      throw new BadRequestException(
+        'A meta de um indicador percentual não pode passar de 100.',
+      );
+    }
   }
 
   // RF20: cadastra a meta de um indicador ativo para um período
@@ -142,16 +200,19 @@ export class MetaService {
         deletedAt: null,
         status: StatusRegistro.ATIVO,
       },
-      select: { id: true },
+      select: { id: true, tipoDado: true },
     });
 
     if (!indicador) {
       throw new BadRequestException('Indicador não encontrado ou inativo.');
     }
 
+    this.validarValor(indicador.tipoDado, dados.valorMeta);
+
     const trimestre = dados.trimestre ?? null;
 
-    // Não há índice único no banco: a duplicidade é verificada aqui
+    // Verificação prévia para uma mensagem clara; o índice único
+    // (migration 20261118120000_metas_unicidade_periodo) cobre requisições simultâneas
     const duplicada = await this.prisma.meta.findFirst({
       where: {
         indicadorId: dados.indicadorId,
@@ -163,23 +224,27 @@ export class MetaService {
     });
 
     if (duplicada) {
-      throw new ConflictException(
-        trimestre
-          ? `Já existe uma meta para este indicador em ${trimestre}/${dados.ano}.`
-          : `Já existe uma meta anual para este indicador em ${dados.ano}.`,
-      );
+      throw new ConflictException(descreverPeriodo(dados.ano, trimestre));
     }
 
-    const meta = await this.prisma.meta.create({
-      data: {
-        indicadorId: dados.indicadorId,
-        ano: dados.ano,
-        trimestre,
-        valorMeta: dados.valorMeta,
-        descricao: dados.descricao ?? null,
-      },
-      include: INCLUDE_INDICADOR,
-    });
+    let meta: MetaComIndicador;
+    try {
+      meta = await this.prisma.meta.create({
+        data: {
+          indicadorId: dados.indicadorId,
+          ano: dados.ano,
+          trimestre,
+          valorMeta: dados.valorMeta,
+          descricao: dados.descricao ?? null,
+        },
+        include: INCLUDE_INDICADOR,
+      });
+    } catch (erro) {
+      if (ehViolacaoDeUnicidade(erro)) {
+        throw new ConflictException(descreverPeriodo(dados.ano, trimestre));
+      }
+      throw erro;
+    }
 
     await this.audit.registrarAcao({
       userId: autor.id,
@@ -201,20 +266,50 @@ export class MetaService {
   }
 
   // RF21: lista as metas com o realizado do mesmo período
-  async findAll(usuario: AuthenticatedUser) {
-    const metas = await this.prisma.meta.findMany({
-      where: await this.filtroVisibilidade(usuario),
-      include: INCLUDE_INDICADOR,
-      orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
-    });
+  async findAll(filtros: FilterMetaDto, usuario: AuthenticatedUser) {
+    const { pagina, limite } = filtros;
 
-    return this.comRealizado(metas, usuario.role === Role.EQUIPE_COMUNICACAO);
+    const where: Prisma.MetaWhereInput = {
+      AND: [
+        await this.filtroVisibilidade(usuario),
+        {
+          ...(filtros.indicadorId && { indicadorId: filtros.indicadorId }),
+          ...(filtros.nucleoId && {
+            indicador: { nucleoId: filtros.nucleoId },
+          }),
+          ...(filtros.ano && { ano: filtros.ano }),
+          ...(filtros.trimestre && { trimestre: filtros.trimestre }),
+          ...(filtros.anual === true && { trimestre: null }),
+          ...(filtros.anual === false && { trimestre: { not: null } }),
+        },
+      ],
+    };
+
+    const [metas, total] = await this.prisma.$transaction([
+      this.prisma.meta.findMany({
+        where,
+        include: INCLUDE_INDICADOR,
+        orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }, { id: 'asc' }],
+        skip: (pagina - 1) * limite,
+        take: limite,
+      }),
+      this.prisma.meta.count({ where }),
+    ]);
+
+    return {
+      itens: await this.comRealizado(
+        metas,
+        PERFIS_SOMENTE_HOMOLOGADOS.includes(usuario.role),
+      ),
+      total,
+      pagina,
+      limite,
+    };
   }
 
   async findOne(id: string, usuario: AuthenticatedUser) {
-    const filtro = await this.filtroVisibilidade(usuario);
     const meta = await this.prisma.meta.findFirst({
-      where: { AND: [{ id }, filtro] },
+      where: { AND: [{ id }, await this.filtroVisibilidade(usuario)] },
       include: INCLUDE_INDICADOR,
     });
 
@@ -225,7 +320,7 @@ export class MetaService {
 
     const [comparada] = await this.comRealizado(
       [meta],
-      usuario.role === Role.EQUIPE_COMUNICACAO,
+      PERFIS_SOMENTE_HOMOLOGADOS.includes(usuario.role),
     );
     return comparada;
   }
@@ -234,24 +329,39 @@ export class MetaService {
   async update(id: string, dados: UpdateMetaDto, autor: AutorAcao) {
     const atual = await this.prisma.meta.findFirst({
       where: { id, deletedAt: null },
-      select: { valorMeta: true, descricao: true },
+      select: {
+        valorMeta: true,
+        descricao: true,
+        indicador: { select: { tipoDado: true } },
+      },
     });
 
     if (!atual) {
       throw new NotFoundException('Meta não encontrada.');
     }
 
-    const alteracoes: Prisma.MetaUpdateInput = {};
-    if (dados.valorMeta !== undefined) alteracoes.valorMeta = dados.valorMeta;
+    const alteracoes: Prisma.MetaUpdateManyMutationInput = {};
+    if (dados.valorMeta !== undefined) {
+      this.validarValor(atual.indicador.tipoDado, dados.valorMeta);
+      alteracoes.valorMeta = dados.valorMeta;
+    }
     if (dados.descricao !== undefined) alteracoes.descricao = dados.descricao;
 
     if (Object.keys(alteracoes).length === 0) {
       throw new BadRequestException('Nenhum campo informado para atualização.');
     }
 
-    const meta = await this.prisma.meta.update({
-      where: { id },
+    // Não grava sobre uma meta excluída por outra requisição no meio tempo
+    const { count } = await this.prisma.meta.updateMany({
+      where: { id, deletedAt: null },
       data: alteracoes,
+    });
+    if (count === 0) {
+      throw new NotFoundException('Meta não encontrada.');
+    }
+
+    const meta = await this.prisma.meta.findUniqueOrThrow({
+      where: { id },
       include: INCLUDE_INDICADOR,
     });
 
@@ -292,10 +402,14 @@ export class MetaService {
       throw new NotFoundException('Meta não encontrada.');
     }
 
-    await this.prisma.meta.update({
-      where: { id },
+    // O filtro em deletedAt evita excluir (e auditar) duas vezes em requisições concorrentes
+    const { count } = await this.prisma.meta.updateMany({
+      where: { id, deletedAt: null },
       data: { deletedAt: new Date(), status: StatusRegistro.INATIVO },
     });
+    if (count === 0) {
+      throw new NotFoundException('Meta não encontrada.');
+    }
 
     await this.audit.registrarAcao({
       userId: autor.id,

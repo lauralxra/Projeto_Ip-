@@ -11,6 +11,8 @@ import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
 import { API_BASE_URL } from './config/api';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { buscarTodasMetas, metaDoPeriodo, type MetaApi } from './api/metas';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -386,8 +388,23 @@ export default function TelaIndicadores() {
 
       const dados = await resposta.json();
 
+      // As metas ficam em GET /metas; uma falha nelas não impede a listagem
+      let metas: MetaApi[] = [];
+      try {
+        metas = await buscarTodasMetas();
+      } catch (erroMetas) {
+        console.error('Erro ao carregar metas:', erroMetas);
+      }
+
       const indicadoresReais: Indicador[] = dados.map((item: any) => {
         const registro = item.registros?.[0];
+        // Meta do período exibido no card; sem valor lançado, a anual do ano corrente
+        const meta = metaDoPeriodo(
+          metas,
+          item.id,
+          registro?.ano ?? new Date().getFullYear(),
+          registro?.trimestre,
+        );
 
         const unidade = item.unidadeMedida ?? 'Unidade';
 
@@ -407,10 +424,8 @@ export default function TelaIndicadores() {
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
-          meta:
-            registro?.metaAplicada != null
-              ? String(registro.metaAplicada)
-              : undefined,
+          meta: meta ? String(meta.valorMeta) : undefined,
+          metaId: meta?.id,
           valAtual:
             registro?.valorRealizado != null
               ? String(registro.valorRealizado)
@@ -885,9 +900,65 @@ export default function TelaIndicadores() {
     setEditAberto(true);
   };
 
-  const handleSalvarEdicao = (e: React.FormEvent) => {
+  // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
+  // exibido no card. Devolve o id da meta resultante.
+  const salvarMeta = async (indicador: Indicador, texto: string) => {
+    if (texto === '') {
+      if (indicador.metaId) {
+        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+      }
+      return undefined;
+    }
+
+    const valorMeta = Number(texto.replace(',', '.'));
+    if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
+      throw new Error('Informe uma meta maior que zero.');
+    }
+
+    if (indicador.metaId) {
+      await apiFetch(`/metas/${indicador.metaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ valorMeta }),
+      });
+      return indicador.metaId;
+    }
+
+    // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const criada = await apiFetch<{ id: string }>('/metas', {
+      method: 'POST',
+      body: JSON.stringify({
+        indicadorId: indicador.id,
+        ano: indicador.ano ?? new Date().getFullYear(),
+        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        valorMeta,
+      }),
+    });
+    return criada.id;
+  };
+
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
+
+    const textoMeta = formMeta.trim();
+    const metaMudou = textoMeta !== (indicSelecionado.meta ?? '');
+    let metaId = indicSelecionado.metaId;
+
+    if (metaMudou) {
+      try {
+        metaId = await salvarMeta(indicSelecionado, textoMeta);
+      } catch (erro) {
+        alert('Não foi possível salvar a meta: ' + mensagemDeErro(erro));
+        return;
+      }
+    }
+
+    const outrosCamposMudaram =
+      formNome !== indicSelecionado.nome ||
+      formUnidade !== indicSelecionado.unidade ||
+      formNucleoId !== (indicSelecionado.nucleo?.id ?? '') ||
+      formProgramId !== (indicSelecionado.programa?.id ?? '') ||
+      formStatus !== indicSelecionado.status;
 
     let unitSimbol = getUnitSimb();
     const nucleoSelecionado = formNucleoId
@@ -907,17 +978,22 @@ export default function TelaIndicadores() {
               simbolUni: unitSimbol,
               nucleo: nucleoSelecionado,
               programa: programSelecionado,
-              meta: formMeta || undefined,
+              meta: textoMeta || undefined,
+              metaId,
               status: formStatus,
             }
           : n,
       ),
     );
     setEditAberto(false);
-    // Não existe PATCH /indicadores/:id no backend
-    alert(
-      'A edição de indicadores ainda não está disponível na API: a alteração vale só até recarregar a página.',
-    );
+
+    // Não existe PATCH /indicadores/:id no backend; só a meta é salva
+    if (outrosCamposMudaram) {
+      alert(
+        'Nome, unidade, núcleo, programa e status ainda não podem ser editados pela API: essas alterações valem só até recarregar a página.' +
+          (metaMudou ? ' A meta foi salva.' : ''),
+      );
+    }
   };
 
   const [modalDeletando, setDeletando] = useState(false);
