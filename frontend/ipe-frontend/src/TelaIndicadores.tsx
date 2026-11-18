@@ -914,6 +914,10 @@ export default function TelaIndicadores() {
       ),
     );
     setEditAberto(false);
+    // Não existe PATCH /indicadores/:id no backend
+    alert(
+      'A edição de indicadores ainda não está disponível na API: a alteração vale só até recarregar a página.',
+    );
   };
 
   const [modalDeletando, setDeletando] = useState(false);
