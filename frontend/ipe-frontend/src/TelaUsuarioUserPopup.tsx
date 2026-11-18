@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Imagens, Svg } from './config/assets';
-import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
-import type { TipoDeConta, Usuario } from './dados/usuarios';
+import { type Nucleo } from './dados/nucleos';
+import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
+
+// Núcleos que o usuário logado enxerga (para o administrador, todos), vindos da API
+const nucleosDisponiveis = () => UsuarioAtual.nucleos;
 
 interface BtnUserStatusProps {
   value: number;
@@ -43,7 +46,7 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
           if (!idSelecionado) return;
 
           // Verifica se já não está adicionado para evitar duplicadas
-          const nucleoEncontrado = NucleosCadastrados.find(
+          const nucleoEncontrado = nucleosDisponiveis().find(
             (n) => n.id === idSelecionado,
           );
           if (
@@ -60,7 +63,7 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
         <option value="" disabled>
           Selecione um núcleo...
         </option>
-        {NucleosCadastrados.map((opt) => (
+        {nucleosDisponiveis().map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.nome + ' (' + opt.sigla + ')'}
           </option>

@@ -4,6 +4,11 @@ import { Eye, EyeOff } from 'lucide-react';
 
 import { Imagens } from './config/assets';
 import { API_BASE_URL } from './config/api';
+import { salvarSessao } from './routes/sessao';
+import {
+  aplicarSessaoAoUsuarioAtual,
+  carregarNucleosDoUsuario,
+} from './api/usuarioAtual';
 
 export default function TelaLogin() {
   const [email, setEmail] = useState('');
@@ -53,10 +58,18 @@ export default function TelaLogin() {
         throw new Error('O servidor não retornou o token de autenticação.');
       }
 
-      localStorage.setItem('access_token', data.accessToken);
+      if (!data.user?.perfil) {
+        throw new Error('O servidor não retornou os dados do usuário.');
+      }
 
-      if (data.user?.perfil) {
-        localStorage.setItem('user_role', data.user.perfil);
+      salvarSessao(data.accessToken, data.user);
+      aplicarSessaoAoUsuarioAtual();
+
+      // Núcleos do usuário alimentam filtros e permissões das telas
+      try {
+        await carregarNucleosDoUsuario();
+      } catch (erroNucleos) {
+        console.error('Não foi possível carregar os núcleos:', erroNucleos);
       }
 
       // Redireciona somente após receber o token

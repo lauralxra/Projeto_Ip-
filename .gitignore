@@ -82,3 +82,6 @@ skills
 bun.lock
 /generated/prisma
 .env.test
+
+# Arquivos enviados pelos usuários (fotos de perfil e de núcleos)
+backend/uploads/

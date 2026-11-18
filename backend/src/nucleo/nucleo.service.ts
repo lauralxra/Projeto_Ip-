@@ -13,6 +13,7 @@ import { NucleoRepository } from './nucleo.repository';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { AuthenticatedUser } from '../auth/interface/request.interface';
+import { removerUpload } from '../common/upload-imagem';
 
 // Administrador e Equipe de Comunicação acessam todos os núcleos; os demais perfis
 // (Diretor de Núcleo e Equipe de Gestão) só os núcleos aos quais estão vinculados (RF23)
@@ -146,6 +147,30 @@ export class NucleoService {
 
   findAssociados(userId: string) {
     return this.nucleoRepository.findAssociadosByUserId(userId);
+  }
+
+  // A imagem já foi gravada em disco pelo interceptor; se o núcleo não existir,
+  // o arquivo novo é descartado. A imagem anterior só é apagada após o update.
+  async atualizarImagem(id: string, imagemUrl: string, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo || !(await this.nucleoRepository.updateImagem(id, imagemUrl))) {
+      removerUpload(imagemUrl);
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    removerUpload(nucleo.imagemUrl);
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: { imagemUrl: nucleo.imagemUrl },
+      dadosNovos: { imagemUrl },
+      ip: autor.ip,
+    });
+
+    return { message: 'Imagem do núcleo atualizada com sucesso.', imagemUrl };
   }
 
   update(id: number, _updateNucleoDto: UpdateNucleoDto) {
