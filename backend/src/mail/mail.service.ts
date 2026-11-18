@@ -14,6 +14,22 @@ export interface EnviarEmail {
   text?: string;
 }
 
+export interface AvisoSenhaAlterada {
+  email: string;
+  nome: string;
+  alteradaEm?: Date;
+}
+
+// Evita que dados do usuário (ex.: nome) sejam interpretados como HTML no e-mail
+function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const PORTA_PADRAO = 587;
 // Na 465 a conexão já começa com TLS; nas demais (587, 25) o STARTTLS é negociado depois
 const PORTA_SSL = 465;
@@ -82,6 +98,39 @@ export class MailService implements OnModuleInit {
         'Não foi possível enviar o e-mail. Tente novamente mais tarde.',
       );
     }
+  }
+
+  // E-mail de segurança enviado após a troca de senha do próprio usuário
+  async sendPasswordChanged({
+    email,
+    nome,
+    alteradaEm = new Date(),
+  }: AvisoSenhaAlterada): Promise<void> {
+    const dataHora = alteradaEm.toLocaleString('pt-BR', {
+      timeZone: 'America/Recife',
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    const nomeSeguro = escaparHtml(nome);
+
+    await this.sendMail({
+      to: email,
+      subject: 'Sua senha foi alterada - Plataforma IPÊ',
+      html: `
+        <p>Olá, ${nomeSeguro}.</p>
+        <p>A senha da sua conta na Plataforma de Indicadores do IPÊ foi alterada em <strong>${dataHora}</strong>.</p>
+        <p>Se foi você, nenhuma ação é necessária.</p>
+        <p>Se você <strong>não</strong> reconhece esta alteração, entre em contato imediatamente com a administração do IPÊ.</p>
+        <p>Este é um e-mail automático, não responda.</p>
+      `,
+      text: [
+        `Olá, ${nome}.`,
+        `A senha da sua conta na Plataforma de Indicadores do IPÊ foi alterada em ${dataHora}.`,
+        'Se foi você, nenhuma ação é necessária.',
+        'Se você não reconhece esta alteração, entre em contato imediatamente com a administração do IPÊ.',
+        'Este é um e-mail automático, não responda.',
+      ].join('\n'),
+    });
   }
 
   private async verificarConexao() {

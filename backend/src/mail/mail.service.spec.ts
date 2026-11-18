@@ -98,6 +98,40 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendPasswordChanged', () => {
+    it('envia o aviso de segurança para o usuário com data e hora', async () => {
+      const service = configurar();
+
+      await service.sendPasswordChanged({
+        email: 'maria@ipe.org.br',
+        nome: 'Maria',
+        alteradaEm: new Date('2026-11-17T15:30:00.000Z'),
+      });
+
+      const [mensagem] = transport.sendMail.mock.calls[0] as [
+        { to: string; subject: string; html: string; text: string },
+      ];
+      expect(mensagem.to).toBe('maria@ipe.org.br');
+      expect(mensagem.subject).toBe('Sua senha foi alterada - Plataforma IPÊ');
+      // 15:30 UTC = 12:30 no horário de Recife
+      expect(mensagem.html).toContain('17/11/2026, 12:30');
+      expect(mensagem.text).toContain('Olá, Maria.');
+    });
+
+    it('escapa o nome do usuário no HTML', async () => {
+      const service = configurar();
+
+      await service.sendPasswordChanged({
+        email: 'maria@ipe.org.br',
+        nome: '<script>alert(1)</script>',
+      });
+
+      const [mensagem] = transport.sendMail.mock.calls[0] as [{ html: string }];
+      expect(mensagem.html).not.toContain('<script>');
+      expect(mensagem.html).toContain('&lt;script&gt;');
+    });
+  });
+
   describe('onModuleInit', () => {
     it('avisa quais variáveis faltam e não tenta conectar', () => {
       const service = configurar({ MAIL_HOST: undefined, MAIL_PASS: '' });
