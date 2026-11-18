@@ -1,3 +1,15 @@
+# [1.1.0-dev.14](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.13...v1.1.0-dev.14) (2026-11-18)
+
+
+### Bug Fixes
+
+* **programas:** keep list contract, scope visibility by role and protect deletion ([91ba59f](https://github.com/lauralxra/Projeto_Ip-/commit/91ba59fa12a5019349196d17a7b1ffe30e7fad7d))
+
+
+### Features
+
+* **programas:** add full CRUD RF27-RF32 with filters, audit and rbac ([18703e4](https://github.com/lauralxra/Projeto_Ip-/commit/18703e42b60cd5be671cf92ee59668a2aa58ff03))
+
 # [1.1.0-dev.13](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.12...v1.1.0-dev.13) (2026-11-18)
 
 
