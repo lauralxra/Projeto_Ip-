@@ -4,7 +4,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle, History } from 'lucide-react';
+import { CheckCircle2, Circle, History, Trash2 } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -1001,6 +1001,83 @@ export default function TelaIndicadores() {
     }
   };
 
+  const excluirMedicao = async (
+    registroId: string,
+    ano: number,
+    trimestre: string,
+  ) => {
+    if (!indicSelecionado) return;
+
+    const confirmou = window.confirm(
+      `Tem certeza que deseja excluir a medição de ${ano} (${trimestre}) do indicador "${indicSelecionado.nome}"?`,
+    );
+    if (!confirmou) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/registros/${registroId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível excluir a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : '0',
+                  ano: atual.registros?.[0]?.ano ?? undefined,
+                  trimestre: atual.registros?.[0]?.trimestre ?? undefined,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      alert(`Medição de ${ano} (${trimestre}) excluída com sucesso!`);
+    } catch (erro) {
+      console.error('Erro ao excluir medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao excluir medição.');
+    }
+  };
+
   const [modalEditAberto, setEditAberto] = useState(false);
   const abrirEditarModal = (indicador: Indicador) => {
     setIndicSelecionado(indicador);
@@ -1666,6 +1743,40 @@ export default function TelaIndicadores() {
                   <span>Confirmar</span>
                 </button>
               </div>
+
+              {UsuarioAtual.tipo === 'ADM' && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!indicSelecionado) return;
+                      const regAlvo = indicSelecionado.registros?.find(
+                        (r) =>
+                          r.ano === Number(formAno) &&
+                          r.trimestre === formTrimestre,
+                      );
+                      const regIdParaExcluir =
+                        regAlvo?.id || indicSelecionado.registroId;
+                      if (!regIdParaExcluir) {
+                        alert(
+                          'Nenhuma medição encontrada para este ano e trimestre.',
+                        );
+                        return;
+                      }
+                      await excluirMedicao(
+                        regIdParaExcluir,
+                        Number(formAno),
+                        formTrimestre,
+                      );
+                      inserindoValor(false);
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="size-3" />
+                    <span>Excluir medição deste ano e trimestre</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -1972,21 +2083,39 @@ export default function TelaIndicadores() {
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setHistoricoAno(String(reg.ano));
-                                  setHistoricoTrimestre(reg.trimestre);
-                                  setHistoricoValor(
-                                    reg.valorRealizado != null
-                                      ? String(reg.valorRealizado)
-                                      : '',
-                                  );
-                                }}
-                                className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
-                              >
-                                Carregar para editar
-                              </button>
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHistoricoAno(String(reg.ano));
+                                    setHistoricoTrimestre(reg.trimestre);
+                                    setHistoricoValor(
+                                      reg.valorRealizado != null
+                                        ? String(reg.valorRealizado)
+                                        : '',
+                                    );
+                                  }}
+                                  className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                                >
+                                  Carregar para editar
+                                </button>
+                                {UsuarioAtual.tipo === 'ADM' && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      excluirMedicao(
+                                        reg.id,
+                                        reg.ano,
+                                        reg.trimestre,
+                                      )
+                                    }
+                                    title={`Excluir medição de ${reg.ano} (${reg.trimestre})`}
+                                    className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
