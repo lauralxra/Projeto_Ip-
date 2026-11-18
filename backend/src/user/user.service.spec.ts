@@ -20,6 +20,7 @@ describe('UserService', () => {
     updatePermissions: jest.Mock;
     syncNucleos: jest.Mock;
     findNucleosByUserId: jest.Mock;
+    softDelete: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
@@ -41,6 +42,7 @@ describe('UserService', () => {
       updatePermissions: jest.fn().mockResolvedValue({ count: 1 }),
       syncNucleos: jest.fn(),
       findNucleosByUserId: jest.fn().mockResolvedValue([]),
+      softDelete: jest.fn().mockResolvedValue({ count: 1 }),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
     service = new UserService(
@@ -316,6 +318,44 @@ describe('UserService', () => {
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(repository.updatePermissions).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('faz exclusão lógica e registra auditoria', async () => {
+      repository.findActiveById.mockResolvedValue({
+        id: 'user-uuid',
+        ativo: true,
+        perfil: Role.EQUIPE_GESTAO,
+      });
+
+      await expect(service.remove('user-uuid', autor)).resolves.toEqual({
+        message: 'Usuário excluído com sucesso.',
+      });
+      expect(repository.softDelete).toHaveBeenCalledWith('user-uuid');
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidadeId: 'user-uuid',
+          userId: autor.id,
+        }),
+      );
+    });
+
+    it('impede o administrador de excluir a própria conta', async () => {
+      await expect(service.remove(autor.id, autor)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(repository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para usuário inexistente ou já excluído', async () => {
+      repository.findActiveById.mockResolvedValue(null);
+
+      await expect(service.remove('outro-uuid', autor)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(repository.softDelete).not.toHaveBeenCalled();
     });
   });
 });

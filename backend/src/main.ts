@@ -3,13 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { parseCorsOrigins } from './common/cors-origins';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Permite as requisições do frontend Vite/React
+  // Permite as requisições do frontend Vite/React (origens separadas por vírgula)
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+    origin: parseCorsOrigins(process.env.CORS_ORIGIN),
     credentials: true,
   });
 

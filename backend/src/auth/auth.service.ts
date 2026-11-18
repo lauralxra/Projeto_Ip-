@@ -1,8 +1,6 @@
 import {
   ConflictException,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,6 +13,11 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interface/jwt-payload.interface';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
+
+// Mesma mensagem para e-mail inexistente, senha errada e conta bloqueada:
+// não revela quais e-mails existem nem confirma a senha durante o bloqueio
+const CREDENCIAIS_INVALIDAS =
+  'Email ou senha inválidos. Após 5 tentativas incorretas, o acesso fica bloqueado por 15 minutos.';
 
 export interface MetaRequisicao {
   ip: string;
@@ -76,23 +79,20 @@ export class AuthService {
       where: { email, deletedAt: null },
     });
 
-    if (user?.bloqueioAte && user.bloqueioAte > new Date()) {
-      throw new HttpException(
-        'Esta conta está temporariamente bloqueada. Tente novamente mais tarde',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
     const senhaValida = await bcrypt.compare(
       password,
       user?.senhaHash ?? DUMMY_HASH,
     );
 
-    // Todas as saídas passam por aqui, então sucesso e falha são auditados no mesmo ponto
+    const contaBloqueada = !!user?.bloqueioAte && user.bloqueioAte > new Date();
+
+    // Todas as saídas passam por aqui, então sucesso e falha são auditados no mesmo ponto.
+    // Conta bloqueada responde igual a senha errada, mesmo com a senha certa,
+    // para o bloqueio não virar um jeito de confirmar a senha por força bruta.
     let falha: UnauthorizedException | ForbiddenException | null = null;
 
-    if (!user || !senhaValida) {
-      falha = new UnauthorizedException('Email ou senha inválidos.');
+    if (!user || !senhaValida || contaBloqueada) {
+      falha = new UnauthorizedException(CREDENCIAIS_INVALIDAS);
     } else if (!user.ativo || !user.perfil) {
       falha = new ForbiddenException(
         'Sua conta ainda não foi liberada pela administração.',
@@ -107,7 +107,8 @@ export class AuthService {
       userAgent: meta.userAgent,
     });
 
-    if (user && !senhaValida) {
+    // Durante o bloqueio as tentativas não são contadas, para não estender o prazo
+    if (user && !senhaValida && !contaBloqueada) {
       await this.registrarTentativaInvalida(user.id, user.tentativas ?? 0);
     }
 
@@ -156,6 +157,8 @@ export class AuthService {
     return { message: 'Sessão encerrada com sucesso' };
   }
 
+  // Conta a tentativa errada e bloqueia a conta ao atingir o limite.
+  // Não lança exceção: quem chama devolve a mesma resposta genérica de credenciais inválidas.
   async registrarTentativaInvalida(
     usuarioId: string,
     tentativasAtuais: number,
@@ -164,33 +167,25 @@ export class AuthService {
     const MAX_TENTATIVAS = 5;
 
     if (PROXIMA_TENTATIVA >= MAX_TENTATIVAS) {
-      // Calcula o tempo de bloqueio (ex: 15 minutos a partir de agora)
+      // Bloqueia por 15 minutos e zera o contador para o próximo ciclo
       const tempoBloqueio = new Date();
       tempoBloqueio.setMinutes(tempoBloqueio.getMinutes() + 15);
 
-      // Incrementa e bloqueia a conta em uma única operação
       await this.prisma.user.update({
         where: { id: usuarioId },
         data: {
-          tentativas: { increment: 1 },
+          tentativas: 0,
           bloqueioAte: tempoBloqueio,
         },
       });
-
-      throw new HttpException(
-        'Muitas tentativas incorretas. Sua conta foi bloqueada por 15 minutos.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      return;
     }
 
-    // Caso contrário, apenas incrementa o contador de erros
     await this.prisma.user.update({
       where: { id: usuarioId },
       data: {
         tentativas: { increment: 1 },
       },
     });
-
-    throw new UnauthorizedException('Credenciais inválidas.');
   }
 }

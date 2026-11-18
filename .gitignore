@@ -1,6 +1,6 @@
 # compiled output
 /dist
-/node_modules
+node_modules/
 /build
 
 # Logs
@@ -55,6 +55,7 @@ lerna-debug.log*
 !.env.vault
 .env.project
 .env.prod
+.env.production
 .env.staging
 # Prisma
 prisma/.env
