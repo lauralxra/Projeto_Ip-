@@ -15,8 +15,7 @@ import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
-import { unlink } from 'fs';
-import { join } from 'path';
+import { removerUpload } from '../common/upload-imagem';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { NotificacaoService } from '../notificacao/notificacao.service';
 
@@ -83,7 +82,10 @@ export class UserService {
   }
 
   async findAll() {
+    // Usuários excluídos logicamente não aparecem na listagem
     return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      orderBy: { nome: 'asc' },
       select: {
         id: true,
         nome: true,
@@ -95,6 +97,13 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
+        // A tela de usuários exibe e edita os núcleos de cada um
+        nucleos: {
+          where: { nucleo: { deletedAt: null } },
+          select: {
+            nucleo: { select: { id: true, nome: true, sigla: true } },
+          },
+        },
       },
     });
   }
@@ -228,15 +237,7 @@ export class UserService {
       }
 
       // Remove a foto antiga do disco
-      if (usuarioAtual.fotoUrl) {
-        const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
-        unlink(oldPath, (err) => {
-          if (err)
-            console.warn(
-              `[FOTO] Não foi possível remover foto antiga: ${err.message}`,
-            );
-        });
-      }
+      removerUpload(usuarioAtual.fotoUrl);
 
       await this.audit.registrarAcao({
         userId: autor.id,

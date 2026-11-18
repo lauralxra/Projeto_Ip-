@@ -9,6 +9,7 @@ import {
   EscopoIndicador,
   Prisma,
   Role,
+  StatusAprovacao,
   StatusRegistro,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -229,6 +230,160 @@ export class RegistroService {
     return this.prisma.indicadorRegistro.findUnique({
       where: { id },
       include: INCLUDE_INDICADOR,
+    });
+  }
+
+  // Transição atômica de status: o updateMany só altera se o status ainda for
+  // um dos esperados, evitando que duas revisões simultâneas se sobreponham
+  private async transicionar(params: {
+    id: string;
+    de: StatusAprovacao[];
+    para: StatusAprovacao;
+    dados?: Prisma.IndicadorRegistroUncheckedUpdateManyInput;
+    acao: AcaoAuditoria;
+    userId: string;
+    ip?: string;
+    auditoriaExtra?: Record<string, unknown>;
+    mensagemConflito: string;
+  }) {
+    const { id, de, para } = params;
+    const anterior = await this.prisma.indicadorRegistro.findFirst({
+      where: { id, deletedAt: null, status: StatusRegistro.ATIVO },
+      select: { statusAprovacao: true },
+    });
+
+    if (!anterior) {
+      throw new NotFoundException('Registro não encontrado ou inativo.');
+    }
+
+    const { count } = await this.prisma.indicadorRegistro.updateMany({
+      where: {
+        id,
+        deletedAt: null,
+        status: StatusRegistro.ATIVO,
+        statusAprovacao: { in: de },
+      },
+      data: { ...params.dados, statusAprovacao: para },
+    });
+
+    if (count === 0) {
+      throw new ConflictException(params.mensagemConflito);
+    }
+
+    await this.audit.registrarAcao({
+      userId: params.userId,
+      acao: params.acao,
+      entidade: 'IndicadorRegistro',
+      entidadeId: id,
+      dadosAntigos: { statusAprovacao: anterior.statusAprovacao },
+      dadosNovos: { statusAprovacao: para, ...params.auditoriaExtra },
+      ip: params.ip,
+    });
+
+    return this.prisma.indicadorRegistro.findUniqueOrThrow({
+      where: { id },
+      include: INCLUDE_INDICADOR,
+    });
+  }
+
+  // RF14: o núcleo envia o valor preenchido para a revisão da gestão
+  async enviarParaRevisao(id: string, usuario: AuthenticatedUser, ip?: string) {
+    const registro = await this.prisma.indicadorRegistro.findFirst({
+      where: { id, deletedAt: null, status: StatusRegistro.ATIVO },
+      select: {
+        valorRealizado: true,
+        indicador: { select: { nucleoId: true, deletedAt: true } },
+      },
+    });
+
+    if (!registro || registro.indicador.deletedAt) {
+      throw new NotFoundException('Registro não encontrado ou inativo.');
+    }
+
+    if (usuario.role !== Role.ADMINISTRADOR) {
+      const nucleos = await this.nucleosDoUsuario(usuario.id);
+      if (
+        !registro.indicador.nucleoId ||
+        !nucleos.includes(registro.indicador.nucleoId)
+      ) {
+        throw new ForbiddenException(
+          'Você só pode enviar para revisão registros do seu núcleo.',
+        );
+      }
+    }
+
+    if (registro.valorRealizado === null) {
+      throw new ConflictException(
+        'Preencha o valor realizado antes de enviar para revisão.',
+      );
+    }
+
+    return this.transicionar({
+      id,
+      de: [
+        StatusAprovacao.EM_PREENCHIMENTO,
+        StatusAprovacao.NECESSITA_CORRECAO,
+      ],
+      para: StatusAprovacao.ENVIADO_REVISAO,
+      dados: { enviadoEm: new Date() },
+      acao: AcaoAuditoria.ATUALIZAR,
+      userId: usuario.id,
+      ip,
+      mensagemConflito:
+        'Só registros em preenchimento ou que necessitam correção podem ser enviados para revisão.',
+    });
+  }
+
+  // RF15: a gestão devolve o valor ao núcleo explicando o que corrigir
+  async devolverComComentario(
+    id: string,
+    justificativa: string,
+    autor: AutorAcao,
+  ) {
+    return this.transicionar({
+      id,
+      de: [StatusAprovacao.ENVIADO_REVISAO],
+      para: StatusAprovacao.NECESSITA_CORRECAO,
+      dados: { justificativaDevolucao: justificativa },
+      acao: AcaoAuditoria.DEVOLVER,
+      userId: autor.id,
+      ip: autor.ip,
+      auditoriaExtra: { justificativaDevolucao: justificativa },
+      mensagemConflito:
+        'Só registros enviados para revisão podem ser devolvidos.',
+    });
+  }
+
+  // RF15: a gestão homologa o valor
+  async aprovar(id: string, autor: AutorAcao) {
+    const agora = new Date();
+    return this.transicionar({
+      id,
+      de: [StatusAprovacao.ENVIADO_REVISAO],
+      para: StatusAprovacao.APROVADO,
+      dados: { aprovadorId: autor.id, revisadoEm: agora },
+      acao: AcaoAuditoria.APROVAR,
+      userId: autor.id,
+      ip: autor.ip,
+      auditoriaExtra: { aprovadorId: autor.id, revisadoEm: agora },
+      mensagemConflito:
+        'Só registros enviados para revisão podem ser aprovados.',
+    });
+  }
+
+  // RF15: a administração publica o valor aprovado (passa a ser visível externamente)
+  async publicar(id: string, autor: AutorAcao) {
+    const agora = new Date();
+    return this.transicionar({
+      id,
+      de: [StatusAprovacao.APROVADO],
+      para: StatusAprovacao.PUBLICADO,
+      dados: { publicadoPorId: autor.id, publicadoEm: agora },
+      acao: AcaoAuditoria.PUBLICAR,
+      userId: autor.id,
+      ip: autor.ip,
+      auditoriaExtra: { publicadoPorId: autor.id, publicadoEm: agora },
+      mensagemConflito: 'Só registros aprovados podem ser publicados.',
     });
   }
 

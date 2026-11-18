@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { Svg } from './config/assets';
-import { type Programa, programasCadastrados } from './dados/programas';
+import { type Programa } from './dados/programas';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { nucleoDaApi, type NucleoApi } from './api/mapeadores';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { CustomDropdown } from './CustomDropdown';
-import { type Nucleo } from './dados/nucleos';
+import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
 import {
   UsuarioAtual,
@@ -13,6 +15,24 @@ import {
   type Usuario,
 } from './dados/usuarios';
 import 'react-datepicker/dist/react-datepicker.css';
+
+interface ProgramaApi {
+  id: string;
+  nome: string;
+  descricao?: string | null;
+  createdAt: string;
+  nucleo?: NucleoApi | null;
+}
+
+// Programas sem núcleo são institucionais: o card usa a identidade do IPÊ
+const NUCLEO_INSTITUCIONAL: Nucleo =
+  NucleosCadastrados.find((n) => n.sigla === 'IPÊ') ?? NucleosCadastrados[0];
+
+// POST/PATCH/DELETE de programas ainda não existem no backend
+const avisarSemApi = (acao: string) =>
+  alert(
+    `${acao} programas ainda não está disponível na API: a alteração vale só até recarregar a página.`,
+  );
 
 function ProgramaObj({
   programaEmSi,
@@ -23,6 +43,8 @@ function ProgramaObj({
   editFunc: (obj: Programa) => void;
   delFunc: (obj: Programa) => void;
 }) {
+  const nucleo = programaEmSi.nucleo ?? NUCLEO_INSTITUCIONAL;
+
   return (
     <div
       className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-[16px] items-start min-h-[120px] px-[18px] py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
@@ -30,20 +52,20 @@ function ProgramaObj({
     >
       {/* Logo do Programa */}
       <div
-        className={`h-[75px] w-[75px] relative ${programaEmSi.nucleo.corBg} ${programaEmSi.nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
+        className={`h-[75px] w-[75px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
         data-name="Img"
       >
-        {programaEmSi.nucleo.icone ? (
+        {nucleo.icone ? (
           <div>
             <img
               alt=""
               className="absolute inset-0 object-cover pointer-events-none size-full"
-              src={programaEmSi.nucleo.icone}
+              src={nucleo.icone}
             />
           </div>
         ) : (
           <span className="font-bold text-[12px] tracking-wider">
-            {programaEmSi.nucleo.logoTexto}
+            {nucleo.logoTexto}
           </span>
         )}
       </div>
@@ -80,7 +102,7 @@ function ProgramaObj({
 
         {/* sigla */}
         <p className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[12px]">
-          {programaEmSi.nucleo.sigla}
+          {nucleo.sigla}
         </p>
 
         {/* desceição */}
@@ -135,7 +157,35 @@ function ProgramaObj({
 }
 
 export default function TelaProgramas() {
-  const [programas, setProgramas] = useState<Programa[]>(programasCadastrados);
+  const [programas, setProgramas] = useState<Programa[]>([]);
+
+  useEffect(() => {
+    const carregarProgramas = async () => {
+      try {
+        const dados = await apiFetch<ProgramaApi[]>('/programas');
+        setProgramas(
+          dados.map((item) => ({
+            id: item.id,
+            nome: item.nome,
+            descricao: item.descricao ?? '',
+            nucleo: item.nucleo ? nucleoDaApi(item.nucleo) : undefined,
+            // A API não tem data de início: usa a data de cadastro
+            dataDeInicio: new Date(item.createdAt),
+            // GET /programas só devolve programas ativos
+            status: 'Ativo',
+            participantes: [],
+          })),
+        );
+      } catch (erro) {
+        console.error('Erro ao carregar programas:', erro);
+        alert(
+          'Não foi possível carregar os programas: ' + mensagemDeErro(erro),
+        );
+      }
+    };
+
+    carregarProgramas();
+  }, []);
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
@@ -204,6 +254,7 @@ export default function TelaProgramas() {
       setModalCriacao(false);
     }
     setProgramaSelecionado(undefined);
+    avisarSemApi(existe ? 'Editar' : 'Criar');
   };
 
   // Deletamento handling
@@ -217,6 +268,7 @@ export default function TelaProgramas() {
     if (!programaSelecionado) return;
     setProgramas(programas.filter((n) => n.id !== programaSelecionado.id));
     setModalDeletarAberto(false);
+    avisarSemApi('Excluir');
   };
 
   return (

@@ -1,4 +1,7 @@
-import { PartialType } from '@nestjs/swagger';
+import { PartialType, PickType } from '@nestjs/swagger';
 import { CreateMetaDto } from './create-meta.dto';
 
-export class UpdateMetaDto extends PartialType(CreateMetaDto) {}
+// RF21: indicador, ano e trimestre identificam a meta e não são editáveis
+export class UpdateMetaDto extends PartialType(
+  PickType(CreateMetaDto, ['valorMeta', 'descricao'] as const),
+) {}

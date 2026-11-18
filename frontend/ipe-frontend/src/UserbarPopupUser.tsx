@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { SENHA_OCULTA } from './api/mapeadores';
+import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
 
 function Seta() {
@@ -208,6 +212,20 @@ function OptExtras({
   leUser: Usuario;
   abrirEditModal: (user: Usuario) => void;
 }) {
+  const navigate = useNavigate();
+
+  // Registra o logout na auditoria; a sessão local é encerrada mesmo se a API falhar
+  const sair = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } catch (erro) {
+      console.error('Erro ao encerrar a sessão na API:', erro);
+    }
+    encerrarSessaoLocal();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div
       className="content-stretch flex flex-col gap-[20px] items-center justify-center relative shrink-0 w-auto"
@@ -236,6 +254,7 @@ function OptExtras({
       </p>*/}
       <a
         href="login"
+        onClick={sair}
         className="h-[34px] relative shrink-0 w-[35px]"
         data-name="btnDeslogar"
       >
@@ -275,10 +294,34 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = (dadosUsuario: Usuario) => {
-    setUsuario(dadosUsuario);
-    Object.assign(UsuarioAtual, dadosUsuario);
-    setModalEdicao(false);
+  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+    try {
+      if (dadosUsuario.nome !== UsuarioAtual.nome) {
+        // PATCH /users/:id: hoje só o administrador pode alterar o próprio nome
+        await apiFetch(`/users/${UsuarioAtual.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name: dadosUsuario.nome }),
+        });
+        UsuarioAtual.nome = dadosUsuario.nome;
+        atualizarUsuarioSessao({ nome: dadosUsuario.nome });
+      }
+
+      const semEndpoint = [
+        dadosUsuario.email !== UsuarioAtual.email && 'e-mail',
+        dadosUsuario.senha !== SENHA_OCULTA && 'senha',
+        (dadosUsuario.imagem || '') !== (UsuarioAtual.imagem || '') && 'foto',
+      ].filter(Boolean);
+      if (semEndpoint.length > 0) {
+        alert(
+          `Ainda não é possível alterar ${semEndpoint.join(', ')} por esta tela; esses campos não foram salvos.`,
+        );
+      }
+
+      setUsuario({ ...UsuarioAtual });
+      setModalEdicao(false);
+    } catch (erro) {
+      alert('Não foi possível salvar o perfil: ' + mensagemDeErro(erro));
+    }
   };
 
   return (

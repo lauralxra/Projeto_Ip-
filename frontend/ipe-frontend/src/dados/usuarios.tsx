@@ -107,4 +107,14 @@ export const UsuariosCadastrados: Usuario[] = [
   },
 ];
 
-export const UsuarioAtual: Usuario = UsuariosCadastrados[7];
+// Preenchido com o usuário logado por api/usuarioAtual.ts (no login e ao abrir o app).
+// Começa sem permissões para nunca herdar o perfil de um usuário de exemplo.
+export const UsuarioAtual: Usuario = {
+  id: '',
+  nome: '',
+  email: '',
+  senha: '',
+  tipo: TipoDeConta.EC,
+  nucleos: [],
+  status: 1,
+};

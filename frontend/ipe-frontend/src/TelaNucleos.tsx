@@ -1,18 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 
 import type { Nucleo } from './dados/nucleos';
-import { NucleosCadastrados } from './dados/nucleos';
 
 import { Imagens } from './config/assets';
 import { Search, Plus, MoreVertical, Trash2 } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { nucleoDaApi } from './api/mapeadores';
+import { carregarNucleosDoUsuario } from './api/usuarioAtual';
 
 export default function TelaNucleos() {
-  const [nucleos, setNucleos] = useState<Nucleo[]>(NucleosCadastrados);
+  const [nucleos, setNucleos] = useState<Nucleo[]>([]);
   const [termoPesquisa, setTermoPesquisa] = useState('');
+
+  // GET /nucleos já respeita o perfil (ADM/EC veem todos; DN/EG, os vinculados)
+  const carregarNucleos = async () => {
+    try {
+      const itens = await carregarNucleosDoUsuario();
+      setNucleos(itens.map(nucleoDaApi));
+    } catch (erro) {
+      console.error('Erro ao carregar núcleos:', erro);
+      alert('Não foi possível carregar os núcleos: ' + mensagemDeErro(erro));
+    }
+  };
+
+  useEffect(() => {
+    carregarNucleos();
+  }, []);
 
   // Modais
   const [modalNovoAberto, setModalNovoAberto] = useState(false);
@@ -27,6 +44,17 @@ export default function TelaNucleos() {
   const [descricaoForm, setDescricaoForm] = useState('');
 
   const [imagemPreview, setImagemPreview] = useState<string | null>();
+  // Arquivo escolhido no formulário, enviado para PATCH /nucleos/:id/imagem
+  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
+
+  const enviarImagem = async (nucleoId: string, arquivo: File) => {
+    const formulario = new FormData();
+    formulario.append('imagem', arquivo);
+    await apiFetch(`/nucleos/${nucleoId}/imagem`, {
+      method: 'PATCH',
+      body: formulario,
+    });
+  };
 
   // Filtrar núcleos
   const nucleosFiltrados = nucleos.filter(
@@ -42,23 +70,39 @@ export default function TelaNucleos() {
     setSiglaForm('');
     setDescricaoForm('');
     setImagemPreview('');
+    setArquivoImagem(null);
     setModalNovoAberto(true);
   };
 
-  const handleCriarNucleo = (e: React.FormEvent) => {
+  const handleCriarNucleo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const novo: Nucleo = {
-      id: Date.now().toString(),
-      nome: nomeForm || 'Novo Núcleo',
-      sigla: siglaForm || 'SIGLA',
-      descricao: descricaoForm || 'Sem descrição cadastrada.',
-      corBg: 'bg-[#832b62]',
-      corIcone: 'text-white',
-      logoTexto: siglaForm || 'NOVO',
-      icone: imagemPreview || '',
-    };
-    setNucleos([...nucleos, novo]);
+    let criado: { id: string };
+    try {
+      criado = await apiFetch<{ id: string }>('/nucleos', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: nomeForm.trim(),
+          sigla: siglaForm.trim(),
+          descricao: descricaoForm.trim() || undefined,
+        }),
+      });
+    } catch (erro) {
+      alert('Não foi possível criar o núcleo: ' + mensagemDeErro(erro));
+      return;
+    }
+
     setModalNovoAberto(false);
+    if (arquivoImagem) {
+      try {
+        await enviarImagem(criado.id, arquivoImagem);
+      } catch (erro) {
+        alert(
+          'O núcleo foi criado, mas a imagem não foi salva: ' +
+            mensagemDeErro(erro),
+        );
+      }
+    }
+    await carregarNucleos();
   };
 
   const abrirEditarModal = (nucleo: Nucleo) => {
@@ -67,12 +111,29 @@ export default function TelaNucleos() {
     setSiglaForm(nucleo.sigla);
     setDescricaoForm(nucleo.descricao);
     setImagemPreview(nucleo.icone || '');
+    setArquivoImagem(null);
     setModalEditarAberto(true);
   };
 
-  const handleSalvarEdicao = (e: React.FormEvent) => {
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nucleoSelecionado) return;
+
+    // A imagem tem endpoint próprio e é salva no banco
+    if (arquivoImagem) {
+      try {
+        await enviarImagem(nucleoSelecionado.id, arquivoImagem);
+      } catch (erro) {
+        alert('Não foi possível salvar a imagem: ' + mensagemDeErro(erro));
+        return;
+      }
+    }
+
+    const textoMudou =
+      nomeForm !== nucleoSelecionado.nome ||
+      siglaForm !== nucleoSelecionado.sigla ||
+      descricaoForm !== nucleoSelecionado.descricao;
+
     setNucleos(
       nucleos.map((n) =>
         n.id === nucleoSelecionado.id
@@ -88,6 +149,14 @@ export default function TelaNucleos() {
       ),
     );
     setModalEditarAberto(false);
+
+    // PATCH /nucleos/:id (nome, sigla, descrição) ainda é um esboço no backend
+    if (textoMudou) {
+      alert(
+        'Nome, sigla e descrição ainda não podem ser editados pela API: essas alterações valem só até recarregar a página.' +
+          (arquivoImagem ? ' A imagem foi salva.' : ''),
+      );
+    }
   };
 
   // Deletamento Handling
@@ -97,15 +166,22 @@ export default function TelaNucleos() {
     setModalDeletarAberto(true);
   };
 
-  const handleDeletarNucleo = () => {
+  const handleDeletarNucleo = async () => {
     if (!nucleoSelecionado) return;
-    setNucleos(nucleos.filter((n) => n.id !== nucleoSelecionado.id));
-    setModalDeletarAberto(false);
+    try {
+      await apiFetch(`/nucleos/${nucleoSelecionado.id}`, { method: 'DELETE' });
+      setModalDeletarAberto(false);
+      await carregarNucleos();
+    } catch (erro) {
+      // Ex.: 409 quando o núcleo tem usuários, programas ou indicadores vinculados
+      alert('Não foi possível excluir o núcleo: ' + mensagemDeErro(erro));
+    }
   };
 
   const handleMudarImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
     if (arquivo) {
+      setArquivoImagem(arquivo);
       const urlTemporaria = URL.createObjectURL(arquivo);
       setImagemPreview(urlTemporaria);
     }

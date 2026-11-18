@@ -1,54 +1,397 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { AcaoAuditoria, Prisma, Role, StatusRegistro } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { AutorAcao } from '../common/interfaces/autor-acao.interface';
+import { AuthenticatedUser } from '../auth/interface/request.interface';
+import { CreateProgramaDto } from './dto/create-programa.dto';
+import { UpdateProgramaDto } from './dto/update-programa.dto';
+import { FilterProgramaDto } from './dto/filter-programa.dto';
+
+// Mesmo critério dos núcleos (RN02): Administrador e Comunicação veem todos os programas;
+// Diretor de Núcleo e Equipe de Gestão, os dos seus núcleos e os institucionais (sem núcleo)
+const PERFIS_ACESSO_GLOBAL: Role[] = [
+  Role.ADMINISTRADOR,
+  Role.EQUIPE_COMUNICACAO,
+];
+
+const SELECT_PROGRAMA = {
+  id: true,
+  nome: true,
+  descricao: true,
+  status: true,
+  nucleoId: true,
+  nucleo: { select: { id: true, nome: true, sigla: true } },
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ProgramaSelect;
+
+type MudancaStatus = {
+  status: StatusRegistro;
+  acao: AcaoAuditoria;
+  mensagem: string;
+};
+
+const DESATIVAR: MudancaStatus = {
+  status: StatusRegistro.INATIVO,
+  acao: AcaoAuditoria.DESATIVAR,
+  mensagem: 'Programa desativado com sucesso.',
+};
+const ARQUIVAR: MudancaStatus = {
+  status: StatusRegistro.ARQUIVADO,
+  acao: AcaoAuditoria.ARQUIVAR,
+  mensagem: 'Programa arquivado com sucesso.',
+};
+const REATIVAR: MudancaStatus = {
+  status: StatusRegistro.ATIVO,
+  acao: AcaoAuditoria.RESTAURAR,
+  mensagem: 'Programa reativado com sucesso.',
+};
 
 @Injectable()
 export class ProgramaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
-  listarAtivos() {
+  async create(dto: CreateProgramaDto, autor: AutorAcao) {
+    const nucleoId = dto.nucleoId ?? null;
+
+    if (nucleoId) await this.garantirNucleoAtivo(nucleoId);
+    await this.garantirNomeDisponivel(dto.nome, nucleoId);
+
+    const programa = await this.prisma.programa.create({
+      data: { nome: dto.nome, descricao: dto.descricao || null, nucleoId },
+      select: SELECT_PROGRAMA,
+    });
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.CRIAR,
+      entidade: 'Programa',
+      entidadeId: programa.id,
+      dadosNovos: {
+        nome: programa.nome,
+        descricao: programa.descricao,
+        nucleoId: programa.nucleoId,
+        status: programa.status,
+      },
+      ip: autor.ip,
+    });
+
+    return programa;
+  }
+
+  // Devolve uma lista (não paginada): os programas são poucos e a lista alimenta
+  // filtros de outras telas, que esperam um array
+  async findAll(filtros: FilterProgramaDto, usuario: AuthenticatedUser) {
+    const status = filtros.status ?? StatusRegistro.ATIVO;
+
+    // Programas inativos e arquivados só interessam à gestão do cadastro
+    if (
+      status !== StatusRegistro.ATIVO &&
+      usuario.role !== Role.ADMINISTRADOR
+    ) {
+      throw new ForbiddenException(
+        'Somente o administrador pode consultar programas inativos ou arquivados.',
+      );
+    }
+
+    const where: Prisma.ProgramaWhereInput = {
+      deletedAt: null,
+      status,
+      ...this.escopoDoUsuario(usuario),
+    };
+
+    if (filtros.nome) {
+      where.nome = { contains: filtros.nome, mode: 'insensitive' };
+    }
+    if (filtros.nucleoId) {
+      where.nucleoId = filtros.nucleoId;
+    }
+
     return this.prisma.programa.findMany({
+      where,
+      select: SELECT_PROGRAMA,
+      orderBy: { nome: 'asc' },
+    });
+  }
+
+  async findOne(id: string, usuario: AuthenticatedUser) {
+    const programa = await this.prisma.programa.findFirst({
       where: {
-        status: 'ATIVO',
+        id,
         deletedAt: null,
+        // Fora do escopo ou não ativo responde 404, sem revelar que o programa existe
+        ...(usuario.role !== Role.ADMINISTRADOR && {
+          status: StatusRegistro.ATIVO,
+        }),
+        ...this.escopoDoUsuario(usuario),
       },
       select: {
-        id: true,
+        ...SELECT_PROGRAMA,
+        acoes: {
+          where: { deletedAt: null },
+          select: { id: true, nome: true, status: true },
+          orderBy: { nome: 'asc' },
+        },
+      },
+    });
+
+    if (!programa) {
+      throw new NotFoundException('Programa não encontrado.');
+    }
+
+    return programa;
+  }
+
+  async update(id: string, dto: UpdateProgramaDto, autor: AutorAcao) {
+    const atual = await this.buscarNaoExcluido(id);
+
+    const nome = dto.nome ?? atual.nome;
+    const nucleoId = dto.nucleoId === undefined ? atual.nucleoId : dto.nucleoId;
+    const descricao =
+      dto.descricao === undefined ? atual.descricao : dto.descricao || null;
+
+    const mudancas: Record<string, { de: unknown; para: unknown }> = {};
+    if (nome !== atual.nome) mudancas.nome = { de: atual.nome, para: nome };
+    if (descricao !== atual.descricao) {
+      mudancas.descricao = { de: atual.descricao, para: descricao };
+    }
+    if (nucleoId !== atual.nucleoId) {
+      mudancas.nucleoId = { de: atual.nucleoId, para: nucleoId };
+    }
+
+    if (Object.keys(mudancas).length === 0) {
+      throw new BadRequestException('Nenhuma alteração informada.');
+    }
+
+    if (mudancas.nucleoId && nucleoId) {
+      await this.garantirNucleoAtivo(nucleoId);
+    }
+    if (mudancas.nome || mudancas.nucleoId) {
+      await this.garantirNomeDisponivel(nome, nucleoId, id);
+    }
+
+    const atualizado = await this.prisma.programa.update({
+      where: { id },
+      data: { nome, descricao, nucleoId },
+      select: SELECT_PROGRAMA,
+    });
+
+    const lado = (chave: 'de' | 'para') =>
+      Object.fromEntries(
+        Object.entries(mudancas).map(([campo, valor]) => [campo, valor[chave]]),
+      ) as Prisma.InputJsonObject;
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Programa',
+      entidadeId: id,
+      dadosAntigos: lado('de'),
+      dadosNovos: lado('para'),
+      ip: autor.ip,
+    });
+
+    return atualizado;
+  }
+
+  desativar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, DESATIVAR, autor);
+  }
+
+  arquivar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, ARQUIVAR, autor);
+  }
+
+  reativar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, REATIVAR, autor);
+  }
+
+  // Exclusão lógica (RN07). Programas com indicadores ou ações vigentes não podem
+  // ser excluídos: os vínculos ficariam apontando para um programa excluído
+  async remove(id: string, autor: AutorAcao) {
+    const programa = await this.prisma.programa.findFirst({
+      where: { id, deletedAt: null },
+      select: {
         nome: true,
-        descricao: true,
+        status: true,
         nucleoId: true,
-        nucleo: {
+        _count: {
           select: {
-            id: true,
-            nome: true,
-            sigla: true,
+            indicadores: { where: { deletedAt: null } },
+            acoes: { where: { deletedAt: null } },
           },
         },
       },
-      orderBy: {
-        nome: 'asc',
-      },
+    });
+
+    if (!programa) {
+      throw new NotFoundException('Programa não encontrado.');
+    }
+
+    const { _count: vinculos, ...dados } = programa;
+    const impeditivos = [
+      vinculos.indicadores > 0 && 'indicadores',
+      vinculos.acoes > 0 && 'ações',
+    ].filter(Boolean);
+    if (impeditivos.length > 0) {
+      throw new ConflictException(
+        `O programa não pode ser excluído pois possui ${impeditivos.join(' e ')} vinculados. Desative ou arquive o programa.`,
+      );
+    }
+
+    // O filtro em deletedAt evita excluir duas vezes em requisições concorrentes
+    const { count } = await this.prisma.programa.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    if (count === 0) {
+      throw new NotFoundException('Programa não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.EXCLUIR_LOGICO,
+      entidade: 'Programa',
+      entidadeId: id,
+      dadosAntigos: dados,
+      dadosNovos: { excluido: true },
+      ip: autor.ip,
     });
   }
 
   contarAtivos() {
     return this.prisma.programa.count({
-      where: {
-        status: 'ATIVO',
-        deletedAt: null,
-      },
+      where: { status: StatusRegistro.ATIVO, deletedAt: null },
     });
   }
 
   contarPorNucleo() {
     return this.prisma.programa.groupBy({
       by: ['nucleoId'],
-      where: {
-        status: 'ATIVO',
-        deletedAt: null,
-      },
-      _count: {
+      where: { status: StatusRegistro.ATIVO, deletedAt: null },
+      _count: { id: true },
+    });
+  }
+
+  private escopoDoUsuario(
+    usuario: AuthenticatedUser,
+  ): Prisma.ProgramaWhereInput {
+    if (PERFIS_ACESSO_GLOBAL.includes(usuario.role)) return {};
+
+    return {
+      OR: [
+        { nucleoId: null },
+        { nucleo: { users: { some: { userId: usuario.id } } } },
+      ],
+    };
+  }
+
+  private async alterarStatus(
+    id: string,
+    mudanca: MudancaStatus,
+    autor: AutorAcao,
+  ) {
+    const atual = await this.buscarNaoExcluido(id);
+
+    if (atual.status === mudanca.status) {
+      throw new ConflictException(
+        `O programa já está ${mudanca.status.toLowerCase()}.`,
+      );
+    }
+
+    // Só altera se o status ainda for o lido acima: evita auditar duas vezes
+    // em requisições concorrentes
+    const { count } = await this.prisma.programa.updateMany({
+      where: { id, deletedAt: null, status: atual.status },
+      data: { status: mudanca.status },
+    });
+    if (count === 0) {
+      throw new ConflictException(
+        'O programa foi alterado por outra operação. Tente novamente.',
+      );
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: mudanca.acao,
+      entidade: 'Programa',
+      entidadeId: id,
+      dadosAntigos: { status: atual.status },
+      dadosNovos: { status: mudanca.status },
+      ip: autor.ip,
+    });
+
+    return { message: mudanca.mensagem };
+  }
+
+  private async buscarNaoExcluido(id: string) {
+    const programa = await this.prisma.programa.findFirst({
+      where: { id, deletedAt: null },
+      select: {
         id: true,
+        nome: true,
+        descricao: true,
+        status: true,
+        nucleoId: true,
       },
     });
+
+    if (!programa) {
+      throw new NotFoundException('Programa não encontrado.');
+    }
+
+    return programa;
+  }
+
+  private async garantirNucleoAtivo(nucleoId: string) {
+    const nucleo = await this.prisma.nucleo.findFirst({
+      where: { id: nucleoId, deletedAt: null },
+      select: { status: true },
+    });
+
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+    if (nucleo.status !== StatusRegistro.ATIVO) {
+      throw new BadRequestException(
+        'Não é possível vincular o programa a um núcleo inativo.',
+      );
+    }
+  }
+
+  // Espelha o índice único programas_nucleo_nome_ativo_key (nome sem diferenciar
+  // maiúsculas, por núcleo, entre não excluídos) para dar uma mensagem clara
+  private async garantirNomeDisponivel(
+    nome: string,
+    nucleoId: string | null,
+    ignorarId?: string,
+  ) {
+    const conflito = await this.prisma.programa.findFirst({
+      where: {
+        deletedAt: null,
+        nucleoId,
+        nome: { equals: nome, mode: 'insensitive' },
+        ...(ignorarId && { id: { not: ignorarId } }),
+      },
+      select: { id: true },
+    });
+
+    if (conflito) {
+      throw new ConflictException(
+        nucleoId
+          ? 'Já existe um programa com este nome neste núcleo.'
+          : 'Já existe um programa institucional com este nome.',
+      );
+    }
   }
 }

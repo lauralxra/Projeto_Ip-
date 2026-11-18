@@ -4,11 +4,13 @@ import { UsuariosCadastrados, type Usuario } from './usuarios';
 export interface Programa {
   id: string;
   nome: string;
-  nucleo: Nucleo;
+  // Ausente em programas institucionais (sem núcleo)
+  nucleo?: Nucleo;
   descricao: string;
   dataDeInicio: Date;
   status: string;
-  responsavel: Usuario;
+  // A API ainda não tem responsável nem participantes de programa
+  responsavel?: Usuario;
   participantes: Usuario[];
 }
 
