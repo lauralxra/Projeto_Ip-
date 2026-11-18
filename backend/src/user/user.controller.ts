@@ -17,9 +17,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { UserService } from './user.service';
+import { opcoesUploadImagem, urlDoUpload } from '../common/upload-imagem';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
@@ -81,31 +80,7 @@ export class UserController {
 
   @Patch('profile/photo')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: './uploads/photos',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `photo-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-      fileFilter: (req, file, cb) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        if (!allowed.includes(file.mimetype)) {
-          return cb(
-            new BadRequestException(
-              'Formato de imagem inválido. Use JPEG, PNG ou WEBP.',
-            ),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('photo', opcoesUploadImagem('photos')))
   updatePhoto(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: AuthenticatedRequest,
@@ -115,7 +90,7 @@ export class UserController {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
-    const fotoUrl = `/uploads/photos/${file.filename}`;
+    const fotoUrl = urlDoUpload('photos', file.filename);
     return this.userService.updatePhoto(req.user.id, fotoUrl, {
       id: req.user.id,
       ip,

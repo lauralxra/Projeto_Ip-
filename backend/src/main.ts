@@ -1,12 +1,15 @@
 import 'dotenv/config';
+import type { ServerResponse } from 'http';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { parseCorsOrigins } from './common/cors-origins';
+import { PASTA_UPLOADS } from './common/upload-imagem';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Permite as requisições do frontend Vite/React (origens separadas por vírgula)
   app.enableCors({
@@ -14,7 +17,21 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.setGlobalPrefix(process.env.API_PREFIX ?? 'api');
+  const prefixo = process.env.API_PREFIX ?? 'api';
+  app.setGlobalPrefix(prefixo);
+
+  // Imagens enviadas (fotos de perfil e de núcleos) sob o mesmo prefixo da API,
+  // para passarem pelo mesmo proxy em produção. nosniff impede o navegador de
+  // interpretar o arquivo como outro tipo (ex.: HTML)
+  app.useStaticAssets(PASTA_UPLOADS, {
+    prefix: `/${prefixo}/uploads/`,
+    index: false,
+    dotfiles: 'deny',
+    setHeaders: (res: ServerResponse) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
