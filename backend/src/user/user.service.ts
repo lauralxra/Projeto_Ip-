@@ -163,6 +163,77 @@ export class UserService {
 
     return usuarioAtualizado;
   }
+
+  async updateStatus(id: string, ativo: boolean, autor: AutorAcao) {
+    if (autor.id === id && !ativo) {
+      throw new ForbiddenException(
+        'Você não pode inativar a sua própria conta.',
+      );
+    }
+
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const { count } = await this.userRepository.updateStatus(id, ativo);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { ativo: usuarioAtual.ativo },
+      dadosNovos: { ativo },
+      ip: autor.ip,
+    });
+
+    return {
+      id,
+      ativo,
+      message: `Status do usuário atualizado para ${ativo ? 'ativo' : 'inativo'}.`,
+    };
+  }
+
+  async updateEmail(id: string, email: string, autor: AutorAcao) {
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const emailNorm = email.trim().toLowerCase();
+    const emUso = await this.prisma.user.findFirst({
+      where: { email: emailNorm, id: { not: id }, deletedAt: null },
+      select: { id: true },
+    });
+    if (emUso) {
+      throw new ConflictException(EMAIL_EM_USO);
+    }
+
+    const { count } = await this.userRepository.updateEmail(id, emailNorm);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { email: usuarioAtual.email },
+      dadosNovos: { email: emailNorm },
+      ip: autor.ip,
+    });
+
+    return {
+      id,
+      email: emailNorm,
+      message: 'E-mail do usuário atualizado com sucesso.',
+    };
+  }
   async updatePermissions(
     id: string,
     dto: UpdateUserPermissionsDto,

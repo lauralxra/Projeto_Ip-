@@ -22,6 +22,8 @@ import { opcoesUploadImagem, urlDoUpload } from '../common/upload-imagem';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdateUserEmailDto } from './dto/update-user-email.dto';
 import { CreateUserSwagger } from './swagger/user.post.swagger';
 import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { NucleosAssociadosSwagger } from './swagger/user.nucleos.swagger';
@@ -130,6 +132,36 @@ export class UserController {
     @Ip() ip: string,
   ) {
     return this.userService.updatePermissions(id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.updateStatus(id, dto.ativo, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  @Patch(':id/email')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  updateEmail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserEmailDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.updateEmail(id, dto.email, {
       id: req.user.id,
       ip,
     });

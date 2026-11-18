@@ -330,7 +330,6 @@ export default function TelaUsuarios() {
     const avisos: string[] = [];
 
     if (dados.nome !== original.nome) {
-      // PATCH /users/:id só permite ao administrador alterar o próprio nome
       await apiFetch(`/users/${dados.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ name: dados.nome }),
@@ -338,6 +337,17 @@ export default function TelaUsuarios() {
       if (dados.id === UsuarioAtual.id) {
         UsuarioAtual.nome = dados.nome;
         atualizarUsuarioSessao({ nome: dados.nome });
+      }
+    }
+
+    if (dados.email !== original.email) {
+      await apiFetch(`/users/${dados.id}/email`, {
+        method: 'PATCH',
+        body: JSON.stringify({ email: dados.email }),
+      });
+      if (dados.id === UsuarioAtual.id) {
+        UsuarioAtual.email = dados.email;
+        atualizarUsuarioSessao({ email: dados.email });
       }
     }
 
@@ -353,9 +363,14 @@ export default function TelaUsuarios() {
       });
     }
 
-    if (dados.email !== original.email) avisos.push('e-mail');
+    if (dados.status !== original.status) {
+      await apiFetch(`/users/${dados.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ativo: dados.status === 1 }),
+      });
+    }
+
     if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
-    if (dados.status !== original.status) avisos.push('status');
     if ((dados.imagem || '') !== (original.imagem || '')) avisos.push('foto');
     if (avisos.length > 0) {
       alert(
