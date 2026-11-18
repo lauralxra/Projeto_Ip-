@@ -27,11 +27,13 @@ import { CreateUserSwagger } from './swagger/user.post.swagger';
 import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { NucleosAssociadosSwagger } from './swagger/user.nucleos.swagger';
 import { ContagemUsuariosSwagger } from './swagger/user.contagem.swagger';
+import { ChangePasswordSwagger } from './swagger/user.password.swagger';
 import { NucleoService } from '../nucleo/nucleo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -153,6 +155,19 @@ export class UserController {
     @Ip() ip: string,
   ) {
     return this.userService.updatePermissions(id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
+  @Patch('profile/password')
+  @UseGuards(JwtAuthGuard)
+  @ChangePasswordSwagger()
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.changePassword(req.user.id, dto, {
       id: req.user.id,
       ip,
     });

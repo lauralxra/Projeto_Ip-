@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +17,8 @@ import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 import { unlink } from 'fs';
 import { join } from 'path';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -25,6 +28,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
+    private readonly notificacao: NotificacaoService,
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -251,6 +255,53 @@ export class UserService {
         'Erro ao atualizar a foto de perfil.',
       );
     }
+  }
+
+  async changePassword(id: string, dto: ChangePasswordDto, autor: AutorAcao) {
+    // A confirmação e as regras de complexidade (RN01) já foram validadas no DTO
+    const user = await this.userRepository.findActiveWithPasswordById(id);
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const senhaAtualValida = await bcrypt.compare(
+      dto.currentPassword,
+      user.senhaHash,
+    );
+    if (!senhaAtualValida) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    // RN02: a nova senha não pode ser igual à atual
+    const mesmaSenha = await bcrypt.compare(dto.newPassword, user.senhaHash);
+    if (mesmaSenha) {
+      throw new ConflictException(
+        'A nova senha não pode ser idêntica à senha atual.',
+      );
+    }
+
+    const senhaHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    const { count } = await this.userRepository.updatePassword(id, senhaHash);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Nunca grava senha nem hash na auditoria
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosNovos: { senha: 'alterada' },
+      ip: autor.ip,
+    });
+
+    await this.notificacao.notificarSenhaAlterada({
+      email: user.email,
+      nome: user.nome,
+    });
+
+    return { message: 'Senha alterada com sucesso.' };
   }
 
   async remove(id: string, autor: AutorAcao) {
