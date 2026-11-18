@@ -10,6 +10,7 @@ import {
   Prisma,
   Role,
   StatusAprovacao,
+  StatusRegistro,
   TrimestreEnum,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,6 +32,7 @@ describe('IndicadorService', () => {
       create: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
     };
     meta: { updateMany: jest.Mock };
     nucleo: { findFirst: jest.Mock };
@@ -63,6 +65,7 @@ describe('IndicadorService', () => {
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUniqueOrThrow: jest.fn(),
       },
       meta: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       nucleo: { findFirst: jest.fn() },
@@ -217,6 +220,7 @@ describe('IndicadorService', () => {
       id: 'reg-uuid',
       valorRealizado: new Prisma.Decimal(5),
       statusAprovacao,
+      status: StatusRegistro.ATIVO,
     });
 
     beforeEach(() => {
@@ -227,9 +231,14 @@ describe('IndicadorService', () => {
           ...data,
         }),
       );
-      prisma.indicadorRegistro.update.mockImplementation(
-        ({ data }: { data: object }) => ({ id: 'reg-uuid', ...data }),
-      );
+      // A alteração grava com updateMany (condicional) e relê o registro
+      prisma.indicadorRegistro.updateMany.mockResolvedValue({ count: 1 });
+      prisma.indicadorRegistro.findUniqueOrThrow.mockImplementation(() => {
+        const [args] = prisma.indicadorRegistro.updateMany.mock.calls.at(
+          -1,
+        ) as [{ data: object }];
+        return { id: 'reg-uuid', ...args.data };
+      });
     });
 
     it('retorna 404 para indicador inexistente ou inativo', async () => {
@@ -296,7 +305,7 @@ describe('IndicadorService', () => {
         await expect(
           service.salvarRegistro('ind-uuid', dadosRegistro, diretor),
         ).rejects.toBeInstanceOf(ConflictException);
-        expect(prisma.indicadorRegistro.update).not.toHaveBeenCalled();
+        expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
       },
     );
 
@@ -324,15 +333,20 @@ describe('IndicadorService', () => {
 
         await service.salvarRegistro('ind-uuid', dadosRegistro, admin);
 
-        expect(prisma.indicadorRegistro.update).toHaveBeenCalledWith({
-          where: { id: 'reg-uuid' },
+        expect(prisma.indicadorRegistro.updateMany).toHaveBeenCalledWith({
+          where: {
+            id: 'reg-uuid',
+            deletedAt: null,
+            status: StatusRegistro.ATIVO,
+            statusAprovacao: status,
+          },
           data: expect.objectContaining({
             statusAprovacao: StatusAprovacao.ENVIADO_REVISAO,
             aprovadorId: null,
             revisadoEm: null,
             publicadoPorId: null,
             publicadoEm: null,
-          }),
+          }) as unknown,
         });
         expect(audit.registrarAcao).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -346,5 +360,30 @@ describe('IndicadorService', () => {
         );
       },
     );
+
+    it('não altera valor inativo, nem pelo administrador (RN06)', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue({
+        ...registroExistente(StatusAprovacao.EM_PREENCHIMENTO),
+        status: StatusRegistro.INATIVO,
+      });
+
+      await expect(
+        service.salvarRegistro('ind-uuid', dadosRegistro, admin),
+      ).rejects.toThrow('Este valor está inativo');
+      expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
+      expect(prisma.indicadorRegistro.create).not.toHaveBeenCalled();
+    });
+
+    it('não sobrescreve valor alterado por outra operação no meio tempo', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        registroExistente(StatusAprovacao.EM_PREENCHIMENTO),
+      );
+      prisma.indicadorRegistro.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.salvarRegistro('ind-uuid', dadosRegistro, admin),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
   });
 });

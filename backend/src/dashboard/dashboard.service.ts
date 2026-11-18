@@ -1,11 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import {
-  Prisma,
-  Role,
-  StatusAprovacao,
-  TipoDadoIndicador,
-} from '@prisma/client';
+import { Prisma, Role, StatusAprovacao, StatusRegistro } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/interface/request.interface';
+import { calcularRealizado, percentualAtingido } from '../common/realizado';
 import { FilterDashboardDto } from './dto/filter-dashboard.dto';
 import {
   DashboardIndicadorDto,
@@ -85,8 +81,10 @@ export class DashboardService {
       );
     }
 
+    // RN06: dado inativo fica no histórico, fora dos cálculos do dashboard
     const registros: Prisma.IndicadorRegistroWhereInput = {
       deletedAt: null,
+      status: StatusRegistro.ATIVO,
       ano,
       ...(trimestre && { trimestre }),
       ...(statusVisiveis && { statusAprovacao: { in: statusVisiveis } }),
@@ -131,38 +129,20 @@ export class DashboardService {
 function consolidar(indicador: IndicadorDashboard): DashboardIndicadorDto {
   const { metas, registros, ...dados } = indicador;
   const meta = paraNumero(metas[0]?.valorMeta ?? null);
-  const realizado = calcularRealizado(indicador.tipoDado, registros);
+  const realizado = calcularRealizado(
+    indicador.tipoDado,
+    registros.map((registro) => registro.valorRealizado),
+  );
 
   return {
     ...dados,
     meta,
     realizado,
-    percentualAtingido:
-      meta && realizado !== null
-        ? Math.round((realizado / meta) * 1000) / 10
-        : null,
+    percentualAtingido: percentualAtingido(realizado, meta),
     registros: registros.map((registro) => ({
       ...registro,
       valorRealizado: paraNumero(registro.valorRealizado),
       metaAplicada: paraNumero(registro.metaAplicada),
     })),
   };
-}
-
-// Percentuais não se somam: vale a última medição informada; os demais tipos acumulam
-function calcularRealizado(
-  tipoDado: TipoDadoIndicador,
-  registros: IndicadorDashboard['registros'],
-) {
-  const valores = registros
-    .map((registro) => registro.valorRealizado)
-    .filter((valor): valor is Prisma.Decimal => valor !== null);
-
-  if (valores.length === 0) return null;
-  if (tipoDado === TipoDadoIndicador.PERCENTUAL) {
-    return valores[valores.length - 1].toNumber();
-  }
-  return valores
-    .reduce((soma, valor) => soma.plus(valor), new Prisma.Decimal(0))
-    .toNumber();
 }

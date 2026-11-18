@@ -351,6 +351,31 @@ describe('UserService', () => {
       );
     });
 
+    it('registra na auditoria os núcleos desvinculados na exclusão', async () => {
+      repository.findActiveById.mockResolvedValue({
+        id: 'user-uuid',
+        ativo: true,
+        perfil: Role.DIRETORES_NUCLEOS,
+      });
+      repository.softDelete.mockResolvedValue({
+        count: 1,
+        nucleoIds: ['nei', 'nuri'],
+      });
+
+      await service.remove('user-uuid', autor);
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: {
+            ativo: true,
+            perfil: Role.DIRETORES_NUCLEOS,
+            nucleos: ['nei', 'nuri'],
+          },
+          dadosNovos: { ativo: false, excluido: true, nucleos: [] },
+        }),
+      );
+    });
+
     it('impede o administrador de excluir a própria conta', async () => {
       await expect(service.remove(autor.id, autor)).rejects.toBeInstanceOf(
         ForbiddenException,

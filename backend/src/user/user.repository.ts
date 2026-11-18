@@ -77,10 +77,24 @@ export class UserRepository {
   }
 
   // Exclusão lógica: preserva o histórico e a rastreabilidade (RN07)
+  // Exclusão lógica e remoção dos vínculos com núcleos na mesma transação: um
+  // usuário excluído não pode continuar impedindo a exclusão do núcleo.
+  // Devolve os núcleos desvinculados para a auditoria.
   softDelete(id: string) {
-    return this.prisma.user.updateMany({
-      where: { id, deletedAt: null },
-      data: { deletedAt: new Date(), ativo: false },
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date(), ativo: false },
+      });
+      if (count === 0) return { count, nucleoIds: [] as string[] };
+
+      const vinculos = await tx.userNucleo.findMany({
+        where: { userId: id },
+        select: { nucleoId: true },
+      });
+      await tx.userNucleo.deleteMany({ where: { userId: id } });
+
+      return { count, nucleoIds: vinculos.map((v) => v.nucleoId) };
     });
   }
 
