@@ -687,6 +687,7 @@ export default function TelaIndicadores() {
   const [formNucleoId, setFormNucleoId] = useState<string>('');
   const [formProgramId, setProgramId] = useState<string>('');
   const [formMeta, setMetaForm] = useState('');
+  const [temMetaForm, setTemMetaForm] = useState(true);
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
@@ -703,6 +704,8 @@ export default function TelaIndicadores() {
     setFormNucleoId('');
     setProgramId('');
     setValorForm('0');
+    setMetaForm('');
+    setTemMetaForm(false);
     setFormAno(String(new Date().getFullYear()));
     setFormTrimestre('Q4');
     setStatusForm('ativo');
@@ -820,6 +823,25 @@ export default function TelaIndicadores() {
         });
       }
 
+      if (temMetaForm && formMeta.trim() !== '') {
+        const valMetaNum = Number(formMeta.trim().replace(',', '.'));
+        if (Number.isFinite(valMetaNum) && valMetaNum > 0) {
+          try {
+            await apiFetch('/metas', {
+              method: 'POST',
+              body: JSON.stringify({
+                indicadorId: idIndicador,
+                ano: anoInicial,
+                trimestre: trimestreInicial,
+                valorMeta: valMetaNum,
+              }),
+            });
+          } catch (e) {
+            console.warn('Erro ao salvar meta inicial do novo indicador:', e);
+          }
+        }
+      }
+
       await carregarIndicadores();
 
       setModalNovoAberto(false);
@@ -828,6 +850,8 @@ export default function TelaIndicadores() {
       setFormNucleoId('');
       setProgramId('');
       setValorForm('0');
+      setMetaForm('');
+      setTemMetaForm(false);
       setFormAno(String(new Date().getFullYear()));
       setFormTrimestre('Q4');
 
@@ -1085,7 +1109,9 @@ export default function TelaIndicadores() {
     setUnidadeForm(indicador.unidade);
     setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
     setProgramId(indicador.programa ? indicador.programa.id : '');
-    setMetaForm(indicador.meta != null ? indicador.meta : '');
+    const metaValor = indicador.meta != null ? indicador.meta : '';
+    setMetaForm(metaValor);
+    setTemMetaForm(Boolean(metaValor && parseFloat(metaValor) > 0));
     setStatusForm(indicador.status);
     setEditAberto(true);
   };
@@ -1093,16 +1119,45 @@ export default function TelaIndicadores() {
   // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
   // exibido no card. Devolve o id da meta resultante.
   const salvarMeta = async (indicador: Indicador, texto: string) => {
-    if (texto === '') {
+    const valorLimpo = texto.trim().replace(',', '.');
+    const valorMeta = Number(valorLimpo);
+    const ehSemMeta =
+      texto.trim() === '' || (!isNaN(valorMeta) && valorMeta <= 0);
+
+    if (ehSemMeta) {
       if (indicador.metaId) {
-        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        try {
+          await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.warn('Erro ao deletar meta por id:', e);
+        }
       }
+
+      // Garante exclusão de todas as metas ativas deste indicador
+      try {
+        const respMetas = await apiFetch<{ itens: Array<{ id: string }> }>(
+          `/metas?indicadorId=${indicador.id}&limite=100`,
+        );
+        if (respMetas?.itens?.length) {
+          for (const m of respMetas.itens) {
+            try {
+              await apiFetch(`/metas/${m.id}`, { method: 'DELETE' });
+            } catch (err) {
+              console.warn(`Erro ao excluir meta ${m.id}:`, err);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao listar metas do indicador:', e);
+      }
+
       return undefined;
     }
 
-    const valorMeta = Number(texto.replace(',', '.'));
     if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
-      throw new Error('Informe uma meta maior que zero.');
+      throw new Error(
+        'Informe uma meta maior que zero ou marque a opção "Não precisa de meta".',
+      );
     }
 
     if (indicador.metaId) {
@@ -1114,12 +1169,14 @@ export default function TelaIndicadores() {
     }
 
     // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const anoMeta = indicador.ano ?? new Date().getFullYear();
+    const trimestreMeta = indicador.ano ? (indicador.trimestre ?? null) : null;
     const criada = await apiFetch<{ id: string }>('/metas', {
       method: 'POST',
       body: JSON.stringify({
         indicadorId: indicador.id,
-        ano: indicador.ano ?? new Date().getFullYear(),
-        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        ano: anoMeta,
+        trimestre: trimestreMeta,
         valorMeta,
       }),
     });
@@ -1136,12 +1193,18 @@ export default function TelaIndicadores() {
       return;
     }
 
-    const textoMeta = formMeta.trim();
-    const metaMudou = textoMeta !== (indicSelecionado.meta ?? '');
+    const valorLimpo = formMeta.trim().replace(',', '.');
+    const valorNum = Number(valorLimpo);
+    const querSemMeta =
+      !temMetaForm ||
+      formMeta.trim() === '' ||
+      (!isNaN(valorNum) && valorNum <= 0);
 
     try {
-      if (metaMudou) {
-        await salvarMeta(indicSelecionado, textoMeta);
+      if (querSemMeta) {
+        await salvarMeta(indicSelecionado, '');
+      } else {
+        await salvarMeta(indicSelecionado, formMeta.trim());
       }
 
       const resposta = await fetch(
@@ -1158,6 +1221,7 @@ export default function TelaIndicadores() {
             nucleoId: formNucleoId || null,
             programaId: formProgramId || null,
             ...(formStatus ? { status: formStatus.toUpperCase() } : {}),
+            semMeta: querSemMeta,
           }),
         },
       );
@@ -1644,6 +1708,53 @@ export default function TelaIndicadores() {
                     )}
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Botões do Modal */}
@@ -1725,6 +1836,53 @@ export default function TelaIndicadores() {
                     <option value="Q3">3º trimestre (Q3)</option>
                     <option value="Q4">4º trimestre (Q4)</option>
                   </select>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1859,17 +2017,54 @@ export default function TelaIndicadores() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Meta
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Defina uma meta..."
-                    value={formMeta}
-                    onChange={(e) => setMetaForm(e.target.value)}
-                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta{' '}
+                      {indicSelecionado?.simbolUni
+                        ? `(${indicSelecionado.simbolUni})`
+                        : ''}
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador definido sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

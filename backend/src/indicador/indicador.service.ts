@@ -278,6 +278,20 @@ export class IndicadorService {
       },
     });
 
+    if (dados.semMeta) {
+      const agora = new Date();
+      await this.prisma.$transaction([
+        this.prisma.meta.updateMany({
+          where: { indicadorId: id, deletedAt: null },
+          data: { deletedAt: agora, status: StatusRegistro.INATIVO },
+        }),
+        this.prisma.indicadorRegistro.updateMany({
+          where: { indicadorId: id, deletedAt: null },
+          data: { metaAplicada: null },
+        }),
+      ]);
+    }
+
     await this.audit.registrarAcao({
       userId: autor.id,
       acao: AcaoAuditoria.ATUALIZAR,
@@ -294,6 +308,7 @@ export class IndicadorService {
         escopo: atualizado.escopo,
         nucleoId: atualizado.nucleoId,
         programaId: atualizado.programaId,
+        ...(dados.semMeta ? { semMeta: true } : {}),
       },
       ip: autor.ip,
     });

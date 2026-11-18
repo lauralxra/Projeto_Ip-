@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { EscopoIndicador } from '@prisma/client';
 import { CreateIndicadorDto } from './create-indicador.dto';
+import { UpdateIndicadorDto } from './update-indicador.dto';
 import { SalvarRegistroDto } from './salvar-registro.dto';
 
 const camposComErro = async <T extends object>(
@@ -75,5 +76,26 @@ describe('CreateIndicadorDto', () => {
     expect(campos).toEqual(
       expect.arrayContaining(['nome', 'escopo', 'nucleoId']),
     );
+  });
+});
+
+describe('UpdateIndicadorDto', () => {
+  it('permite passar semMeta: true ou false', async () => {
+    const { campos: camposTrue } = await camposComErro(UpdateIndicadorDto, {
+      semMeta: true,
+    });
+    expect(camposTrue).toEqual([]);
+
+    const { campos: camposFalse } = await camposComErro(UpdateIndicadorDto, {
+      semMeta: false,
+    });
+    expect(camposFalse).toEqual([]);
+  });
+
+  it('recusa valor não booleano para semMeta', async () => {
+    const { campos } = await camposComErro(UpdateIndicadorDto, {
+      semMeta: 'sim',
+    });
+    expect(campos).toEqual(['semMeta']);
   });
 });
