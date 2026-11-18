@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { RegistroService } from './registro.service';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
+import { DevolverRegistroDto } from './dto/devolver-registro.dto';
 
 @ApiTags('registros')
 @ApiBearerAuth('JWT-auth')
@@ -58,6 +59,50 @@ export class RegistroController {
     @Ip() ip: string,
   ) {
     return this.registroService.inativar(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/enviar-revisao')
+  @Roles(Role.ADMINISTRADOR, Role.DIRETORES_NUCLEOS)
+  enviarParaRevisao(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.enviarParaRevisao(id, req.user, ip);
+  }
+
+  @Patch(':id/devolver')
+  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  devolver(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dados: DevolverRegistroDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.devolverComComentario(id, dados.justificativa, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  @Patch(':id/aprovar')
+  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  aprovar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.aprovar(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/publicar')
+  @Roles(Role.ADMINISTRADOR)
+  publicar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.publicar(id, { id: req.user.id, ip });
   }
 
   @Delete(':id')
