@@ -1,3 +1,13 @@
+# [1.1.0-dev.17](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.16...v1.1.0-dev.17) (2026-11-18)
+
+
+### Features
+
+* **indicadores:** implement indicator edit ([0ae229b](https://github.com/lauralxra/Projeto_Ip-/commit/0ae229b87629bc817b124b9aa6515bf8d9141a06))
+* **nucleos:** implement nucleus edit ([5aac99e](https://github.com/lauralxra/Projeto_Ip-/commit/5aac99e2c7bc560d4326181ee5fdaabccd15752d))
+* **programas:** store responsible user, start date and participants ([268c269](https://github.com/lauralxra/Projeto_Ip-/commit/268c2694186989b57c7c0e4f93937c2584a57274))
+* **users:** edit email, status, password and photo of users and own profile ([bfb5f39](https://github.com/lauralxra/Projeto_Ip-/commit/bfb5f39cd40794ea4648f3274fc9d89d48404c4f))
+
 # [1.1.0-dev.16](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.15...v1.1.0-dev.16) (2026-11-18)
 
 
