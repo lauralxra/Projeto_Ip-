@@ -240,6 +240,7 @@ function OptExtras({
       {/* Botão de logout */}
       <a
         href="/login"
+        onClick={sair}
         className="h-[34px] w-[35px] relative shrink-0 mt-auto mb-10"
         data-name="btnDeslogar"
       >
