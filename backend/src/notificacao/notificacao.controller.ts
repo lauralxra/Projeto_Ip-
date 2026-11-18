@@ -2,10 +2,13 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
+  Param,
   Req,
   Ip,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
@@ -34,9 +37,30 @@ export class NotificacaoController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  findMinhas(@Req() req: AuthenticatedRequest) {
+    return this.notificacaoService.findByUsuario(req.user.id);
+  }
+
+  @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
   findAll() {
     return this.notificacaoService.findAll();
+  }
+
+  @Patch('read-all')
+  @UseGuards(JwtAuthGuard)
+  marcarTodasLidas(@Req() req: AuthenticatedRequest) {
+    return this.notificacaoService.marcarTodasComoLidas(req.user.id);
+  }
+
+  @Patch(':id/read')
+  @UseGuards(JwtAuthGuard)
+  marcarLida(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.notificacaoService.marcarComoLida(id, req.user.id);
   }
 }

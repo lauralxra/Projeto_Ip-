@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -127,8 +127,42 @@ export class NotificacaoService {
         '0.0.0.0',
       );
     }
+    
 
     this.logger.log('[CRON] Lembretes trimestrais enviados.');
+  }
+  async findByUsuario(userId: string) {
+  return this.prisma.notificacaoUsuario.findMany({
+    where: { userId },
+    include: {
+      notificacao: true,
+    },
+    orderBy: { notificacao: { createdAt: 'desc' } },
+  });
+}
+
+async marcarComoLida(notificacaoId: string, userId: string) {
+  const registro = await this.prisma.notificacaoUsuario.findUnique({
+    where: { notificacaoId_userId: { notificacaoId, userId } },
+  });
+
+  if (!registro) {
+    throw new NotFoundException('Notificação não encontrada.');
+  }
+
+  return this.prisma.notificacaoUsuario.update({
+    where: { notificacaoId_userId: { notificacaoId, userId } },
+    data: { isRead: true, readAt: new Date() },
+  });
+}
+
+async marcarTodasComoLidas(userId: string) {
+  const { count } = await this.prisma.notificacaoUsuario.updateMany({
+    where: { userId, isRead: false },
+    data: { isRead: true, readAt: new Date() },
+  });
+
+  return { message: `${count} notificação(ões) marcada(s) como lida(s).` };
   }
 
   findAll() {
