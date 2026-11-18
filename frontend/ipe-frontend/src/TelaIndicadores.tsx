@@ -2018,6 +2018,19 @@ export default function TelaIndicadores() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formStatus ? formStatus.toUpperCase() : 'ATIVO'}
+                    onChange={(e) => setStatusForm(e.target.value)}
+                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                  >
+                    <option value="ATIVO">Ativo</option>
+                    <option value="INATIVO">Inativo</option>
+                  </select>
+                </div>
+                <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold text-slate-700">
                       Meta{' '}

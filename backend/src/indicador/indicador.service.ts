@@ -167,6 +167,7 @@ export class IndicadorService {
         nucleoId: dados.nucleoId ?? null,
         programaId: dados.programaId ?? null,
         codigo: dados.codigo ?? null,
+        status: dados.status ?? StatusRegistro.ATIVO,
       },
       include: {
         nucleo: { select: { id: true, nome: true, sigla: true } },
@@ -258,6 +259,7 @@ export class IndicadorService {
           : {}),
         ...(dados.escopo ? { escopo: dados.escopo } : {}),
         ...(dados.tipoDado ? { tipoDado: dados.tipoDado } : {}),
+        ...(dados.status !== undefined ? { status: dados.status } : {}),
         ...(dados.nucleoId !== undefined
           ? { nucleoId: dados.nucleoId || null }
           : {}),

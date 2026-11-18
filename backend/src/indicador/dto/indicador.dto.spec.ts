@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { EscopoIndicador } from '@prisma/client';
+import { EscopoIndicador, StatusRegistro } from '@prisma/client';
 import { CreateIndicadorDto } from './create-indicador.dto';
 import { UpdateIndicadorDto } from './update-indicador.dto';
 import { SalvarRegistroDto } from './salvar-registro.dto';
@@ -97,5 +97,20 @@ describe('UpdateIndicadorDto', () => {
       semMeta: 'sim',
     });
     expect(campos).toEqual(['semMeta']);
+  });
+
+  it('permite passar status válido e normaliza para maiúsculo', async () => {
+    const { dto, campos } = await camposComErro(UpdateIndicadorDto, {
+      status: 'ativo',
+    });
+    expect(campos).toEqual([]);
+    expect(dto.status).toBe(StatusRegistro.ATIVO);
+  });
+
+  it('recusa status inválido', async () => {
+    const { campos } = await camposComErro(UpdateIndicadorDto, {
+      status: 'INVALIDO',
+    });
+    expect(campos).toEqual(['status']);
   });
 });
