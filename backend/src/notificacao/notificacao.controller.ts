@@ -1,24 +1,25 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
-  Body,
-  Param,
-  Req,
   Ip,
-  UseGuards,
+  Param,
   ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { NotificacaoService } from './notificacao.service';
 import { CreateNotificacaoDto } from './dto/create-notificacao.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import { ListNotificacaoDto } from './dto/list-notificacao.dto';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
+// JwtAuthGuard e RolesGuard são globais (AuthModule): toda rota exige token,
+// e as marcadas com @Roles exigem também o perfil.
 @ApiTags('notificacoes')
 @ApiBearerAuth('JWT-auth')
 @Controller('notificacoes')
@@ -26,7 +27,6 @@ export class NotificacaoController {
   constructor(private readonly notificacaoService: NotificacaoService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
   create(
     @Body() dto: CreateNotificacaoDto,
@@ -37,26 +37,25 @@ export class NotificacaoController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
-  findMinhas(@Req() req: AuthenticatedRequest) {
-    return this.notificacaoService.findByUsuario(req.user.id);
+  findMinhas(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListNotificacaoDto,
+  ) {
+    return this.notificacaoService.findByUsuario(req.user.id, query);
   }
 
   @Get('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
-  findAll() {
-    return this.notificacaoService.findAll();
+  findAll(@Query() query: ListNotificacaoDto) {
+    return this.notificacaoService.findAll(query);
   }
 
   @Patch('read-all')
-  @UseGuards(JwtAuthGuard)
   marcarTodasLidas(@Req() req: AuthenticatedRequest) {
     return this.notificacaoService.marcarTodasComoLidas(req.user.id);
   }
 
   @Patch(':id/read')
-  @UseGuards(JwtAuthGuard)
   marcarLida(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,

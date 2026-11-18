@@ -132,15 +132,34 @@ export class MailService implements OnModuleInit {
       ].join('\n'),
     });
   }
-  async sendNotificacao(to: string, titulo: string, mensagem: string): Promise<void> {
-  await this.transporter.sendMail({
-    from: `"Sistema IPÊ" <${process.env.MAIL_FROM}>`,
-    to,
-    subject: titulo,
-    html: `<h2>${titulo}</h2><p>${mensagem}</p>`,
-  });
-  this.logger.log(`Notificação enviada para: ${to}`);
-}
+
+  // Notificação da plataforma (avisos e lembretes de prazo). Título e mensagem vêm do
+  // administrador, então são escapados antes de entrar no HTML.
+  async sendNotificacao(
+    to: string,
+    titulo: string,
+    mensagem: string,
+  ): Promise<void> {
+    const tituloSeguro = escaparHtml(titulo);
+    const mensagemSegura = escaparHtml(mensagem).replace(/\r?\n/g, '<br>');
+
+    await this.sendMail({
+      to,
+      subject: `${titulo.replace(/[\r\n]+/g, ' ')} - Plataforma IPÊ`,
+      html: `
+        <h2>${tituloSeguro}</h2>
+        <p>${mensagemSegura}</p>
+        <p>Este é um e-mail automático, não responda.</p>
+      `,
+      text: [
+        titulo,
+        '',
+        mensagem,
+        '',
+        'Este é um e-mail automático, não responda.',
+      ].join('\n'),
+    });
+  }
 
   private async verificarConexao() {
     try {

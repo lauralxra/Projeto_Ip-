@@ -132,6 +132,45 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendNotificacao', () => {
+    it('escapa título e mensagem no HTML e remove quebras de linha do assunto', async () => {
+      const service = configurar();
+
+      await service.sendNotificacao(
+        'diretor@ipe.org.br',
+        'Aviso <b>\r\nBcc: x@y.z',
+        'Linha 1\n<script>alert(1)</script>',
+      );
+
+      const [enviado] = transport.sendMail.mock.calls[0] as [
+        {
+          from: string;
+          to: string;
+          subject: string;
+          html: string;
+          text: string;
+        },
+      ];
+      expect(enviado.from).toBe('"Sistema IPÊ" <nao-responda@ipe.org.br>');
+      expect(enviado.to).toBe('diretor@ipe.org.br');
+      expect(enviado.subject).not.toMatch(/[\r\n]/);
+      expect(enviado.html).not.toContain('<script>');
+      expect(enviado.html).toContain('&lt;script&gt;');
+      expect(enviado.html).toContain('Aviso &lt;b&gt;');
+      expect(enviado.html).toContain('Linha 1<br>');
+      expect(enviado.text).toContain('<script>alert(1)</script>');
+    });
+
+    it('propaga a falha do SMTP como 503', async () => {
+      const service = configurar();
+      transport.sendMail.mockRejectedValue(new Error('timeout'));
+
+      await expect(
+        service.sendNotificacao('a@ipe.org.br', 'Título', 'Mensagem longa'),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
   describe('onModuleInit', () => {
     it('avisa quais variáveis faltam e não tenta conectar', () => {
       const service = configurar({ MAIL_HOST: undefined, MAIL_PASS: '' });

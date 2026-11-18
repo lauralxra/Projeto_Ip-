@@ -38,8 +38,12 @@ export class AuditService {
   }
 
   // Grava em audit_logs; a tabela é imutável (trigger na migration 20261117120000_unicidade_parcial_e_restricoes)
-  registrarAcao(dados: RegistroAcao) {
-    return this.prisma.auditLog.create({
+  // `client` permite gravar dentro de um $transaction do chamador
+  registrarAcao(
+    dados: RegistroAcao,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    return client.auditLog.create({
       data: {
         userId: dados.userId,
         acao: dados.acao,

@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { NotificacaoService } from './notificacao.service';
 import { NotificacaoController } from './notificacao.controller';
-import { PrismaModule } from '../prisma/prisma.module';
 import { AuditModule } from '../audit/audit.module';
 import { MailModule } from '../mail/mail.module';
-import { AuthModule } from '../auth/auth.module';
 
+// PrismaModule é global e ScheduleModule.forRoot() fica no AppModule
 @Module({
-  imports: [ScheduleModule.forRoot(), PrismaModule, AuditModule, MailModule, AuthModule],
+  imports: [AuditModule, MailModule],
   controllers: [NotificacaoController],
   providers: [NotificacaoService],
+  // UserModule usa o aviso de troca de senha
+  exports: [NotificacaoService],
 })
 export class NotificacaoModule {}
