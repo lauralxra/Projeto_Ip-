@@ -34,8 +34,8 @@ import { jsPDF } from 'jspdf';
 import { API_BASE_URL } from './config/api';
 
 interface RegistroDashboard {
-  id: string;
-  ano: number;
+  id?: string;
+  ano?: number;
   trimestre: string;
   valorRealizado: string | number | null;
   metaAplicada: string | number | null;
@@ -44,18 +44,32 @@ interface RegistroDashboard {
 
 interface IndicadorDashboard {
   id: string;
+  codigo?: string | null;
   nome: string;
+  tipoDado?: string;
   unidadeMedida: string | null;
+  escopo?: string;
   nucleo: {
     id: string;
     nome: string;
     sigla: string;
+    corHex?: string | null;
   } | null;
   programa: {
     id: string;
     nome: string;
   } | null;
+  meta?: number | null;
+  realizado?: number | null;
+  percentualAtingido?: number | null;
   registros: RegistroDashboard[];
+}
+
+interface DashboardApiResponse {
+  ano: number;
+  trimestre: string | null;
+  total: number;
+  indicadores: IndicadorDashboard[];
 }
 
 function CardMetrica({
@@ -140,9 +154,11 @@ export default function TelaDashboard() {
       filtrarRegistrosPorPeriodo(indicador.registros).map((registro) => ({
         Indicador: indicador.nome,
         Nucleo: indicador.nucleo?.sigla ?? 'Institucional',
-        Ano: registro.ano,
+        Programa: indicador.programa?.nome ?? 'Geral',
+        Ano: registro.ano ?? 2026,
         Trimestre: registro.trimestre,
         Valor: registro.valorRealizado,
+        Meta: registro.metaAplicada ?? indicador.meta,
       })),
     );
 
@@ -164,9 +180,11 @@ export default function TelaDashboard() {
       filtrarRegistrosPorPeriodo(indicador.registros).map((registro) => ({
         Indicador: indicador.nome,
         Nucleo: indicador.nucleo?.sigla ?? 'Institucional',
-        Ano: registro.ano,
+        Programa: indicador.programa?.nome ?? 'Geral',
+        Ano: registro.ano ?? 2026,
         Trimestre: registro.trimestre,
         Valor: registro.valorRealizado,
+        Meta: registro.metaAplicada ?? indicador.meta,
       })),
     );
 
@@ -190,7 +208,7 @@ export default function TelaDashboard() {
       { Informacao: 'Total de programas ativos', Valor: totalProgramas },
       {
         Informacao: 'Total de indicadores cadastrados',
-        Valor: indicadoresAgrupados.length,
+        Valor: indicadores.length,
       },
       {
         Informacao: 'Indicadores no filtro atual',
@@ -328,27 +346,92 @@ export default function TelaDashboard() {
         return;
       }
 
-      try {
-        const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      setCarregando(true);
 
-        if (!resposta.ok) {
-          throw new Error(
-            `Erro ao consultar indicadores: HTTP ${resposta.status}`,
-          );
+      try {
+        const anosParaBuscar: number[] = [];
+        if (periodoFiltro === 'Ano de 2026') {
+          anosParaBuscar.push(2026);
+        } else if (periodoFiltro === 'Ano de 2025') {
+          anosParaBuscar.push(2025);
+        } else if (periodoFiltro === 'Ano de 2024') {
+          anosParaBuscar.push(2024);
+        } else if (
+          periodoFiltro === 'Últimos 6 meses' ||
+          periodoFiltro === 'Últimos 12 meses'
+        ) {
+          const anoAtual = new Date().getFullYear();
+          anosParaBuscar.push(anoAtual, anoAtual - 1);
+        } else {
+          // 'Todos os períodos': carrega histórico consolidado de medições
+          anosParaBuscar.push(2024, 2025, 2026);
         }
 
-        const dados: unknown = await resposta.json();
+        const respostas = await Promise.all(
+          anosParaBuscar.map(async (ano) => {
+            const resp = await fetch(
+              `${API_BASE_URL}/dashboard/indicators?ano=${ano}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            if (!resp.ok) return null;
+            return (await resp.json()) as DashboardApiResponse;
+          }),
+        );
 
-        if (!Array.isArray(dados)) {
-          throw new Error('A API retornou um formato inesperado.');
+        const mapa = new Map<string, IndicadorDashboard>();
+
+        for (const resposta of respostas) {
+          if (!resposta?.indicadores) continue;
+
+          for (const ind of resposta.indicadores) {
+            const existente = mapa.get(ind.id);
+            const registrosComAno = (ind.registros ?? []).map((r) => ({
+              ...r,
+              ano: r.ano ?? resposta.ano,
+            }));
+
+            if (!existente) {
+              mapa.set(ind.id, {
+                ...ind,
+                registros: registrosComAno,
+              });
+            } else {
+              const registrosExistentes = existente.registros ?? [];
+              for (const reg of registrosComAno) {
+                const jaExiste = registrosExistentes.some(
+                  (ex) =>
+                    (ex.ano ?? resposta.ano) === reg.ano &&
+                    ex.trimestre === reg.trimestre,
+                );
+                if (!jaExiste) {
+                  registrosExistentes.push(reg);
+                }
+              }
+              existente.registros = registrosExistentes;
+              if (ind.meta !== null && ind.meta !== undefined) {
+                existente.meta = (existente.meta ?? 0) + ind.meta;
+              }
+              if (ind.realizado !== null && ind.realizado !== undefined) {
+                existente.realizado =
+                  (existente.realizado ?? 0) + ind.realizado;
+              }
+              if (
+                existente.meta &&
+                existente.realizado !== null &&
+                existente.realizado !== undefined
+              ) {
+                existente.percentualAtingido =
+                  Math.round((existente.realizado / existente.meta) * 1000) /
+                  10;
+              }
+            }
+          }
         }
 
         if (!cancelado) {
-          setIndicadores(dados as IndicadorDashboard[]);
+          setIndicadores(Array.from(mapa.values()));
           setErroIndicadores(null);
         }
       } catch (erro) {
@@ -356,7 +439,7 @@ export default function TelaDashboard() {
           setErroIndicadores(
             erro instanceof Error
               ? erro.message
-              : 'Erro ao carregar indicadores.',
+              : 'Erro ao carregar indicadores do dashboard.',
           );
         }
       } finally {
@@ -371,7 +454,7 @@ export default function TelaDashboard() {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [periodoFiltro]);
 
   useEffect(() => {
     const carregarTotalUsuarios = async () => {
@@ -443,30 +526,8 @@ export default function TelaDashboard() {
       .catch((erro) => console.error(erro));
   }, []);
 
-  const indicadoresAgrupados = Array.from(
-    indicadores
-      .reduce((mapa, indicador) => {
-        const chave = `${(indicador.nome ?? '').trim().toLowerCase()}|${indicador.nucleo?.id ?? 'institucional'}|${indicador.programa?.id ?? 'sem-programa'}`;
-        const atual = mapa.get(chave);
-
-        if (!atual) {
-          mapa.set(chave, {
-            ...indicador,
-            registros: [...(indicador.registros ?? [])],
-          });
-          return mapa;
-        }
-
-        atual.registros = [
-          ...(atual.registros ?? []),
-          ...(indicador.registros ?? []),
-        ];
-        return mapa;
-      }, new Map<string, IndicadorDashboard>())
-      .values(),
-  );
-
-  const indicadoresFiltrados = indicadoresAgrupados.filter(
+  // Os indicadores já vêm consolidados e únicos da API agregada do Dashboard
+  const indicadoresFiltrados = indicadores.filter(
     (indicador) =>
       nucleoFiltro === 'Todos os Núcleos' ||
       indicador.nucleo?.sigla === nucleoFiltro,
@@ -478,12 +539,11 @@ export default function TelaDashboard() {
 
   const filtrarRegistrosPorPeriodo = (registros: RegistroDashboard[]) => {
     return registros.filter((registro) => {
-      if (periodoFiltro === 'Todos os períodos') {
+      if (
+        periodoFiltro === 'Todos os períodos' ||
+        periodoFiltro.startsWith('Ano de')
+      ) {
         return true;
-      }
-
-      if (periodoFiltro === 'Ano de 2026') {
-        return registro.ano === 2026;
       }
 
       const numeroTrimestre = Number(registro.trimestre.replace('Q', ''));
@@ -492,7 +552,8 @@ export default function TelaDashboard() {
         return false;
       }
 
-      const indiceRegistro = registro.ano * 4 + numeroTrimestre - 1;
+      const anoRegistro = registro.ano ?? agora.getFullYear();
+      const indiceRegistro = anoRegistro * 4 + numeroTrimestre - 1;
 
       const quantidadeTrimestres = periodoFiltro === 'Últimos 6 meses' ? 2 : 4;
 
@@ -570,9 +631,11 @@ export default function TelaDashboard() {
                 className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
               >
                 <option>Todos os períodos</option>
+                <option>Ano de 2026</option>
+                <option>Ano de 2025</option>
+                <option>Ano de 2024</option>
                 <option>Últimos 12 meses</option>
                 <option>Últimos 6 meses</option>
-                <option>Ano de 2026</option>
               </select>
               <ChevronDown
                 size={14}
@@ -649,7 +712,7 @@ export default function TelaDashboard() {
 
           <CardMetrica
             TipoMetrica="indicadores"
-            valAtual={indicadoresAgrupados.length}
+            valAtual={indicadoresFiltrados.length}
             valVariacao={0}
             corBg="bg-[#fcf2f7]"
           />
@@ -674,7 +737,7 @@ export default function TelaDashboard() {
               ...filtrarRegistrosPorPeriodo(indicador.registros ?? []),
             ]
               .sort((a, b) => {
-                const diferencaAno = a.ano - b.ano;
+                const diferencaAno = (a.ano ?? 2026) - (b.ano ?? 2026);
 
                 if (diferencaAno !== 0) return diferencaAno;
 
@@ -686,7 +749,7 @@ export default function TelaDashboard() {
                 const valor = Number(registro.valorRealizado ?? 0);
 
                 return {
-                  periodo: `${registro.ano}.${registro.trimestre.replace('Q', '')}`,
+                  periodo: `${registro.ano ?? ''}.${registro.trimestre.replace('Q', '')}`,
                   valor: Number.isFinite(valor) ? valor : 0,
                 };
               });
@@ -699,7 +762,7 @@ export default function TelaDashboard() {
                 <h3 className="text-base font-bold text-slate-800 mb-1">
                   {indicador.nome}
                 </h3>
-                <div className="mb-3 text-[11px] text-slate-500 space-y-0.5">
+                <div className="mb-2 text-[11px] text-slate-500 space-y-0.5">
                   <div>
                     <span className="font-semibold text-slate-600">
                       Núcleo:
@@ -712,6 +775,50 @@ export default function TelaDashboard() {
                     </span>{' '}
                     {indicador.programa?.nome ?? 'Geral'}
                   </div>
+                </div>
+
+                {/* Resumo Meta vs Realizado (calculado no backend) */}
+                <div className="flex flex-wrap items-center gap-2 mb-3 pt-2 border-t border-slate-100 text-xs">
+                  <div className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
+                    <span className="text-slate-400 text-[10px] block uppercase font-medium">
+                      Realizado
+                    </span>
+                    <span className="font-bold text-slate-700">
+                      {indicador.realizado !== null &&
+                      indicador.realizado !== undefined
+                        ? `${indicador.realizado} ${indicador.unidadeMedida ?? ''}`
+                        : '0'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
+                    <span className="text-slate-400 text-[10px] block uppercase font-medium">
+                      Meta
+                    </span>
+                    <span className="font-bold text-slate-700">
+                      {indicador.meta !== null && indicador.meta !== undefined
+                        ? `${indicador.meta} ${indicador.unidadeMedida ?? ''}`
+                        : 'Sem meta'}
+                    </span>
+                  </div>
+                  {indicador.percentualAtingido !== null &&
+                    indicador.percentualAtingido !== undefined && (
+                      <div
+                        className={`px-2.5 py-1 rounded-md border ${
+                          indicador.percentualAtingido >= 100
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : indicador.percentualAtingido >= 70
+                              ? 'bg-amber-50 text-amber-700 border-amber-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-100'
+                        }`}
+                      >
+                        <span className="text-[10px] block uppercase font-medium">
+                          Atingido
+                        </span>
+                        <span className="font-bold">
+                          {indicador.percentualAtingido}%
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 <div className="flex items-center justify-between mb-3">

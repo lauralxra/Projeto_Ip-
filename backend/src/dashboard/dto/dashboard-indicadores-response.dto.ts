@@ -20,7 +20,18 @@ export class DashboardNucleoDto {
   corHex!: string | null;
 }
 
+export class DashboardProgramaDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Programa de Voluntariado' })
+  nome!: string;
+}
+
 export class DashboardRegistroDto {
+  @ApiProperty({ example: 2026, required: false })
+  ano?: number;
+
   @ApiProperty({ enum: TrimestreEnum, example: TrimestreEnum.Q1 })
   trimestre!: TrimestreEnum;
 
@@ -59,6 +70,13 @@ export class DashboardIndicadorDto {
     description: 'Nulo para indicadores institucionais',
   })
   nucleo!: DashboardNucleoDto | null;
+
+  @ApiProperty({
+    type: DashboardProgramaDto,
+    nullable: true,
+    description: 'Nulo para indicadores sem programa',
+  })
+  programa!: DashboardProgramaDto | null;
 
   @ApiProperty({
     example: 1200,

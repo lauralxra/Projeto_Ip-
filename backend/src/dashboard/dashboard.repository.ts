@@ -92,6 +92,9 @@ export class DashboardRepository {
         nucleo: {
           select: { id: true, nome: true, sigla: true, corHex: true },
         },
+        programa: {
+          select: { id: true, nome: true },
+        },
         metas: {
           where: { ano, trimestre: trimestreMeta, deletedAt: null },
           select: { valorMeta: true },
@@ -101,6 +104,7 @@ export class DashboardRepository {
         registros: {
           where: registros,
           select: {
+            ano: true,
             trimestre: true,
             valorRealizado: true,
             metaAplicada: true,
