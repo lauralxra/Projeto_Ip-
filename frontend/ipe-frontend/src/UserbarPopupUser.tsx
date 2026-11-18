@@ -4,7 +4,7 @@ import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
 import { apiFetch, mensagemDeErro } from './api/cliente';
-import { SENHA_OCULTA } from './api/mapeadores';
+import { fotoDaApi, SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
 
@@ -47,7 +47,7 @@ function Pic() {
           className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
           src={
             UsuarioAtual.imagem
-              ? '/src/assets/' + UsuarioAtual.imagem
+              ? urlDaImagem(UsuarioAtual.imagem)
               : Imagens.DefaultPFP
           }
         />
@@ -294,8 +294,23 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem: File | null,
+  ) => {
     try {
+      // Foto do próprio usuário: PATCH /users/profile/photo (multipart, campo "photo")
+      if (arquivoImagem) {
+        const formulario = new FormData();
+        formulario.append('photo', arquivoImagem);
+        const { fotoUrl } = await apiFetch<{ fotoUrl: string }>(
+          '/users/profile/photo',
+          { method: 'PATCH', body: formulario },
+        );
+        UsuarioAtual.imagem = fotoDaApi(fotoUrl);
+        atualizarUsuarioSessao({ fotoUrl });
+      }
+
       if (dadosUsuario.nome !== UsuarioAtual.nome) {
         // PATCH /users/:id: hoje só o administrador pode alterar o próprio nome
         await apiFetch(`/users/${UsuarioAtual.id}`, {
@@ -309,7 +324,6 @@ export function UserbarPopupUser({
       const semEndpoint = [
         dadosUsuario.email !== UsuarioAtual.email && 'e-mail',
         dadosUsuario.senha !== SENHA_OCULTA && 'senha',
-        (dadosUsuario.imagem || '') !== (UsuarioAtual.imagem || '') && 'foto',
       ].filter(Boolean);
       if (semEndpoint.length > 0) {
         alert(
