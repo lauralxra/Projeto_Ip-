@@ -397,3 +397,210 @@ describe('RegistroService', () => {
     });
   });
 });
+
+describe('RegistroService — fluxo de aprovação', () => {
+  let service: RegistroService;
+  let prisma: {
+    userNucleo: { findMany: jest.Mock };
+    indicadorRegistro: {
+      findFirst: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
+  };
+  let audit: { registrarAcao: jest.Mock };
+
+  const indicadorAtivo = { deletedAt: null, status: StatusRegistro.ATIVO };
+  // Leitura feita por transicionar: etapa atual do valor e situação do indicador
+  const naEtapa = (
+    statusAprovacao: StatusAprovacao,
+    indicador: {
+      deletedAt: Date | null;
+      status: StatusRegistro;
+    } = indicadorAtivo,
+  ) => ({ statusAprovacao, indicador });
+
+  beforeEach(() => {
+    prisma = {
+      userNucleo: {
+        findMany: jest.fn().mockResolvedValue([{ nucleoId: 'nei' }]),
+      },
+      indicadorRegistro: {
+        findFirst: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: REG_ID }),
+      },
+    };
+    audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
+    service = new RegistroService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+    );
+  });
+
+  describe('enviarParaRevisao', () => {
+    const preenchido = (nucleoId: string | null = 'nei') => ({
+      valorRealizado: new Prisma.Decimal(10),
+      indicador: { nucleoId, deletedAt: null },
+    });
+
+    it('diretor envia valor do próprio núcleo e registra o envio', async () => {
+      prisma.indicadorRegistro.findFirst
+        .mockResolvedValueOnce(preenchido())
+        .mockResolvedValueOnce(naEtapa(StatusAprovacao.EM_PREENCHIMENTO));
+
+      await service.enviarParaRevisao(REG_ID, diretor, '1.2.3.4');
+
+      expect(argumento(prisma.indicadorRegistro.updateMany)).toMatchObject({
+        where: { statusAprovacao: StatusAprovacao.EM_PREENCHIMENTO },
+        data: {
+          statusAprovacao: StatusAprovacao.ENVIADO_REVISAO,
+          enviadoEm: expect.any(Date) as unknown,
+        },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: { statusAprovacao: StatusAprovacao.EM_PREENCHIMENTO },
+        }),
+      );
+    });
+
+    it.each(['ninter', null])(
+      'diretor não envia valor de indicador do núcleo %s',
+      async (nucleoId) => {
+        prisma.indicadorRegistro.findFirst.mockResolvedValueOnce(
+          preenchido(nucleoId),
+        );
+
+        await expect(
+          service.enviarParaRevisao(REG_ID, diretor),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('não envia valor vazio', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValueOnce({
+        ...preenchido(),
+        valorRealizado: null,
+      });
+
+      await expect(
+        service.enviarParaRevisao(REG_ID, admin),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('transições da Administração', () => {
+    it('aprova valor enviado para revisão, gravando quem aprovou', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        naEtapa(StatusAprovacao.ENVIADO_REVISAO),
+      );
+
+      await service.aprovar(REG_ID, autor);
+
+      expect(argumento(prisma.indicadorRegistro.updateMany)).toMatchObject({
+        where: {
+          id: REG_ID,
+          status: StatusRegistro.ATIVO,
+          statusAprovacao: StatusAprovacao.ENVIADO_REVISAO,
+        },
+        data: {
+          statusAprovacao: StatusAprovacao.APROVADO,
+          aprovadorId: autor.id,
+        },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({ acao: AcaoAuditoria.APROVAR }),
+      );
+    });
+
+    it('devolve com justificativa', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        naEtapa(StatusAprovacao.ENVIADO_REVISAO),
+      );
+
+      await service.devolverComComentario(REG_ID, 'Valor divergente', autor);
+
+      expect(argumento(prisma.indicadorRegistro.updateMany).data).toEqual({
+        justificativaDevolucao: 'Valor divergente',
+        statusAprovacao: StatusAprovacao.NECESSITA_CORRECAO,
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({ acao: AcaoAuditoria.DEVOLVER }),
+      );
+    });
+
+    it('publica valor aprovado', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        naEtapa(StatusAprovacao.APROVADO),
+      );
+
+      await service.publicar(REG_ID, autor);
+
+      expect(argumento(prisma.indicadorRegistro.updateMany).data).toMatchObject(
+        { statusAprovacao: StatusAprovacao.PUBLICADO },
+      );
+    });
+
+    it.each([
+      ['aprovar', StatusAprovacao.EM_PREENCHIMENTO],
+      ['aprovar', StatusAprovacao.APROVADO],
+      ['publicar', StatusAprovacao.ENVIADO_REVISAO],
+    ] as const)(
+      '%s a partir de %s é recusado sem gravar',
+      async (acao, etapa) => {
+        prisma.indicadorRegistro.findFirst.mockResolvedValue(naEtapa(etapa));
+
+        await expect(service[acao](REG_ID, autor)).rejects.toBeInstanceOf(
+          ConflictException,
+        );
+        expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
+        expect(audit.registrarAcao).not.toHaveBeenCalled();
+      },
+    );
+
+    it('não revisa valor de indicador inativo', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        naEtapa(StatusAprovacao.ENVIADO_REVISAO, {
+          deletedAt: null,
+          status: StatusRegistro.INATIVO,
+        }),
+      );
+
+      await expect(service.aprovar(REG_ID, autor)).rejects.toThrow(
+        'Não é possível revisar valores de um indicador inativo.',
+      );
+      expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('responde 404 para valor inexistente ou de indicador excluído', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValueOnce(null);
+      await expect(service.aprovar(REG_ID, autor)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+
+      prisma.indicadorRegistro.findFirst.mockResolvedValueOnce(
+        naEtapa(StatusAprovacao.ENVIADO_REVISAO, {
+          deletedAt: new Date(),
+          status: StatusRegistro.INATIVO,
+        }),
+      );
+      await expect(service.aprovar(REG_ID, autor)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('não grava nem audita se outra revisão mudou o valor no meio tempo', async () => {
+      prisma.indicadorRegistro.findFirst.mockResolvedValue(
+        naEtapa(StatusAprovacao.ENVIADO_REVISAO),
+      );
+      prisma.indicadorRegistro.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.aprovar(REG_ID, autor)).rejects.toThrow(
+        'O registro foi alterado por outra operação.',
+      );
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+});
