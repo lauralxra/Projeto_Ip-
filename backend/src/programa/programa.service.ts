@@ -28,9 +28,26 @@ const SELECT_PROGRAMA = {
   status: true,
   nucleoId: true,
   nucleo: { select: { id: true, nome: true, sigla: true } },
+  dataInicio: true,
+  responsavelId: true,
+  responsavel: { select: { id: true, nome: true } },
+  participantes: {
+    // Usuários excluídos não aparecem como participantes
+    where: { user: { deletedAt: null } },
+    select: { user: { select: { id: true, nome: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ProgramaSelect;
+
+// Data só com dia (coluna DATE): AAAA-MM-DD <-> Date em UTC
+const paraData = (texto: string) => new Date(`${texto}T00:00:00.000Z`);
+const daData = (data: Date | null) =>
+  data ? data.toISOString().slice(0, 10) : null;
+
+const mesmosIds = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 type MudancaStatus = {
   status: StatusRegistro;
@@ -63,12 +80,27 @@ export class ProgramaService {
 
   async create(dto: CreateProgramaDto, autor: AutorAcao) {
     const nucleoId = dto.nucleoId ?? null;
+    const responsavelId = dto.responsavelId ?? null;
+    const participanteIds = dto.participanteIds ?? [];
 
     if (nucleoId) await this.garantirNucleoAtivo(nucleoId);
+    await this.garantirUsuariosAtivos([
+      ...(responsavelId ? [responsavelId] : []),
+      ...participanteIds,
+    ]);
     await this.garantirNomeDisponivel(dto.nome, nucleoId);
 
     const programa = await this.prisma.programa.create({
-      data: { nome: dto.nome, descricao: dto.descricao || null, nucleoId },
+      data: {
+        nome: dto.nome,
+        descricao: dto.descricao || null,
+        nucleoId,
+        responsavelId,
+        dataInicio: dto.dataInicio ? paraData(dto.dataInicio) : null,
+        participantes: {
+          create: participanteIds.map((userId) => ({ userId })),
+        },
+      },
       select: SELECT_PROGRAMA,
     });
 
@@ -81,6 +113,9 @@ export class ProgramaService {
         nome: programa.nome,
         descricao: programa.descricao,
         nucleoId: programa.nucleoId,
+        responsavelId: programa.responsavelId,
+        dataInicio: daData(programa.dataInicio),
+        participanteIds,
         status: programa.status,
       },
       ip: autor.ip,
@@ -159,6 +194,14 @@ export class ProgramaService {
     const nucleoId = dto.nucleoId === undefined ? atual.nucleoId : dto.nucleoId;
     const descricao =
       dto.descricao === undefined ? atual.descricao : dto.descricao || null;
+    const responsavelId =
+      dto.responsavelId === undefined ? atual.responsavelId : dto.responsavelId;
+    const dataInicioAtual = daData(atual.dataInicio);
+    const dataInicio =
+      dto.dataInicio === undefined ? dataInicioAtual : dto.dataInicio;
+    const participantesAtuais = atual.participantes.map((p) => p.userId);
+    // undefined ou null mantém a lista; [] remove todos
+    const participanteIds = dto.participanteIds ?? participantesAtuais;
 
     const mudancas: Record<string, { de: unknown; para: unknown }> = {};
     if (nome !== atual.nome) mudancas.nome = { de: atual.nome, para: nome };
@@ -167,6 +210,18 @@ export class ProgramaService {
     }
     if (nucleoId !== atual.nucleoId) {
       mudancas.nucleoId = { de: atual.nucleoId, para: nucleoId };
+    }
+    if (responsavelId !== atual.responsavelId) {
+      mudancas.responsavelId = { de: atual.responsavelId, para: responsavelId };
+    }
+    if (dataInicio !== dataInicioAtual) {
+      mudancas.dataInicio = { de: dataInicioAtual, para: dataInicio };
+    }
+    if (!mesmosIds(participanteIds, participantesAtuais)) {
+      mudancas.participanteIds = {
+        de: participantesAtuais,
+        para: participanteIds,
+      };
     }
 
     if (Object.keys(mudancas).length === 0) {
@@ -179,11 +234,31 @@ export class ProgramaService {
     if (mudancas.nome || mudancas.nucleoId) {
       await this.garantirNomeDisponivel(nome, nucleoId, id);
     }
+    // Só valida os usuários que estão entrando no programa
+    await this.garantirUsuariosAtivos([
+      ...(mudancas.responsavelId && responsavelId ? [responsavelId] : []),
+      ...participanteIds.filter((u) => !participantesAtuais.includes(u)),
+    ]);
 
-    const atualizado = await this.prisma.programa.update({
-      where: { id },
-      data: { nome, descricao, nucleoId },
-      select: SELECT_PROGRAMA,
+    // Programa e participantes mudam juntos
+    const atualizado = await this.prisma.$transaction(async (tx) => {
+      if (mudancas.participanteIds) {
+        await tx.programaParticipante.deleteMany({ where: { programaId: id } });
+        await tx.programaParticipante.createMany({
+          data: participanteIds.map((userId) => ({ programaId: id, userId })),
+        });
+      }
+      return tx.programa.update({
+        where: { id },
+        data: {
+          nome,
+          descricao,
+          nucleoId,
+          responsavelId,
+          dataInicio: dataInicio ? paraData(dataInicio) : null,
+        },
+        select: SELECT_PROGRAMA,
+      });
     });
 
     const lado = (chave: 'de' | 'para') =>
@@ -343,6 +418,9 @@ export class ProgramaService {
         descricao: true,
         status: true,
         nucleoId: true,
+        responsavelId: true,
+        dataInicio: true,
+        participantes: { select: { userId: true } },
       },
     });
 
@@ -351,6 +429,22 @@ export class ProgramaService {
     }
 
     return programa;
+  }
+
+  // Responsável e participantes precisam ser usuários ativos e não excluídos
+  private async garantirUsuariosAtivos(ids: string[]) {
+    const unicos = [...new Set(ids)];
+    if (unicos.length === 0) return;
+
+    const encontrados = await this.prisma.user.count({
+      where: { id: { in: unicos }, ativo: true, deletedAt: null },
+    });
+
+    if (encontrados !== unicos.length) {
+      throw new BadRequestException(
+        'Responsável ou participante não existe ou está inativo.',
+      );
+    }
   }
 
   private async garantirNucleoAtivo(nucleoId: string) {

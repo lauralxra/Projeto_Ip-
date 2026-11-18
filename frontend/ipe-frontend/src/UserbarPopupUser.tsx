@@ -4,7 +4,12 @@ import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
 import { apiFetch, mensagemDeErro } from './api/cliente';
-import { fotoDaApi, SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
+import { SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
+import {
+  enviarFotoUsuario,
+  pedirSenhaAtual,
+  trocarPropriaSenha,
+} from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
 
@@ -294,47 +299,52 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
+  // Próprio perfil (qualquer tipo de conta): nome e e-mail em PATCH /users/profile,
+  // senha em PATCH /users/profile/password e foto em PATCH /users/profile/photo.
+  // E-mail e senha pedem a senha atual.
   const handleSalvarUsuario = async (
     dadosUsuario: Usuario,
     arquivoImagem: File | null,
   ) => {
     try {
-      // Foto do próprio usuário: PATCH /users/profile/photo (multipart, campo "photo")
       if (arquivoImagem) {
-        const formulario = new FormData();
-        formulario.append('photo', arquivoImagem);
-        const { fotoUrl } = await apiFetch<{ fotoUrl: string }>(
-          '/users/profile/photo',
-          { method: 'PATCH', body: formulario },
-        );
-        UsuarioAtual.imagem = fotoDaApi(fotoUrl);
-        atualizarUsuarioSessao({ fotoUrl });
+        await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
       }
 
-      if (dadosUsuario.nome !== UsuarioAtual.nome) {
-        // PATCH /users/:id: hoje só o administrador pode alterar o próprio nome
-        await apiFetch(`/users/${UsuarioAtual.id}`, {
+      const alteracoes: Record<string, string> = {};
+      if (dadosUsuario.nome !== UsuarioAtual.nome)
+        alteracoes.name = dadosUsuario.nome;
+      if (dadosUsuario.email !== UsuarioAtual.email) {
+        const senhaAtual = pedirSenhaAtual('trocar o e-mail');
+        if (!senhaAtual) {
+          alert('E-mail não alterado: a senha atual não foi informada.');
+          return;
+        }
+        alteracoes.email = dadosUsuario.email;
+        alteracoes.currentPassword = senhaAtual;
+      }
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch('/users/profile', {
           method: 'PATCH',
-          body: JSON.stringify({ name: dadosUsuario.nome }),
+          body: JSON.stringify(alteracoes),
         });
-        UsuarioAtual.nome = dadosUsuario.nome;
-        atualizarUsuarioSessao({ nome: dadosUsuario.nome });
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
       }
 
-      const semEndpoint = [
-        dadosUsuario.email !== UsuarioAtual.email && 'e-mail',
-        dadosUsuario.senha !== SENHA_OCULTA && 'senha',
-      ].filter(Boolean);
-      if (semEndpoint.length > 0) {
-        alert(
-          `Ainda não é possível alterar ${semEndpoint.join(', ')} por esta tela; esses campos não foram salvos.`,
-        );
+      if (dadosUsuario.senha !== SENHA_OCULTA) {
+        await trocarPropriaSenha(dadosUsuario.senha);
       }
 
       setUsuario({ ...UsuarioAtual });
       setModalEdicao(false);
     } catch (erro) {
       alert('Não foi possível salvar o perfil: ' + mensagemDeErro(erro));
+      setUsuario({ ...UsuarioAtual });
     }
   };
 

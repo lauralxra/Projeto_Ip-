@@ -26,6 +26,10 @@ interface ProgramaApi {
   status: StatusApi;
   createdAt: string;
   nucleo?: NucleoApi | null;
+  // AAAA-MM-DD (devolvido como ISO à meia-noite UTC)
+  dataInicio?: string | null;
+  responsavel?: { id: string; nome: string } | null;
+  participantes?: { user: { id: string; nome: string } }[];
 }
 
 const STATUS_DA_TELA: Record<StatusApi, string> = {
@@ -38,20 +42,44 @@ const STATUS_DA_TELA: Record<StatusApi, string> = {
 const NUCLEO_INSTITUCIONAL: Nucleo =
   NucleosCadastrados.find((n) => n.sigla === 'IPÊ') ?? NucleosCadastrados[0];
 
-// Campos do formulário que a API de programas ainda não guarda
-const AVISO_CAMPOS_SEM_API =
-  'Responsável, participantes e data de início ainda não são salvos pela API.';
+// A data de início é só um dia: monta no horário local para não "voltar"
+// um dia no fuso do Brasil, e envia no formato AAAA-MM-DD
+const dataLocal = (iso: string) => {
+  const [ano, mes, dia] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+};
+const paraAAAAMMDD = (data: Date) =>
+  `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+
+// Responsável e participantes vêm só com id e nome; o formulário usa o id
+const usuarioResumido = (u: { id: string; nome: string }): Usuario => ({
+  id: u.id,
+  nome: u.nome,
+  email: '',
+  senha: '',
+  tipo: 'EC',
+  nucleos: [],
+  status: 1,
+});
 
 const programaDaApi = (item: ProgramaApi): Programa => ({
   id: item.id,
   nome: item.nome,
   descricao: item.descricao ?? '',
   nucleo: item.nucleo ? nucleoDaApi(item.nucleo) : undefined,
-  // A API não tem data de início: usa a data de cadastro
-  dataDeInicio: new Date(item.createdAt),
+  // Sem data de início cadastrada, mostra a data de cadastro
+  dataDeInicio: item.dataInicio
+    ? dataLocal(item.dataInicio)
+    : new Date(item.createdAt),
   status: STATUS_DA_TELA[item.status] ?? 'Ativo',
-  participantes: [],
+  responsavel: item.responsavel ? usuarioResumido(item.responsavel) : undefined,
+  participantes: (item.participantes ?? []).map((p) => usuarioResumido(p.user)),
 });
+
+const idsDosParticipantes = (programa: Programa) =>
+  programa.participantes.map((u) => u.id);
+const mesmosIds = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 function ProgramaObj({
   programaEmSi,
@@ -282,6 +310,20 @@ export default function TelaProgramas() {
         if (descricao !== original.descricao) alteracoes.descricao = descricao;
         if (dadosProgram.nucleo?.id !== original.nucleo?.id)
           alteracoes.nucleoId = dadosProgram.nucleo?.id ?? null;
+        if (dadosProgram.responsavel?.id !== original.responsavel?.id)
+          alteracoes.responsavelId = dadosProgram.responsavel?.id ?? null;
+        if (
+          paraAAAAMMDD(dadosProgram.dataDeInicio) !==
+          paraAAAAMMDD(original.dataDeInicio)
+        )
+          alteracoes.dataInicio = paraAAAAMMDD(dadosProgram.dataDeInicio);
+        if (
+          !mesmosIds(
+            idsDosParticipantes(dadosProgram),
+            idsDosParticipantes(original),
+          )
+        )
+          alteracoes.participanteIds = idsDosParticipantes(dadosProgram);
 
         if (Object.keys(alteracoes).length > 0) {
           await apiFetch(`/programas/${original.id}`, {
@@ -298,6 +340,9 @@ export default function TelaProgramas() {
             nome: dadosProgram.nome,
             descricao: descricao || undefined,
             nucleoId: dadosProgram.nucleo?.id,
+            responsavelId: dadosProgram.responsavel?.id,
+            dataInicio: paraAAAAMMDD(dadosProgram.dataDeInicio),
+            participanteIds: idsDosParticipantes(dadosProgram),
           }),
         });
         await aplicarStatus(criado.id, 'Ativo', dadosProgram.status);
@@ -305,7 +350,6 @@ export default function TelaProgramas() {
       }
 
       setProgramaSelecionado(undefined);
-      alert('Programa salvo. ' + AVISO_CAMPOS_SEM_API);
     } catch (erro) {
       alert('Não foi possível salvar o programa: ' + mensagemDeErro(erro));
     } finally {

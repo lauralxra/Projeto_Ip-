@@ -656,7 +656,8 @@ export default function TelaIndicadores() {
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
-  const [formStatus, setStatusForm] = useState('');
+  // O formulário não tem campo de status; o valor só acompanha o indicador aberto
+  const [, setStatusForm] = useState('');
   const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
 
@@ -943,63 +944,52 @@ export default function TelaIndicadores() {
     return criada.id;
   };
 
+  // Tipo de dado derivado da unidade, como no cadastro do indicador
+  const tipoDaUnidade = (unidade: string) =>
+    unidade === 'Porcentagem'
+      ? 'PERCENTUAL'
+      : unidade === 'Reais'
+        ? 'MOEDA'
+        : 'NUMERICO';
+
   const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    const textoMeta = formMeta.trim();
-    const metaMudou = textoMeta !== (indicSelecionado.meta ?? '');
-    let metaId = indicSelecionado.metaId;
-
-    if (metaMudou) {
-      try {
-        metaId = await salvarMeta(indicSelecionado, textoMeta);
-      } catch (erro) {
-        alert('Não foi possível salvar a meta: ' + mensagemDeErro(erro));
-        return;
-      }
+    // Dados do indicador (PATCH /indicadores/:id): envia só o que mudou.
+    // Sem núcleo, o backend torna o indicador institucional.
+    const alteracoes: Record<string, unknown> = {};
+    if (formNome.trim() !== indicSelecionado.nome)
+      alteracoes.nome = formNome.trim();
+    if (formUnidade !== indicSelecionado.unidade) {
+      alteracoes.unidadeMedida = formUnidade || 'Unidade';
+      alteracoes.tipoDado = tipoDaUnidade(formUnidade);
     }
+    if (formNucleoId !== (indicSelecionado.nucleo?.id ?? ''))
+      alteracoes.nucleoId = formNucleoId || null;
+    if (formProgramId !== (indicSelecionado.programa?.id ?? ''))
+      alteracoes.programaId = formProgramId || null;
 
-    const outrosCamposMudaram =
-      formNome !== indicSelecionado.nome ||
-      formUnidade !== indicSelecionado.unidade ||
-      formNucleoId !== (indicSelecionado.nucleo?.id ?? '') ||
-      formProgramId !== (indicSelecionado.programa?.id ?? '') ||
-      formStatus !== indicSelecionado.status;
+    try {
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch(`/indicadores/${indicSelecionado.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        });
+      }
 
-    let unitSimbol = getUnitSimb();
-    const nucleoSelecionado = formNucleoId
-      ? NucleosDoUser.find((n) => n.id === formNucleoId)
-      : undefined;
-    const programSelecionado = formProgramId
-      ? programasDoBanco.find((n) => n.id === formProgramId)
-      : undefined;
+      // A meta tem endpoint próprio (/metas)
+      const textoMeta = formMeta.trim();
+      if (textoMeta !== (indicSelecionado.meta ?? '')) {
+        await salvarMeta(indicSelecionado, textoMeta);
+      }
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              nome: formNome,
-              unidade: formUnidade,
-              simbolUni: unitSimbol,
-              nucleo: nucleoSelecionado,
-              programa: programSelecionado,
-              meta: textoMeta || undefined,
-              metaId,
-              status: formStatus,
-            }
-          : n,
-      ),
-    );
-    setEditAberto(false);
-
-    // Não existe PATCH /indicadores/:id no backend; só a meta é salva
-    if (outrosCamposMudaram) {
-      alert(
-        'Nome, unidade, núcleo, programa e status ainda não podem ser editados pela API: essas alterações valem só até recarregar a página.' +
-          (metaMudou ? ' A meta foi salva.' : ''),
-      );
+      setEditAberto(false);
+    } catch (erro) {
+      alert('Não foi possível salvar o indicador: ' + mensagemDeErro(erro));
+    } finally {
+      // Recarrega para o card refletir o que foi salvo
+      await carregarIndicadores();
     }
   };
 

@@ -158,6 +158,8 @@ model User {
   accessibility        UserAccessibility?
   resetTokens          PasswordResetToken[]
   nucleos              UserNucleo[]
+  programasResponsavel Programa[]           @relation("ProgramaResponsavel")
+  programasParticipante ProgramaParticipante[]
   registrosResponsavel IndicadorRegistro[]  @relation("RegistroResponsavel")
   registrosAprovador   IndicadorRegistro[]  @relation("RegistroAprovador")
   registrosPublicador  IndicadorRegistro[]  @relation("RegistroPublicador")
@@ -253,18 +255,39 @@ model Programa {
   descricao String?
   // nulo = programa institucional (IPÊ)
   nucleoId  String?        @map("nucleo_id") @db.Uuid
+  // Usuário responsável pelo programa (opcional)
+  responsavelId String?    @map("responsavel_id") @db.Uuid
+  // Data em que o programa começou (só a data, sem horário)
+  dataInicio DateTime?     @map("data_inicio") @db.Date
   status    StatusRegistro @default(ATIVO)
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
   nucleo      Nucleo?     @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  responsavel User?       @relation("ProgramaResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  participantes ProgramaParticipante[]
   acoes       Acao[]
   indicadores Indicador[]
 
   @@index([nucleoId])
+  @@index([responsavelId])
   @@index([status])
   @@map("programas")
+}
+
+// Usuários que participam de um programa
+model ProgramaParticipante {
+  programaId String   @map("programa_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  programa Programa @relation(fields: [programaId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([programaId, userId])
+  @@index([userId])
+  @@map("programa_participantes")
 }
 
 model Acao {

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -16,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 import {
   alterarValorRegistro,
@@ -44,7 +46,9 @@ export class IndicadorService {
 
   // RF04: administração e Comunicação veem todos os núcleos; os demais, só os seus.
   // A Comunicação recebe apenas registros aprovados ou publicados (RN01).
-  async findAll(usuario: UsuarioAutenticado) {
+  // `incluirInativos` só vale para a Administração, que precisa ver indicadores
+  // inativos na tela de cadastro para poder reativá-los
+  async findAll(usuario: UsuarioAutenticado, incluirInativos = false) {
     const veTodosOsNucleos =
       usuario.role === Role.ADMINISTRADOR ||
       usuario.role === Role.EQUIPE_COMUNICACAO;
@@ -55,10 +59,12 @@ export class IndicadorService {
 
     const somenteHomologados = usuario.role === Role.EQUIPE_COMUNICACAO;
 
+    const verInativos = incluirInativos && usuario.role === Role.ADMINISTRADOR;
+
     return this.prisma.indicador.findMany({
       where: {
         deletedAt: null,
-        status: StatusRegistro.ATIVO,
+        ...(!verInativos && { status: StatusRegistro.ATIVO }),
         ...(filtroNucleos === undefined
           ? {}
           : {
@@ -83,6 +89,127 @@ export class IndicadorService {
         },
       },
       orderBy: { nome: 'asc' },
+    });
+  }
+
+  // Edita os dados do indicador. O escopo segue o núcleo: com núcleo é NUCLEO,
+  // sem núcleo é INSTITUCIONAL (mesma regra da restrição do banco)
+  async update(id: string, dados: UpdateIndicadorDto, autor: AutorAcao) {
+    const atual = await this.prisma.indicador.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        nome: true,
+        descricao: true,
+        unidadeMedida: true,
+        tipoDado: true,
+        escopo: true,
+        nucleoId: true,
+        programaId: true,
+        codigo: true,
+        status: true,
+      },
+    });
+
+    if (!atual) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    const manter = <T>(novo: T | undefined, antigo: T) =>
+      novo === undefined ? antigo : novo;
+    const nucleoId = manter(dados.nucleoId, atual.nucleoId);
+    const novos = {
+      nome: dados.nome ?? atual.nome,
+      descricao: manter(dados.descricao, atual.descricao),
+      unidadeMedida: manter(dados.unidadeMedida, atual.unidadeMedida),
+      tipoDado: dados.tipoDado ?? atual.tipoDado,
+      escopo: nucleoId ? EscopoIndicador.NUCLEO : EscopoIndicador.INSTITUCIONAL,
+      nucleoId,
+      programaId: manter(dados.programaId, atual.programaId),
+      codigo: manter(dados.codigo, atual.codigo),
+      status: dados.status ?? atual.status,
+    };
+
+    const campos = (Object.keys(novos) as (keyof typeof novos)[]).filter(
+      (campo) => novos[campo] !== atual[campo],
+    );
+    if (campos.length === 0) {
+      throw new BadRequestException('Nenhuma alteração informada.');
+    }
+
+    if (campos.includes('nucleoId') && novos.nucleoId) {
+      const nucleo = await this.prisma.nucleo.findFirst({
+        where: {
+          id: novos.nucleoId,
+          deletedAt: null,
+          status: StatusRegistro.ATIVO,
+        },
+        select: { id: true },
+      });
+      if (!nucleo) {
+        throw new BadRequestException('Núcleo não encontrado ou inativo.');
+      }
+    }
+
+    // O programa precisa ser compatível com o núcleo final do indicador
+    if (
+      (campos.includes('programaId') || campos.includes('nucleoId')) &&
+      novos.programaId
+    ) {
+      const programa = await this.prisma.programa.findFirst({
+        where: {
+          id: novos.programaId,
+          deletedAt: null,
+          status: StatusRegistro.ATIVO,
+          ...(novos.nucleoId ? { nucleoId: novos.nucleoId } : {}),
+        },
+        select: { id: true },
+      });
+      if (!programa) {
+        throw new BadRequestException(
+          'Programa não encontrado, inativo ou incompatível com o núcleo.',
+        );
+      }
+    }
+
+    if (campos.includes('codigo') && novos.codigo) {
+      const repetido = await this.prisma.indicador.findFirst({
+        where: { codigo: novos.codigo, deletedAt: null, id: { not: id } },
+        select: { id: true },
+      });
+      if (repetido) {
+        throw new ConflictException('Já existe um indicador com este código.');
+      }
+    }
+
+    const alteracoes = Object.fromEntries(
+      campos.map((campo) => [campo, novos[campo]]),
+    );
+    const { count } = await this.prisma.indicador.updateMany({
+      where: { id, deletedAt: null },
+      data: alteracoes,
+    });
+    if (count === 0) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Indicador',
+      entidadeId: id,
+      dadosAntigos: Object.fromEntries(
+        campos.map((campo) => [campo, atual[campo]]),
+      ),
+      dadosNovos: alteracoes,
+      ip: autor.ip,
+    });
+
+    return this.prisma.indicador.findFirstOrThrow({
+      where: { id },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+      },
     });
   }
 
