@@ -101,6 +101,26 @@ describe('AuthService', () => {
         userAgent: meta.userAgent,
       });
       expect(result.user).not.toHaveProperty('senhaHash');
+      // Sem foto cadastrada, o campo vem nulo
+      expect(result.user.fotoUrl).toBeNull();
+    });
+
+    it('devolve o caminho da foto de perfil no login', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
+        nome: 'Maria',
+        email: dto.email,
+        senhaHash,
+        perfil: 'ADMINISTRADOR',
+        ativo: true,
+        fotoUrl: '/uploads/photos/foto.png',
+        createdAt: new Date(),
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.login(dto, meta);
+
+      expect(result.user.fotoUrl).toBe('/uploads/photos/foto.png');
     });
 
     it('recusa senha errada com 401', async () => {

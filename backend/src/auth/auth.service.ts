@@ -140,6 +140,8 @@ export class AuthService {
         perfil,
         ativo: usuario.ativo,
         createdAt: usuario.createdAt,
+        // Caminho da foto em /api/uploads (null sem foto), para a tela exibir após o login
+        fotoUrl: usuario.fotoUrl ?? null,
       },
     };
   }

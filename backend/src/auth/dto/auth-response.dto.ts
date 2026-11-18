@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
 export class PublicUserResponseDto {
@@ -43,6 +43,14 @@ export class PublicUserResponseDto {
     description: 'Data e horário de criação do cadastro (ISO 8601)',
   })
   createdAt!: Date;
+
+  @ApiPropertyOptional({
+    example: '/uploads/photos/3fa85f64-5717-4562-b3fc-2c963f66afa6.png',
+    nullable: true,
+    description:
+      'Caminho da foto de perfil (servida em /api/uploads); só no login, null sem foto',
+  })
+  fotoUrl?: string | null;
 }
 
 export class RegisterResponseDto {
