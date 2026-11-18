@@ -16,7 +16,13 @@ export async function main() {
     .toLowerCase()
     .trim();
   const adminName = process.env.ADMIN_NAME ?? 'Administrador do Sistema';
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'Admin@123456';
+  // Sem senha padrão no código: defina ADMIN_PASSWORD no .env antes de rodar o seed
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error(
+      '[Seed] Defina ADMIN_PASSWORD no .env para criar o administrador.',
+    );
+  }
 
   console.log('[Seed] Iniciando processo de seeding no banco de dados...');
 
