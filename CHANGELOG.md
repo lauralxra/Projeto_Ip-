@@ -1,3 +1,72 @@
+# [1.1.0-dev.10](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.9...v1.1.0-dev.10) (2026-11-18)
+
+
+### Bug Fixes
+
+* **auth:** exigir jwt em todas as rotas por padrao com guard global e decorator public ([f64723e](https://github.com/lauralxra/Projeto_Ip-/commit/f64723e8229eda09fb37136774fbafc11314d657))
+* **auth:** manter validade padrao do jwt em 2h no exemplo de ambiente ([aabeecd](https://github.com/lauralxra/Projeto_Ip-/commit/aabeecd2db60fa7b613144ba666212d70b52eb0b))
+* **auth:** padronizar resposta de login para nao revelar e-mails cadastrados nem a senha durante o bloqueio ([8b9395b](https://github.com/lauralxra/Projeto_Ip-/commit/8b9395b51042b0b03c8bf7e2c325141b7af1303a))
+* **frontend:** proteger rotas internas exigindo sessao valida ([649b23a](https://github.com/lauralxra/Projeto_Ip-/commit/649b23a4a18db8e017ecbf4fd33591a8c8558c74))
+* **prisma:** adicionar unicidade parcial, check de escopo e trigger de auditoria imutavel ([b7b7fd7](https://github.com/lauralxra/Projeto_Ip-/commit/b7b7fd7ff9e38475f560add8f5b8253f94f825a5))
+* **seed:** remover senha padrao do administrador do codigo ([0a1a7e1](https://github.com/lauralxra/Projeto_Ip-/commit/0a1a7e17c5e4fc78faa56fb0696ca8a5e8a81ff1))
+
+
+### Features
+
+* add ipe-indicadores skill ([49b16b8](https://github.com/lauralxra/Projeto_Ip-/commit/49b16b8f6d492a2790e732f4fc3c6ceae5e82e34))
+* **frontend:** integrar tela de cadastro com a api ([a8894f7](https://github.com/lauralxra/Projeto_Ip-/commit/a8894f77c202d2254d90fa285d7331bb5fa71b10))
+* **user:** implementar exclusao logica de usuario com auditoria ([dfc2219](https://github.com/lauralxra/Projeto_Ip-/commit/dfc22195493d9484e1bb42e215050939daa00b9e))
+
+# [1.1.0-dev.9](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.8...v1.1.0-dev.9) (2026-11-15)
+
+
+### Bug Fixes
+
+* **backend:** accept multiple CORS origins from environment ([df5a8a6](https://github.com/lauralxra/Projeto_Ip-/commit/df5a8a6eb99bc385837ca5b1e71bfdc1fb5053c0))
+* **docker:** bind postgres port to localhost only ([0f43cb6](https://github.com/lauralxra/Projeto_Ip-/commit/0f43cb67f034f84836c8b78b2d65d18324f4378c))
+* **frontend:** read API URL and allowed hosts from server environment ([7ce194f](https://github.com/lauralxra/Projeto_Ip-/commit/7ce194f3f1ff363a254c57654322f00981d644c2))
+
+# [1.1.0-dev.8](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.7...v1.1.0-dev.8) (2026-11-15)
+
+
+### Bug Fixes
+
+* **frontend:** remover env.production do versionamento ([aac8d07](https://github.com/lauralxra/Projeto_Ip-/commit/aac8d079ecb35d18ab9b867aa86335e119a57ad8))
+
+# [1.1.0-dev.7](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.6...v1.1.0-dev.7) (2026-11-15)
+
+
+### Features
+
+* **frontend:** conectar tela de dashboard com api base url ([8584cc9](https://github.com/lauralxra/Projeto_Ip-/commit/8584cc93a7d5174d6f14799d1ce15dd2b5788b03))
+* **frontend:** conectar tela de indicadores com api base url ([dcdb2b4](https://github.com/lauralxra/Projeto_Ip-/commit/dcdb2b47c7c752fa4e046ad8034b3f42e02b5f71))
+* **frontend:** conectar tela de login com api base url ([131e8d5](https://github.com/lauralxra/Projeto_Ip-/commit/131e8d5210791804fa4b3f1d3fdb6c2463473f3d))
+* **frontend:** criar modulo de configuracao de api e variaveis de ambiente ([78c09db](https://github.com/lauralxra/Projeto_Ip-/commit/78c09dba75e8c427376bbc0ffdf67f7843c65b84))
+
+# [1.1.0-dev.6](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.5...v1.1.0-dev.6) (2026-11-15)
+
+
+### Features
+
+* **deploy:** autorizando acesso ao dominio ([5626fe6](https://github.com/lauralxra/Projeto_Ip-/commit/5626fe6be51a8d4a278abe3e766bdb7c122cf806))
+
+# [1.1.0-dev.5](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.4...v1.1.0-dev.5) (2026-11-14)
+
+
+### Bug Fixes
+
+* ajustando erros no arquivo ([06f4413](https://github.com/lauralxra/Projeto_Ip-/commit/06f44130d61314cf967419981dd346dcac2c9e27))
+* ajuste na funcção de atualizar foto ([c5c7e07](https://github.com/lauralxra/Projeto_Ip-/commit/c5c7e07573910060af36aa2f323514f0da3486e3))
+* ajuste na lógica de atualização de  foto com audit ([4935075](https://github.com/lauralxra/Projeto_Ip-/commit/49350751a4f19742f488dc871b975753a06e2bc0))
+* **dashboard:** keep indicator ordering stable between requests ([0ad6c23](https://github.com/lauralxra/Projeto_Ip-/commit/0ad6c23ae9e08cddd64f7e1dc81c544fa7e0c287))
+
+
+### Features
+
+* **common:** register Prisma exception filter globally ([822e84e](https://github.com/lauralxra/Projeto_Ip-/commit/822e84e59b8793d7d4ad4c39068bb9e7601af40a))
+* **user:** add profile photo upload with old photo cleanup and error handling ([11129ad](https://github.com/lauralxra/Projeto_Ip-/commit/11129ad6284e199e63815f2e2d66a26a527c2a25))
+* **user:** add update permissions endpoint with rbac and nucleo validation ([2e28abc](https://github.com/lauralxra/Projeto_Ip-/commit/2e28abc563a06ca0438f1b7ebd3aebd6f05184d9))
+
 # [1.1.0-dev.4](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.3...v1.1.0-dev.4) (2026-11-06)
 
 

@@ -17,24 +17,24 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterSwagger } from './swagger/register.swagger';
 import { LoginSwagger } from './swagger/login.swagger';
-import { Roles } from './roles.decorators';
-import { Role } from '@prisma/client';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { Public } from './public.decorator';
 import type { AuthenticatedRequest } from './interface/request.interface';
 import { LogoutSwagger } from './swagger/logout.swagger';
 
 @ApiTags('auth')
-@Roles(Role.ADMINISTRADOR)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   @RegisterSwagger()
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @LoginSwagger()

@@ -20,7 +20,8 @@ export class AdminSeedService implements OnApplicationBootstrap {
       .toLowerCase()
       .trim();
     const adminName = process.env.ADMIN_NAME ?? 'Administrador do Sistema';
-    const adminPassword = process.env.ADMIN_PASSWORD ?? 'Admin@123456';
+    // Sem senha padrão no código: o admin só é criado se ADMIN_PASSWORD estiver definida
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
     try {
       const existingAdmin = await this.prisma.user.findFirst({
@@ -47,6 +48,13 @@ export class AdminSeedService implements OnApplicationBootstrap {
             `Usuário admin (${adminEmail}) já configurado e ativo.`,
           );
         }
+        return;
+      }
+
+      if (!adminPassword) {
+        this.logger.warn(
+          'ADMIN_PASSWORD não definida: administrador inicial não foi criado.',
+        );
         return;
       }
 

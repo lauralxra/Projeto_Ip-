@@ -18,7 +18,7 @@ import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
 import { unlink } from 'fs';
 import { join } from 'path';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { MailService } from '../mail/mail.service';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -28,7 +28,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
-    private readonly mail: MailService,
+    private readonly notificacao: NotificacaoService,
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -258,51 +258,79 @@ export class UserService {
   }
 
   async changePassword(id: string, dto: ChangePasswordDto, autor: AutorAcao) {
-  // 1. Busca o usuário com senha
-  const user = await this.prisma.user.findUnique({ where: { id } });
-  if (!user) {
-    throw new NotFoundException('Usuário não encontrado.');
+    // A confirmação e as regras de complexidade (RN01) já foram validadas no DTO
+    const user = await this.userRepository.findActiveWithPasswordById(id);
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const senhaAtualValida = await bcrypt.compare(
+      dto.currentPassword,
+      user.senhaHash,
+    );
+    if (!senhaAtualValida) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    // RN02: a nova senha não pode ser igual à atual
+    const mesmaSenha = await bcrypt.compare(dto.newPassword, user.senhaHash);
+    if (mesmaSenha) {
+      throw new ConflictException(
+        'A nova senha não pode ser idêntica à senha atual.',
+      );
+    }
+
+    const senhaHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    const { count } = await this.userRepository.updatePassword(id, senhaHash);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Nunca grava senha nem hash na auditoria
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosNovos: { senha: 'alterada' },
+      ip: autor.ip,
+    });
+
+    await this.notificacao.notificarSenhaAlterada({
+      email: user.email,
+      nome: user.nome,
+    });
+
+    return { message: 'Senha alterada com sucesso.' };
   }
 
-  // 2. Valida senha atual
-  const senhaValida = await bcrypt.compare(dto.currentPassword, user.senhaHash);
-  if (!senhaValida) {
-    throw new UnauthorizedException('Senha atual incorreta.');
-  }
+  async remove(id: string, autor: AutorAcao) {
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Você não pode excluir a sua própria conta.',
+      );
+    }
 
-  // 3. Valida se nova senha é igual à atual
-  const mesmaSenha = await bcrypt.compare(dto.newPassword, user.senhaHash);
-  if (mesmaSenha) {
-    throw new ConflictException('A nova senha não pode ser idêntica à senha atual.');
-  }
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
 
-  // 4. Valida confirmação
-  if (dto.newPassword !== dto.confirmNewPassword) {
-    throw new ConflictException('As senhas digitadas não coincidem.');
-  }
+    const { count } = await this.userRepository.softDelete(id);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
 
-  // 5. Atualiza senha
-  const senhaHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
-  await this.prisma.user.update({
-    where: { id },
-    data: { senhaHash },
-  });
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.EXCLUIR_LOGICO,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { ativo: usuarioAtual.ativo, perfil: usuarioAtual.perfil },
+      dadosNovos: { ativo: false, excluido: true },
+      ip: autor.ip,
+    });
 
-  // 6. Auditoria
-  await this.audit.registrarAcao({
-    userId: autor.id,
-    acao: AcaoAuditoria.ATUALIZAR,
-    entidade: 'User',
-    entidadeId: id,
-    dadosNovos: { senha: 'alterada' },
-    ip: autor.ip,
-  });
-  await this.mail.sendPasswordChanged(user.email);
-
-  return { message: 'Senha alterada com sucesso!' };
-}
-
-  remove(id: string) {
-    return `This action removes a #${id} user`;
+    return { message: 'Usuário excluído com sucesso.' };
   }
 }

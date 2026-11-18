@@ -27,6 +27,7 @@ import { CreateUserSwagger } from './swagger/user.post.swagger';
 import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { NucleosAssociadosSwagger } from './swagger/user.nucleos.swagger';
 import { ContagemUsuariosSwagger } from './swagger/user.contagem.swagger';
+import { ChangePasswordSwagger } from './swagger/user.password.swagger';
 import { NucleoService } from '../nucleo/nucleo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -159,22 +160,27 @@ export class UserController {
     });
   }
   @Patch('profile/password')
-@UseGuards(JwtAuthGuard)
-changePassword(
-  @Body() dto: ChangePasswordDto,
-  @Req() req: AuthenticatedRequest,
-  @Ip() ip: string,
-) {
-  return this.userService.changePassword(req.user.id, dto, {
-    id: req.user.id,
-    ip,
-  });
-}
+  @UseGuards(JwtAuthGuard)
+  @ChangePasswordSwagger()
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.changePassword(req.user.id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.userService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.remove(id, { id: req.user.id, ip });
   }
 }
