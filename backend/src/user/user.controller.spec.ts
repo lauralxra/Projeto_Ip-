@@ -8,13 +8,13 @@ import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 describe('UserController', () => {
   let controller: UserController;
-  let userService: { create: jest.Mock; updateName: jest.Mock };
+  let userService: { create: jest.Mock; atualizarDados: jest.Mock };
   let nucleoService: { findAssociados: jest.Mock };
 
   beforeEach(async () => {
     userService = {
       create: jest.fn().mockResolvedValue({ id: 'novo-uuid' }),
-      updateName: jest.fn().mockResolvedValue({ id: 'usuario-uuid' }),
+      atualizarDados: jest.fn().mockResolvedValue({ id: 'usuario-uuid' }),
     };
     nucleoService = { findAssociados: jest.fn().mockResolvedValue([]) };
     const module: TestingModule = await Test.createTestingModule({
@@ -51,21 +51,21 @@ describe('UserController', () => {
     });
   });
 
-  it('repassa somente o nome e o autor autenticado na atualização', async () => {
+  it('repassa nome, e-mail e o autor autenticado na atualização', async () => {
     const req = {
       user: { id: 'usuario-uuid', role: Role.EQUIPE_GESTAO },
     } as AuthenticatedRequest;
 
     await controller.update(
       'usuario-uuid',
-      { name: 'Maria Silva' },
+      { name: 'Maria Silva', email: 'maria@exemplo.com' },
       req,
       '203.0.113.7',
     );
 
-    expect(userService.updateName).toHaveBeenCalledWith(
+    expect(userService.atualizarDados).toHaveBeenCalledWith(
       'usuario-uuid',
-      'Maria Silva',
+      { name: 'Maria Silva', email: 'maria@exemplo.com' },
       { id: 'usuario-uuid', ip: '203.0.113.7' },
     );
   });

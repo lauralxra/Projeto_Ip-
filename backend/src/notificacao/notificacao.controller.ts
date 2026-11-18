@@ -1,45 +1,65 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
+  Ip,
   Param,
-  Delete,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 import { NotificacaoService } from './notificacao.service';
 import { CreateNotificacaoDto } from './dto/create-notificacao.dto';
-import { UpdateNotificacaoDto } from './dto/update-notificacao.dto';
+import { ListNotificacaoDto } from './dto/list-notificacao.dto';
+import { Roles } from '../auth/roles.decorators';
+import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
-@Controller('notificacao')
+// JwtAuthGuard e RolesGuard são globais (AuthModule): toda rota exige token,
+// e as marcadas com @Roles exigem também o perfil.
+@ApiTags('notificacoes')
+@ApiBearerAuth('JWT-auth')
+@Controller('notificacoes')
 export class NotificacaoController {
   constructor(private readonly notificacaoService: NotificacaoService) {}
 
   @Post()
-  create(@Body() createNotificacaoDto: CreateNotificacaoDto) {
-    return this.notificacaoService.create(createNotificacaoDto);
+  @Roles(Role.ADMINISTRADOR)
+  create(
+    @Body() dto: CreateNotificacaoDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.notificacaoService.create(dto, req.user.id, ip);
   }
 
   @Get()
-  findAll() {
-    return this.notificacaoService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.notificacaoService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateNotificacaoDto: UpdateNotificacaoDto,
+  findMinhas(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ListNotificacaoDto,
   ) {
-    return this.notificacaoService.update(+id, updateNotificacaoDto);
+    return this.notificacaoService.findByUsuario(req.user.id, query);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.notificacaoService.remove(+id);
+  @Get('admin')
+  @Roles(Role.ADMINISTRADOR)
+  findAll(@Query() query: ListNotificacaoDto) {
+    return this.notificacaoService.findAll(query);
+  }
+
+  @Patch('read-all')
+  marcarTodasLidas(@Req() req: AuthenticatedRequest) {
+    return this.notificacaoService.marcarTodasComoLidas(req.user.id);
+  }
+
+  @Patch(':id/read')
+  marcarLida(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.notificacaoService.marcarComoLida(id, req.user.id);
   }
 }

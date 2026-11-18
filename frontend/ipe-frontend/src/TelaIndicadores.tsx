@@ -4,12 +4,15 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
+import { API_BASE_URL } from './config/api';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { buscarTodasMetas, metaDoPeriodo, type MetaApi } from './api/metas';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -373,7 +376,7 @@ export default function TelaIndicadores() {
     if (!token) return;
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
+      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -385,8 +388,23 @@ export default function TelaIndicadores() {
 
       const dados = await resposta.json();
 
+      // As metas ficam em GET /metas; uma falha nelas não impede a listagem
+      let metas: MetaApi[] = [];
+      try {
+        metas = await buscarTodasMetas();
+      } catch (erroMetas) {
+        console.error('Erro ao carregar metas:', erroMetas);
+      }
+
       const indicadoresReais: Indicador[] = dados.map((item: any) => {
         const registro = item.registros?.[0];
+        // Meta do período exibido no card; sem valor lançado, a anual do ano corrente
+        const meta = metaDoPeriodo(
+          metas,
+          item.id,
+          registro?.ano ?? new Date().getFullYear(),
+          registro?.trimestre,
+        );
 
         const unidade = item.unidadeMedida ?? 'Unidade';
 
@@ -406,10 +424,8 @@ export default function TelaIndicadores() {
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
-          meta:
-            registro?.metaAplicada != null
-              ? String(registro.metaAplicada)
-              : undefined,
+          meta: meta ? String(meta.valorMeta) : undefined,
+          metaId: meta?.id,
           valAtual:
             registro?.valorRealizado != null
               ? String(registro.valorRealizado)
@@ -419,7 +435,12 @@ export default function TelaIndicadores() {
           nucleo: item.nucleo ?? undefined,
           programa: item.programa ?? undefined,
           status: item.status,
-          aprovado: registro?.statusAprovacao === 'APROVADO',
+          // Publicado também é um valor aprovado
+          aprovado:
+            registro?.statusAprovacao === 'APROVADO' ||
+            registro?.statusAprovacao === 'PUBLICADO',
+          registroId: registro?.id,
+          statusAprovacao: registro?.statusAprovacao,
         };
       });
 
@@ -442,7 +463,7 @@ export default function TelaIndicadores() {
 
       try {
         const resposta = await fetch(
-          'http://localhost:3000/api/nucleos?status=ATIVO&limite=100',
+          `${API_BASE_URL}/nucleos?status=ATIVO&limite=100`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -483,7 +504,7 @@ export default function TelaIndicadores() {
       if (!token) return;
 
       try {
-        const resposta = await fetch('http://localhost:3000/api/programas', {
+        const resposta = await fetch(`${API_BASE_URL}/programas`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -635,7 +656,8 @@ export default function TelaIndicadores() {
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
-  const [formStatus, setStatusForm] = useState('');
+  // O formulário não tem campo de status; o valor só acompanha o indicador aberto
+  const [, setStatusForm] = useState('');
   const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
 
@@ -728,7 +750,7 @@ export default function TelaIndicadores() {
     const trimestreInicial = formTrimestre;
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
+      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -753,21 +775,18 @@ export default function TelaIndicadores() {
         anoInicial >= 2000 &&
         anoInicial <= 2100
       ) {
-        await fetch(
-          `http://localhost:3000/api/indicadores/${resultado.id}/registros`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              ano: anoInicial,
-              trimestre: trimestreInicial,
-              valorRealizado: valorParaSalvar,
-            }),
+        await fetch(`${API_BASE_URL}/indicadores/${resultado.id}/registros`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            ano: anoInicial,
+            trimestre: trimestreInicial,
+            valorRealizado: valorParaSalvar,
+          }),
+        });
       }
 
       const novo: Indicador = {
@@ -841,7 +860,7 @@ export default function TelaIndicadores() {
 
     try {
       const resposta = await fetch(
-        `http://localhost:3000/api/indicadores/${indicSelecionado.id}/registros`,
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}/registros`,
         {
           method: 'POST',
           headers: {
@@ -869,6 +888,8 @@ export default function TelaIndicadores() {
 
       inserindoValor(false);
       alert('Valor salvo com sucesso!');
+      // Recarrega para o card refletir o valor, o status de aprovação e a meta do período
+      await carregarIndicadores();
     } catch (erro) {
       console.error('Erro ao salvar valor:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao salvar o valor.');
@@ -887,51 +908,101 @@ export default function TelaIndicadores() {
     setEditAberto(true);
   };
 
-  const handleSalvarEdicao = (e: React.FormEvent) => {
+  // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
+  // exibido no card. Devolve o id da meta resultante.
+  const salvarMeta = async (indicador: Indicador, texto: string) => {
+    if (texto === '') {
+      if (indicador.metaId) {
+        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+      }
+      return undefined;
+    }
+
+    const valorMeta = Number(texto.replace(',', '.'));
+    if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
+      throw new Error('Informe uma meta maior que zero.');
+    }
+
+    if (indicador.metaId) {
+      await apiFetch(`/metas/${indicador.metaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ valorMeta }),
+      });
+      return indicador.metaId;
+    }
+
+    // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const criada = await apiFetch<{ id: string }>('/metas', {
+      method: 'POST',
+      body: JSON.stringify({
+        indicadorId: indicador.id,
+        ano: indicador.ano ?? new Date().getFullYear(),
+        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        valorMeta,
+      }),
+    });
+    return criada.id;
+  };
+
+  // Tipo de dado derivado da unidade, como no cadastro do indicador
+  const tipoDaUnidade = (unidade: string) =>
+    unidade === 'Porcentagem'
+      ? 'PERCENTUAL'
+      : unidade === 'Reais'
+        ? 'MOEDA'
+        : 'NUMERICO';
+
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    let unitSimbol = getUnitSimb();
-    const nucleoSelecionado = formNucleoId
-      ? NucleosDoUser.find((n) => n.id === formNucleoId)
-      : undefined;
-    const programSelecionado = formProgramId
-      ? programasDoBanco.find((n) => n.id === formProgramId)
-      : undefined;
+    // Dados do indicador (PATCH /indicadores/:id): envia só o que mudou.
+    // Sem núcleo, o backend torna o indicador institucional.
+    const alteracoes: Record<string, unknown> = {};
+    if (formNome.trim() !== indicSelecionado.nome)
+      alteracoes.nome = formNome.trim();
+    if (formUnidade !== indicSelecionado.unidade) {
+      alteracoes.unidadeMedida = formUnidade || 'Unidade';
+      alteracoes.tipoDado = tipoDaUnidade(formUnidade);
+    }
+    if (formNucleoId !== (indicSelecionado.nucleo?.id ?? ''))
+      alteracoes.nucleoId = formNucleoId || null;
+    if (formProgramId !== (indicSelecionado.programa?.id ?? ''))
+      alteracoes.programaId = formProgramId || null;
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              nome: formNome,
-              unidade: formUnidade,
-              simbolUni: unitSimbol,
-              nucleo: nucleoSelecionado,
-              programa: programSelecionado,
-              meta: formMeta || undefined,
-              status: formStatus,
-            }
-          : n,
-      ),
-    );
-    setEditAberto(false);
+    try {
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch(`/indicadores/${indicSelecionado.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        });
+      }
+
+      // A meta tem endpoint próprio (/metas)
+      const textoMeta = formMeta.trim();
+      if (textoMeta !== (indicSelecionado.meta ?? '')) {
+        await salvarMeta(indicSelecionado, textoMeta);
+      }
+
+      setEditAberto(false);
+    } catch (erro) {
+      alert('Não foi possível salvar o indicador: ' + mensagemDeErro(erro));
+    } finally {
+      // Recarrega para o card refletir o que foi salvo
+      await carregarIndicadores();
+    }
   };
 
   const [modalDeletando, setDeletando] = useState(false);
-  const [modalLimparAberto, setModalLimparAberto] = useState(false);
   const abrirDeletarModal = (indicador: Indicador) => {
     setIndicSelecionado(indicador);
     setDeletando(true);
   };
 
-  const deletarIndic = () => {
+  // RF03: exclui um indicador por vez (exclusão lógica no backend, com auditoria)
+  const deletarIndic = async () => {
     if (!indicSelecionado) return;
-    setIndicadores(indicadores.filter((n) => n.id !== indicSelecionado.id));
-    setDeletando(false);
-  };
 
-  const limparTodosIndicadores = async () => {
     const token = localStorage.getItem('access_token');
 
     if (!token) {
@@ -940,37 +1011,30 @@ export default function TelaIndicadores() {
     }
 
     try {
-      const resposta = await fetch('http://localhost:3000/api/indicadores', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const resultado = await resposta.json().catch(() => ({}));
 
       if (!resposta.ok) {
         throw new Error(
-          resultado.message || 'Não foi possível limpar os indicadores.',
+          resultado.message || 'Não foi possível excluir o indicador.',
         );
       }
 
-      setIndicadores([]);
-      setModalLimparAberto(false);
-      setTermoPesquisa('');
-      setFiltroNucleo('');
-      setFiltroPrograma('');
-      setFiltroAprovacao('');
-
-      alert(
-        resultado.removidos > 0
-          ? `Todos os ${resultado.removidos} indicadores ativos foram removidos.`
-          : 'Não há indicadores ativos para limpar.',
-      );
+      setIndicadores(indicadores.filter((n) => n.id !== indicSelecionado.id));
+      setDeletando(false);
     } catch (erro) {
-      console.error('Erro ao limpar indicadores:', erro);
+      console.error('Erro ao excluir indicador:', erro);
       alert(
-        erro instanceof Error ? erro.message : 'Erro ao limpar indicadores.',
+        erro instanceof Error ? erro.message : 'Erro ao excluir indicador.',
       );
     }
   };
@@ -983,26 +1047,61 @@ export default function TelaIndicadores() {
     setModelAprov(true);
   };
 
-  const handleAprovacao = (e: React.FormEvent) => {
+  // A API só aprova ou devolve valores enviados para revisão: um valor ainda em
+  // preenchimento (ou devolvido) é enviado antes, em nome do administrador
+  const garantirEmRevisao = async (registroId: string, status?: string) => {
+    if (status !== 'ENVIADO_REVISAO') {
+      await apiFetch(`/registros/${registroId}/enviar-revisao`, {
+        method: 'PATCH',
+      });
+    }
+  };
+
+  const handleAprovacao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              aprovado: formAprovacao,
-            }
-          : n,
-      ),
-    );
+    const { registroId, statusAprovacao, aprovado } = indicSelecionado;
+    if (!registroId) {
+      alert('Este indicador ainda não tem valor lançado para aprovar.');
+      return;
+    }
 
-    formAprovacao
-      ? ''
-      : alert('Voce desaprovou por motivo: ' + formDesaprovMotivo);
+    try {
+      if (formAprovacao) {
+        // Já aprovado ou publicado: nada a fazer
+        if (!aprovado) {
+          await garantirEmRevisao(registroId, statusAprovacao);
+          await apiFetch(`/registros/${registroId}/aprovar`, {
+            method: 'PATCH',
+          });
+        }
+      } else {
+        const justificativa = formDesaprovMotivo.trim();
+        if (!justificativa) {
+          alert('Informe o motivo da desaprovação.');
+          return;
+        }
+        if (aprovado) {
+          alert(
+            'Um valor já aprovado não pode ser devolvido. Para corrigi-lo, altere o valor: ele volta para revisão.',
+          );
+          return;
+        }
+        await garantirEmRevisao(registroId, statusAprovacao);
+        await apiFetch(`/registros/${registroId}/devolver`, {
+          method: 'PATCH',
+          body: JSON.stringify({ justificativa }),
+        });
+      }
 
-    setModelAprov(false);
+      setModelAprov(false);
+      await carregarIndicadores();
+    } catch (erro) {
+      alert('Não foi possível salvar a aprovação: ' + mensagemDeErro(erro));
+      // O valor pode ter sido enviado para revisão antes da falha
+      await carregarIndicadores();
+    }
   };
 
   const totalIndicadores = indicadoresFiltrados.length;
@@ -1051,14 +1150,11 @@ export default function TelaIndicadores() {
     dados.append('arquivo', arquivo);
 
     try {
-      const resposta = await fetch(
-        'http://localhost:3000/api/importacoes/csv',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: dados,
-        },
-      );
+      const resposta = await fetch(`${API_BASE_URL}/importacoes/csv`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: dados,
+      });
 
       const resultado = await resposta.json();
 
@@ -1178,21 +1274,6 @@ export default function TelaIndicadores() {
               {UsuarioAtual.tipo == 'ADM' ? (
                 <>
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
-
-                  <button
-                    type="button"
-                    onClick={() => setModalLimparAberto(true)}
-                    className="group flex items-center justify-center gap-2 border-[2px] border-[#3b142f] bg-white hover:bg-[#f8f1f6] text-[#3b142f] h-[48px] px-[16px] py-[4px] rounded-[9px] shrink-0 transition-colors cursor-pointer shadow-[0_1px_2px_rgba(59,20,47,0.08)]"
-                    title="Limpar todos os indicadores"
-                  >
-                    <Trash2
-                      size={16}
-                      className="text-[#3b142f] group-hover:text-[#591b3e]"
-                    />
-                    <span className="font-normal text-[15px] whitespace-nowrap">
-                      Limpar todos
-                    </span>
-                  </button>
 
                   {/* Botão importar */}
                   <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
@@ -1615,47 +1696,6 @@ export default function TelaIndicadores() {
                 className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
               >
                 Deletar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalLimparAberto && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5eaf2] text-[#3b142f]">
-              <Trash2 size={22} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">
-              Limpar indicadores
-            </h2>
-            <p className="text-sm text-slate-600 mb-1">
-              Você deseja remover{' '}
-              <span className="font-bold text-slate-800">
-                todos os indicadores ativos
-              </span>{' '}
-              do sistema?
-            </p>
-            <p className="text-xs text-slate-500 mb-6">
-              Essa ação não pode ser desfeita e vai ocultar os indicadores
-              cadastrados no momento.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setModalLimparAberto(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={limparTodosIndicadores}
-                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
-              >
-                Limpar
               </button>
             </div>
           </div>

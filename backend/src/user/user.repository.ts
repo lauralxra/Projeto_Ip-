@@ -36,10 +36,17 @@ export class UserRepository {
     });
   }
 
-  updateName(id: string, nome: string) {
+  updateDados(id: string, data: { nome?: string; email?: string }) {
     return this.prisma.user.updateMany({
       where: { id, deletedAt: null },
-      data: { nome },
+      data,
+    });
+  }
+
+  updateStatus(id: string, ativo: boolean) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { ativo },
     });
   }
   updatePermissions(id: string, role: Role) {
@@ -74,5 +81,70 @@ export class UserRepository {
 
   countAtivos() {
     return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
+  }
+
+  // Exclusão lógica: preserva o histórico e a rastreabilidade (RN07)
+  // Exclusão lógica e remoção dos vínculos (núcleos e programas) na mesma
+  // transação: um usuário excluído não pode continuar impedindo a exclusão do
+  // núcleo nem aparecer como responsável ou participante de programa.
+  // Devolve o que foi desvinculado, para a auditoria.
+  softDelete(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date(), ativo: false },
+      });
+      if (count === 0) {
+        return {
+          count,
+          nucleoIds: [] as string[],
+          programasParticipante: [] as string[],
+          programasResponsavel: [] as string[],
+        };
+      }
+
+      const vinculos = await tx.userNucleo.findMany({
+        where: { userId: id },
+        select: { nucleoId: true },
+      });
+      await tx.userNucleo.deleteMany({ where: { userId: id } });
+
+      // Também sai dos programas: deixa de ser participante e responsável
+      const participacoes = await tx.programaParticipante.findMany({
+        where: { userId: id },
+        select: { programaId: true },
+      });
+      await tx.programaParticipante.deleteMany({ where: { userId: id } });
+      const responsavelPor = await tx.programa.findMany({
+        where: { responsavelId: id },
+        select: { id: true },
+      });
+      await tx.programa.updateMany({
+        where: { responsavelId: id },
+        data: { responsavelId: null },
+      });
+
+      return {
+        count,
+        nucleoIds: vinculos.map((v) => v.nucleoId),
+        programasParticipante: participacoes.map((p) => p.programaId),
+        programasResponsavel: responsavelPor.map((p) => p.id),
+      };
+    });
+  }
+
+  // Único método que lê o hash: usado só para conferir a senha atual
+  findActiveWithPasswordById(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, nome: true, email: true, senhaHash: true },
+    });
+  }
+
+  updatePassword(id: string, senhaHash: string) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { senhaHash },
+    });
   }
 }

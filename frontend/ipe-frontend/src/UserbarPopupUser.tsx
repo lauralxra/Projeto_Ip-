@@ -1,7 +1,16 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
+import {
+  enviarFotoUsuario,
+  pedirSenhaAtual,
+  trocarPropriaSenha,
+} from './api/usuarios';
+import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
 
 function Seta() {
@@ -43,7 +52,7 @@ function Pic() {
           className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
           src={
             UsuarioAtual.imagem
-              ? '/src/assets/' + UsuarioAtual.imagem
+              ? urlDaImagem(UsuarioAtual.imagem)
               : Imagens.DefaultPFP
           }
         />
@@ -209,6 +218,20 @@ function OptExtras({
   leUser: Usuario;
   abrirEditModal: (user: Usuario) => void;
 }) {
+  const navigate = useNavigate();
+
+  // Registra o logout na auditoria; a sessão local é encerrada mesmo se a API falhar
+  const sair = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } catch (erro) {
+      console.error('Erro ao encerrar a sessão na API:', erro);
+    }
+    encerrarSessaoLocal();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="flex flex-col items-center justify-between flex-1 w-full">
 
@@ -276,10 +299,53 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = (dadosUsuario: Usuario) => {
-    setUsuario(dadosUsuario);
-    Object.assign(UsuarioAtual, dadosUsuario);
-    setModalEdicao(false);
+  // Próprio perfil (qualquer tipo de conta): nome e e-mail em PATCH /users/profile,
+  // senha em PATCH /users/profile/password e foto em PATCH /users/profile/photo.
+  // E-mail e senha pedem a senha atual.
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem: File | null,
+  ) => {
+    try {
+      if (arquivoImagem) {
+        await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
+      }
+
+      const alteracoes: Record<string, string> = {};
+      if (dadosUsuario.nome !== UsuarioAtual.nome)
+        alteracoes.name = dadosUsuario.nome;
+      if (dadosUsuario.email !== UsuarioAtual.email) {
+        const senhaAtual = pedirSenhaAtual('trocar o e-mail');
+        if (!senhaAtual) {
+          alert('E-mail não alterado: a senha atual não foi informada.');
+          return;
+        }
+        alteracoes.email = dadosUsuario.email;
+        alteracoes.currentPassword = senhaAtual;
+      }
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch('/users/profile', {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        });
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
+      }
+
+      if (dadosUsuario.senha !== SENHA_OCULTA) {
+        await trocarPropriaSenha(dadosUsuario.senha);
+      }
+
+      setUsuario({ ...UsuarioAtual });
+      setModalEdicao(false);
+    } catch (erro) {
+      alert('Não foi possível salvar o perfil: ' + mensagemDeErro(erro));
+      setUsuario({ ...UsuarioAtual });
+    }
   };
 
   return (

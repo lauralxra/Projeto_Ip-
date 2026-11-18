@@ -19,6 +19,7 @@ import { ForumModule } from './forum/forum.module';
 import { FaqModule } from './faq/faq.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
     ForumModule,
     FaqModule,
     DashboardModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [

@@ -24,11 +24,13 @@ export const nucleoAssociadoSelect = {
 export class NucleoRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Nome e sigla são únicos apenas entre núcleos não excluídos
-  findConflito(nome: string, sigla: string) {
+  // Nome e sigla são únicos apenas entre núcleos não excluídos.
+  // Na edição, `ignorarId` desconsidera o próprio núcleo.
+  findConflito(nome: string, sigla: string, ignorarId?: string) {
     return this.prisma.nucleo.findFirst({
       where: {
         deletedAt: null,
+        ...(ignorarId && { id: { not: ignorarId } }),
         OR: [
           { nome: { equals: nome, mode: 'insensitive' } },
           { sigla: { equals: sigla, mode: 'insensitive' } },
@@ -90,7 +92,9 @@ export class NucleoRepository {
         ...nucleoSelect,
         _count: {
           select: {
-            users: true,
+            // Usuários excluídos não impedem a exclusão (inclui vínculos antigos,
+            // anteriores à remoção automática na exclusão do usuário)
+            users: { where: { user: { deletedAt: null } } },
             programas: { where: { deletedAt: null } },
             indicadores: { where: { deletedAt: null } },
           },
@@ -104,6 +108,22 @@ export class NucleoRepository {
     const { count } = await this.prisma.nucleo.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
+    });
+    return count > 0;
+  }
+
+  async updateDados(id: string, data: Prisma.NucleoUpdateManyMutationInput) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null },
+      data,
+    });
+    return count > 0;
+  }
+
+  async updateImagem(id: string, imagemUrl: string) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null },
+      data: { imagemUrl },
     });
     return count > 0;
   }

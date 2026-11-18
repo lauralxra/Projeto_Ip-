@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -14,8 +16,10 @@ import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
-import { unlink } from 'fs';
-import { join } from 'path';
+import { removerUpload } from '../common/upload-imagem';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 
@@ -25,6 +29,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly audit: AuditService,
+    private readonly notificacao: NotificacaoService,
   ) {}
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
@@ -79,7 +84,10 @@ export class UserService {
   }
 
   async findAll() {
+    // Usuários excluídos logicamente não aparecem na listagem
     return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      orderBy: { nome: 'asc' },
       select: {
         id: true,
         nome: true,
@@ -91,6 +99,13 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
+        // A tela de usuários exibe e edita os núcleos de cada um
+        nucleos: {
+          where: { nucleo: { deletedAt: null } },
+          select: {
+            nucleo: { select: { id: true, nome: true, sigla: true } },
+          },
+        },
       },
     });
   }
@@ -116,26 +131,52 @@ export class UserService {
     };
   }
 
-  async updateName(id: string, name: string, autor: AutorAcao) {
-    if (autor.id !== id) {
-      throw new ForbiddenException(
-        'Você só pode atualizar o seu próprio nome.',
+  // Nome e e-mail de um usuário. A Administração edita qualquer usuário; no
+  // próprio perfil, a troca de e-mail é conferida antes em atualizarPerfil
+  async atualizarDados(
+    id: string,
+    dados: { name?: string; email?: string },
+    autor: AutorAcao,
+  ) {
+    const atual = await this.userRepository.findActiveById(id);
+    if (!atual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const alteracoes: { nome?: string; email?: string } = {};
+    if (dados.name !== undefined && dados.name !== atual.nome) {
+      alteracoes.nome = dados.name;
+    }
+    if (dados.email !== undefined && dados.email !== atual.email) {
+      alteracoes.email = dados.email;
+    }
+    if (Object.keys(alteracoes).length === 0) {
+      throw new BadRequestException('Nenhuma alteração informada.');
+    }
+
+    if (alteracoes.email) {
+      const existente = await this.userRepository.findActiveByEmail(
+        alteracoes.email,
       );
+      if (existente && existente.id !== id) {
+        throw new ConflictException(EMAIL_EM_USO);
+      }
     }
 
-    const usuarioAtual = await this.userRepository.findActiveById(id);
-    if (!usuarioAtual) {
-      throw new NotFoundException('Usuário não encontrado.');
-    }
-
-    const { count } = await this.userRepository.updateName(id, name);
-    if (count === 0) {
-      throw new NotFoundException('Usuário não encontrado.');
-    }
-
-    const usuarioAtualizado = await this.userRepository.findActiveById(id);
-    if (!usuarioAtualizado) {
-      throw new NotFoundException('Usuário não encontrado.');
+    try {
+      const { count } = await this.userRepository.updateDados(id, alteracoes);
+      if (count === 0) {
+        throw new NotFoundException('Usuário não encontrado.');
+      }
+    } catch (error) {
+      // Índice único de e-mail: outra requisição usou o mesmo e-mail no meio tempo
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(EMAIL_EM_USO);
+      }
+      throw error;
     }
 
     await this.audit.registrarAcao({
@@ -143,13 +184,120 @@ export class UserService {
       acao: AcaoAuditoria.ATUALIZAR,
       entidade: 'User',
       entidadeId: id,
-      dadosAntigos: { nome: usuarioAtual.nome },
-      dadosNovos: { nome: usuarioAtualizado.nome },
+      dadosAntigos: {
+        ...(alteracoes.nome !== undefined && { nome: atual.nome }),
+        ...(alteracoes.email !== undefined && { email: atual.email }),
+      },
+      dadosNovos: alteracoes,
       ip: autor.ip,
     });
 
-    return usuarioAtualizado;
+    return this.userRepository.findActiveById(id);
   }
+
+  // Edição do próprio perfil (qualquer perfil de acesso)
+  async atualizarPerfil(id: string, dto: UpdateProfileDto, autor: AutorAcao) {
+    if (dto.email !== undefined) {
+      const usuario = await this.userRepository.findActiveWithPasswordById(id);
+      if (!usuario) {
+        throw new NotFoundException('Usuário não encontrado.');
+      }
+      if (
+        dto.email !== usuario.email &&
+        !(await bcrypt.compare(dto.currentPassword ?? '', usuario.senhaHash))
+      ) {
+        throw new UnauthorizedException('Senha atual incorreta.');
+      }
+    }
+
+    return this.atualizarDados(id, { name: dto.name, email: dto.email }, autor);
+  }
+
+  // Libera ou bloqueia o acesso de um usuário (RF17/RF18)
+  async alterarStatus(id: string, ativo: boolean, autor: AutorAcao) {
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Você não pode alterar o status da sua própria conta.',
+      );
+    }
+
+    const atual = await this.userRepository.findActiveById(id);
+    if (!atual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+    if (atual.ativo === ativo) {
+      throw new ConflictException(
+        ativo ? 'O usuário já está ativo.' : 'O usuário já está inativo.',
+      );
+    }
+    // O login exige tipo de conta: sem ele, ativar não liberaria o acesso
+    if (ativo && !atual.perfil) {
+      throw new BadRequestException(
+        'Defina o tipo de conta do usuário antes de ativá-lo.',
+      );
+    }
+
+    const { count } = await this.userRepository.updateStatus(id, ativo);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: ativo ? AcaoAuditoria.RESTAURAR : AcaoAuditoria.DESATIVAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { ativo: atual.ativo },
+      dadosNovos: { ativo },
+      ip: autor.ip,
+    });
+
+    return {
+      message: ativo
+        ? 'Usuário ativado com sucesso.'
+        : 'Usuário desativado com sucesso.',
+    };
+  }
+
+  // Redefinição de senha de outro usuário pela Administração. Para a própria
+  // senha, o caminho é PATCH /users/profile/password, que confere a senha atual.
+  async redefinirSenha(id: string, novaSenha: string, autor: AutorAcao) {
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Para trocar a sua própria senha, use a alteração de senha do perfil.',
+      );
+    }
+
+    const usuario = await this.userRepository.findActiveWithPasswordById(id);
+    if (!usuario) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const senhaHash = await bcrypt.hash(novaSenha, BCRYPT_ROUNDS);
+    const { count } = await this.userRepository.updatePassword(id, senhaHash);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Nunca grava senha nem hash na auditoria
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosNovos: { senha: 'redefinida pela administração' },
+      ip: autor.ip,
+    });
+
+    // Aviso de segurança ao dono da conta (não falha se o SMTP estiver fora)
+    await this.notificacao.notificarSenhaAlterada({
+      email: usuario.email,
+      nome: usuario.nome,
+    });
+
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+
   async updatePermissions(
     id: string,
     dto: UpdateUserPermissionsDto,
@@ -224,15 +372,7 @@ export class UserService {
       }
 
       // Remove a foto antiga do disco
-      if (usuarioAtual.fotoUrl) {
-        const oldPath = join(process.cwd(), usuarioAtual.fotoUrl);
-        unlink(oldPath, (err) => {
-          if (err)
-            console.warn(
-              `[FOTO] Não foi possível remover foto antiga: ${err.message}`,
-            );
-        });
-      }
+      removerUpload(usuarioAtual.fotoUrl);
 
       await this.audit.registrarAcao({
         userId: autor.id,
@@ -253,7 +393,94 @@ export class UserService {
     }
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} user`;
+  async changePassword(id: string, dto: ChangePasswordDto, autor: AutorAcao) {
+    // A confirmação e as regras de complexidade (RN01) já foram validadas no DTO
+    const user = await this.userRepository.findActiveWithPasswordById(id);
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const senhaAtualValida = await bcrypt.compare(
+      dto.currentPassword,
+      user.senhaHash,
+    );
+    if (!senhaAtualValida) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    // RN02: a nova senha não pode ser igual à atual
+    const mesmaSenha = await bcrypt.compare(dto.newPassword, user.senhaHash);
+    if (mesmaSenha) {
+      throw new ConflictException(
+        'A nova senha não pode ser idêntica à senha atual.',
+      );
+    }
+
+    const senhaHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    const { count } = await this.userRepository.updatePassword(id, senhaHash);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Nunca grava senha nem hash na auditoria
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosNovos: { senha: 'alterada' },
+      ip: autor.ip,
+    });
+
+    await this.notificacao.notificarSenhaAlterada({
+      email: user.email,
+      nome: user.nome,
+    });
+
+    return { message: 'Senha alterada com sucesso.' };
+  }
+
+  async remove(id: string, autor: AutorAcao) {
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Você não pode excluir a sua própria conta.',
+      );
+    }
+
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const { count, nucleoIds, programasParticipante, programasResponsavel } =
+      await this.userRepository.softDelete(id);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.EXCLUIR_LOGICO,
+      entidade: 'User',
+      entidadeId: id,
+      // Os vínculos com núcleos são removidos na exclusão e ficam registrados aqui
+      dadosAntigos: {
+        ativo: usuarioAtual.ativo,
+        perfil: usuarioAtual.perfil,
+        nucleos: nucleoIds,
+        programasParticipante,
+        programasResponsavel,
+      },
+      dadosNovos: {
+        ativo: false,
+        excluido: true,
+        nucleos: [],
+        programasParticipante: [],
+        programasResponsavel: [],
+      },
+      ip: autor.ip,
+    });
+
+    return { message: 'Usuário excluído com sucesso.' };
   }
 }

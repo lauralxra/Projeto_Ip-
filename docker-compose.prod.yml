@@ -1,0 +1,104 @@
+# docker-compose de PRODUÇÃO — EC2 com Nginx como reverse proxy externo
+#
+# Como usar na EC2:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Pré-requisitos na EC2:
+#   - Arquivo backend/.env preenchido com as variáveis de produção
+#   - Nginx configurado conforme docs/nginx-ec2.conf
+#   - Certificados SSL gerenciados pelo Certbot/Let's Encrypt no Nginx da EC2
+
+name: projeto-ipe-prod
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: backend/dockerfile
+      target: runner # imagem de produção: node dist/main.js (sem hot-reload)
+    container_name: nestjs-app
+    restart: unless-stopped
+    user: 'node'
+    ports:
+      - '127.0.0.1:3000:3000' # expõe só para o Nginx local, nunca para a internet
+    env_file:
+      - backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}?schema=public
+      - NODE_ENV=production
+    volumes:
+      # Uploads persistidos em volume nomeado — sobrevivem a redeployments
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/dockerfile
+      target: runner # build estático servido pelo Nginx interno do container
+      args:
+        # URL da API em produção — gravada em tempo de build no bundle do Vite
+        VITE_API_BASE_URL: https://api-projetoipe.duckdns.org/api
+    container_name: ipe-frontend
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8080:80' # Nginx interno do container na porta 80 → exposto como 8080 local
+    networks:
+      - nestjs-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nestjs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - '127.0.0.1:5432:5432' # banco nunca exposto na internet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - nestjs-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nestjs-pgadmin
+    restart: unless-stopped
+    profiles:
+      - tools
+    environment:
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    ports:
+      - '127.0.0.1:5050:80'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data: # volume nomeado — imagens persistem entre deploys
+    driver: local
+
+networks:
+  nestjs-network:
+    driver: bridge

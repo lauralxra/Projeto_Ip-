@@ -1,4 +1,5 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -10,6 +11,8 @@ describe('JwtAuthGuard', () => {
   const contextWith = (request: Record<string, unknown>) =>
     ({
       switchToHttp: () => ({ getRequest: () => request }),
+      getHandler: () => undefined,
+      getClass: () => undefined,
     }) as unknown as ExecutionContext;
 
   beforeEach(() => {
@@ -43,6 +46,35 @@ describe('JwtAuthGuard', () => {
       guard.canActivate(
         contextWith({ headers: { authorization: 'Bearer expirado' } }),
       ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('libera rotas marcadas com @Public() sem exigir token', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(true),
+    } as unknown as Reflector;
+    const guardGlobal = new JwtAuthGuard(
+      jwt as unknown as JwtService,
+      reflector,
+    );
+
+    await expect(
+      guardGlobal.canActivate(contextWith({ headers: {} })),
+    ).resolves.toBe(true);
+    expect(jwt.verifyAsync).not.toHaveBeenCalled();
+  });
+
+  it('exige token em rotas sem @Public() quando usado como guard global', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(undefined),
+    } as unknown as Reflector;
+    const guardGlobal = new JwtAuthGuard(
+      jwt as unknown as JwtService,
+      reflector,
+    );
+
+    await expect(
+      guardGlobal.canActivate(contextWith({ headers: {} })),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });
