@@ -1,3 +1,23 @@
+# [1.1.0-dev.15](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.14...v1.1.0-dev.15) (2026-11-18)
+
+
+### Bug Fixes
+
+* **dashboard:** ignore inactive values in indicator calculations ([283e410](https://github.com/lauralxra/Projeto_Ip-/commit/283e41005827ca6a8473ba0c9dd69ba17f92ebac))
+* **metas:** compute realized values for every goal and prevent duplicates ([aa117a3](https://github.com/lauralxra/Projeto_Ip-/commit/aa117a3a308a3894f806df59b2932d9e09d45332))
+* **registro:** align visibility, add filters and reactivation, avoid concurrent writes ([b2ada9a](https://github.com/lauralxra/Projeto_Ip-/commit/b2ada9a03f3a5e1d147e1a44be050cdbae4c4008))
+* **registro:** harden approval flow transitions and add tests ([1bd6a39](https://github.com/lauralxra/Projeto_Ip-/commit/1bd6a3952ef261745af00daab614e80953741496))
+* **registro:** restrict approving and returning values to the administrator ([31d0d2f](https://github.com/lauralxra/Projeto_Ip-/commit/31d0d2fb9326c8bb5be1f9a64dff6d04073ea0a2))
+* **user:** remove nucleus links when deleting a user ([e6994f5](https://github.com/lauralxra/Projeto_Ip-/commit/e6994f528c7b6c259a2de89376f7dbe560fa1a9b))
+
+
+### Features
+
+* **frontend:** show and save indicator goals through the metas api ([d4b75a7](https://github.com/lauralxra/Projeto_Ip-/commit/d4b75a78300f0aa80db6149a1bc9fa74d4754011))
+* **metas:** add full CRUD RF20-RF21 with meta vs realizado comparison and RBAC ([c2d3e44](https://github.com/lauralxra/Projeto_Ip-/commit/c2d3e441dd60c1ee26614eec57d0a7c105f5fa4c))
+* **registro:** add approval flow RF14-RF15 with enviar, devolver, aprovar and publicar ([7905f52](https://github.com/lauralxra/Projeto_Ip-/commit/7905f52b58ed9a73be0b09786fa55527fb5ab6f3))
+* **registro:** add full CRUD RF09-RF12 with RBAC, audit and visibility rules ([136a4e4](https://github.com/lauralxra/Projeto_Ip-/commit/136a4e417e7d9830d929d959702fcf6cd8705541))
+
 # [1.1.0-dev.14](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.13...v1.1.0-dev.14) (2026-11-18)
 
 
