@@ -22,7 +22,13 @@ const programaAtual = {
   descricao: 'Descrição atual',
   status: StatusRegistro.ATIVO,
   nucleoId: NUCLEO_ID,
+  responsavelId: null as string | null,
+  dataInicio: null as Date | null,
+  participantes: [] as { userId: string }[],
 };
+
+const USER_A = '9a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+const USER_B = '0b1c2d3e-4f5a-4b6c-9d8e-0f1a2b3c4d5e';
 
 // Chamadas de prisma mockadas recebem argumentos `any`; tipamos o primeiro argumento
 type Chamada = {
@@ -45,6 +51,9 @@ describe('ProgramaService', () => {
       groupBy: jest.Mock;
     };
     nucleo: { findFirst: jest.Mock };
+    programaParticipante: { deleteMany: jest.Mock; createMany: jest.Mock };
+    user: { count: jest.Mock };
+    $transaction: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
 
@@ -64,7 +73,22 @@ describe('ProgramaService', () => {
           .fn()
           .mockResolvedValue({ status: StatusRegistro.ATIVO }),
       },
+      programaParticipante: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      // Por padrão todo usuário informado existe e está ativo
+      user: {
+        count: jest.fn((args: { where: { id: { in: string[] } } }) =>
+          Promise.resolve(args.where.id.in.length),
+        ),
+      },
+      $transaction: jest.fn(),
     };
+    // Transação interativa: o callback recebe o próprio mock como cliente
+    prisma.$transaction.mockImplementation(
+      (operacao: (tx: typeof prisma) => unknown) => operacao(prisma),
+    );
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
     service = new ProgramaService(
       prisma as unknown as PrismaService,
@@ -89,6 +113,9 @@ describe('ProgramaService', () => {
         nome: 'Novo',
         descricao: null,
         nucleoId: NUCLEO_ID,
+        responsavelId: null,
+        dataInicio: null,
+        participantes: { create: [] },
       });
       expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,6 +125,45 @@ describe('ProgramaService', () => {
           ip: autor.ip,
         }),
       );
+    });
+
+    it('grava responsável, data de início e participantes', async () => {
+      prisma.programa.findFirst.mockResolvedValue(null);
+
+      await service.create(
+        {
+          nome: 'Novo',
+          nucleoId: NUCLEO_ID,
+          responsavelId: USER_A,
+          dataInicio: '2026-03-01',
+          participanteIds: [USER_A, USER_B],
+        },
+        autor,
+      );
+
+      expect(argumento(prisma.programa.create).data).toMatchObject({
+        responsavelId: USER_A,
+        dataInicio: new Date('2026-03-01T00:00:00.000Z'),
+        participantes: { create: [{ userId: USER_A }, { userId: USER_B }] },
+      });
+      expect(argumento(prisma.user.count).where).toEqual({
+        id: { in: [USER_A, USER_B] },
+        ativo: true,
+        deletedAt: null,
+      });
+    });
+
+    it('recusa responsável ou participante inexistente ou inativo', async () => {
+      prisma.programa.findFirst.mockResolvedValue(null);
+      prisma.user.count.mockResolvedValue(1);
+
+      await expect(
+        service.create(
+          { nome: 'Novo', responsavelId: USER_A, participanteIds: [USER_B] },
+          autor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.programa.create).not.toHaveBeenCalled();
     });
 
     it('cria programa institucional (sem núcleo) sem consultar núcleo', async () => {
@@ -258,6 +324,73 @@ describe('ProgramaService', () => {
       await expect(
         service.update(PROGRAMA_ID, { nome: 'Programa Atual' }, autor),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('substitui os participantes e audita a troca', async () => {
+      prisma.programa.findFirst.mockReset().mockResolvedValueOnce({
+        ...programaAtual,
+        participantes: [{ userId: USER_A }],
+      });
+
+      await service.update(PROGRAMA_ID, { participanteIds: [USER_B] }, autor);
+
+      expect(prisma.programaParticipante.deleteMany).toHaveBeenCalledWith({
+        where: { programaId: PROGRAMA_ID },
+      });
+      expect(prisma.programaParticipante.createMany).toHaveBeenCalledWith({
+        data: [{ programaId: PROGRAMA_ID, userId: USER_B }],
+      });
+      // Só o participante novo é validado
+      expect(argumento(prisma.user.count).where).toMatchObject({
+        id: { in: [USER_B] },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: { participanteIds: [USER_A] },
+          dadosNovos: { participanteIds: [USER_B] },
+        }),
+      );
+    });
+
+    it('mesmos participantes em outra ordem não contam como alteração', async () => {
+      prisma.programa.findFirst.mockReset().mockResolvedValueOnce({
+        ...programaAtual,
+        participantes: [{ userId: USER_A }, { userId: USER_B }],
+      });
+
+      await expect(
+        service.update(
+          PROGRAMA_ID,
+          { participanteIds: [USER_B, USER_A] },
+          autor,
+        ),
+      ).rejects.toThrow('Nenhuma alteração informada.');
+    });
+
+    it('limpa responsável e data de início com null', async () => {
+      prisma.programa.findFirst.mockReset().mockResolvedValueOnce({
+        ...programaAtual,
+        responsavelId: USER_A,
+        dataInicio: new Date('2026-03-01T00:00:00.000Z'),
+      });
+
+      await service.update(
+        PROGRAMA_ID,
+        { responsavelId: null, dataInicio: null },
+        autor,
+      );
+
+      expect(argumento(prisma.programa.update).data).toMatchObject({
+        responsavelId: null,
+        dataInicio: null,
+      });
+      expect(prisma.programaParticipante.deleteMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: { responsavelId: USER_A, dataInicio: '2026-03-01' },
+          dadosNovos: { responsavelId: null, dataInicio: null },
+        }),
+      );
     });
 
     it('retorna 404 para programa excluído', async () => {
