@@ -7,6 +7,8 @@ export interface Indicador {
   unidade: string;
   simbolUni?: string;
   meta?: string;
+  // Meta cadastrada na API para o período exibido (para editar ou excluir)
+  metaId?: string;
   valAtual: string;
   ano?: number;
   trimestre?: string;
@@ -14,6 +16,9 @@ export interface Indicador {
   programa?: Programa;
   status: string;
   aprovado: boolean;
+  // Valor trimestral exibido no card (usado pela aprovação)
+  registroId?: string;
+  statusAprovacao?: string;
 }
 
 export const IndicadoresCadastrados: Indicador[] = [

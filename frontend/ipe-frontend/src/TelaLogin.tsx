@@ -1,8 +1,14 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { Imagens } from './config/assets';
+import { API_BASE_URL } from './config/api';
+import { salvarSessao } from './routes/sessao';
+import {
+  aplicarSessaoAoUsuarioAtual,
+  carregarNucleosDoUsuario,
+} from './api/usuarioAtual';
 
 export default function TelaLogin() {
   const [email, setEmail] = useState('');
@@ -22,7 +28,7 @@ export default function TelaLogin() {
 
     try {
       // 1. Faz a requisição de login para a API em NestJS
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,23 +41,35 @@ export default function TelaLogin() {
 
       const data = await response.json();
 
-      // 2. Se o backend retornar erro (400, 401 ou 404 - UsuÃ¡rio nÃ£o encontrado)
+      // 2. Se o backend retornar erro (400, 401 ou 404 - Usuário não encontrado)
       if (!response.ok) {
+        // O ValidationPipe do Nest pode devolver uma lista de mensagens
+        const mensagem = Array.isArray(data.message)
+          ? data.message.join(' ')
+          : data.message;
         throw new Error(
-          data.message ||
+          mensagem ||
             'E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.',
         );
       }
 
-      // 3. Salva o token JWT e dados do usuÃ¡rio retornado pelo banco
+      // 3. Salva o token JWT e dados do usuário retornado pelo banco
       if (!data.accessToken) {
         throw new Error('O servidor não retornou o token de autenticação.');
       }
 
-      localStorage.setItem('access_token', data.accessToken);
+      if (!data.user?.perfil) {
+        throw new Error('O servidor não retornou os dados do usuário.');
+      }
 
-      if (data.user?.perfil) {
-        localStorage.setItem('user_role', data.user.perfil);
+      salvarSessao(data.accessToken, data.user);
+      aplicarSessaoAoUsuarioAtual();
+
+      // Núcleos do usuário alimentam filtros e permissões das telas
+      try {
+        await carregarNucleosDoUsuario();
+      } catch (erroNucleos) {
+        console.error('Não foi possível carregar os núcleos:', erroNucleos);
       }
 
       // Redireciona somente após receber o token

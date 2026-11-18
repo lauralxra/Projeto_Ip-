@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { Imagens, Svg } from './config/assets';
-import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
-import type { TipoDeConta, Usuario } from './dados/usuarios';
+import { type Nucleo } from './dados/nucleos';
+import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
+import { urlDaImagem } from './api/mapeadores';
+
+// Núcleos que o usuário logado enxerga (para o administrador, todos), vindos da API
+const nucleosDisponiveis = () => UsuarioAtual.nucleos;
 
 interface BtnUserStatusProps {
   value: number;
@@ -43,7 +47,7 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
           if (!idSelecionado) return;
 
           // Verifica se já não está adicionado para evitar duplicadas
-          const nucleoEncontrado = NucleosCadastrados.find(
+          const nucleoEncontrado = nucleosDisponiveis().find(
             (n) => n.id === idSelecionado,
           );
           if (
@@ -60,7 +64,7 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
         <option value="" disabled>
           Selecione um núcleo...
         </option>
-        {NucleosCadastrados.map((opt) => (
+        {nucleosDisponiveis().map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.nome + ' (' + opt.sigla + ')'}
           </option>
@@ -129,7 +133,8 @@ type userItems = {
   tipo: string;
   nucleos?: Nucleo[];
   status: number;
-  onSubmit: (usuario: Usuario) => void;
+  // O arquivo da foto escolhida (se houver) vai junto, para quem salva poder enviá-lo à API
+  onSubmit: (usuario: Usuario, arquivoImagem: File | null) => void;
   onClose: () => void;
 };
 
@@ -155,7 +160,7 @@ export function TelaUsuarioUserPopup({
   const [formStatus, setFormStatus] = useState<number>(status ?? 1);
 
   const [imagemPreview, setImagemPreview] = useState<string | null>(
-    imagem ? '/src/assets/' + imagem : null,
+    urlDaImagem(imagem) ?? null,
   );
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 
@@ -171,16 +176,19 @@ export function TelaUsuarioUserPopup({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    onSubmit({
-      id: id || Date.now().toString(),
-      nome: formNome,
-      email: formMail,
-      senha: formSenha,
-      tipo: formTipo as TipoDeConta,
-      nucleos: formNucleos,
-      status: formStatus,
-      imagem: arquivoImagem ? arquivoImagem.name : imagem,
-    });
+    onSubmit(
+      {
+        id: id || Date.now().toString(),
+        nome: formNome,
+        email: formMail,
+        senha: formSenha,
+        tipo: formTipo as TipoDeConta,
+        nucleos: formNucleos,
+        status: formStatus,
+        imagem: arquivoImagem ? arquivoImagem.name : imagem,
+      },
+      arquivoImagem,
+    );
   };
 
   return (

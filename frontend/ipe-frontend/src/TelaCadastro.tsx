@@ -1,26 +1,63 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import { API_BASE_URL } from './config/api';
 
 export default function TelaCadastro() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
-  const [nucleo, setNucleo] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState<string | null>(null);
+  const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(false);
 
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMensagemErro(null);
+    setMensagemSucesso(null);
+
     if (senha !== confirmarSenha) {
-      alert('As senhas não coincidem!');
+      setMensagemErro('As senhas não coincidem.');
       return;
     }
-    // Redireciona para o login após cadastrar
-    alert('Cadastro realizado com sucesso!');
-    navigate('/login');
+
+    setCarregando(true);
+    try {
+      // RF17: a conta nasce inativa e sem perfil; a administração libera o acesso
+      // e associa os núcleos depois (RF18)
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nome, email, password: senha }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const mensagem = Array.isArray(data.message)
+          ? data.message.join(' ')
+          : data.message;
+        throw new Error(mensagem || 'Não foi possível concluir o cadastro.');
+      }
+
+      setMensagemSucesso(
+        data.message ||
+          'Cadastro realizado. Aguarde a liberação de acesso pela administração.',
+      );
+      setTimeout(() => navigate('/login'), 2500);
+    } catch (err: unknown) {
+      setMensagemErro(
+        err instanceof Error
+          ? err.message
+          : 'Erro ao conectar ao servidor de cadastro.',
+      );
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -57,6 +94,23 @@ export default function TelaCadastro() {
               Preencha os campos abaixo para solicitar seu acesso
             </p>
 
+            {mensagemErro && (
+              <div
+                role="alert"
+                className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3.5 mb-4 leading-relaxed font-medium"
+              >
+                {mensagemErro}
+              </div>
+            )}
+            {mensagemSucesso && (
+              <div
+                role="status"
+                className="bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl p-3.5 mb-4 leading-relaxed font-medium"
+              >
+                {mensagemSucesso}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -84,26 +138,6 @@ export default function TelaCadastro() {
                   required
                   className="w-full px-4 py-2.5 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Núcleo / Vinculação
-                </label>
-                <select
-                  value={nucleo}
-                  onChange={(e) => setNucleo(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all text-slate-700"
-                >
-                  <option value="" disabled>
-                    Selecione seu núcleo...
-                  </option>
-                  <option value="NEI">NEI - Núcleo de Empreendedorismo</option>
-                  <option value="NURI">NURI - Relações Institucionais</option>
-                  <option value="NINTA">NINTA - Internacionalização</option>
-                  <option value="OUTRO">Outro / Geral</option>
-                </select>
               </div>
 
               <div>
@@ -145,9 +179,10 @@ export default function TelaCadastro() {
 
               <button
                 type="submit"
-                className="w-full py-3 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer mt-3"
+                disabled={carregando}
+                className="w-full py-3 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cadastrar
+                {carregando ? 'Cadastrando...' : 'Cadastrar'}
               </button>
 
               <div className="text-center pt-2">

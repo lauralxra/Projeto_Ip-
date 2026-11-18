@@ -1,18 +1,85 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { Svg } from './config/assets';
-import { type Programa, programasCadastrados } from './dados/programas';
+import { type Programa } from './dados/programas';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import {
+  nucleoDaApi,
+  usuarioDaApi,
+  type NucleoApi,
+  type UsuarioApi,
+} from './api/mapeadores';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { CustomDropdown } from './CustomDropdown';
-import { type Nucleo } from './dados/nucleos';
+import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
-import {
-  UsuarioAtual,
-  UsuariosCadastrados,
-  type Usuario,
-} from './dados/usuarios';
+import { UsuarioAtual, type Usuario } from './dados/usuarios';
 import 'react-datepicker/dist/react-datepicker.css';
+
+type StatusApi = 'ATIVO' | 'INATIVO' | 'ARQUIVADO';
+
+interface ProgramaApi {
+  id: string;
+  nome: string;
+  descricao?: string | null;
+  status: StatusApi;
+  createdAt: string;
+  nucleo?: NucleoApi | null;
+  // AAAA-MM-DD (devolvido como ISO à meia-noite UTC)
+  dataInicio?: string | null;
+  responsavel?: { id: string; nome: string } | null;
+  participantes?: { user: { id: string; nome: string } }[];
+}
+
+const STATUS_DA_TELA: Record<StatusApi, string> = {
+  ATIVO: 'Ativo',
+  INATIVO: 'Inativo',
+  ARQUIVADO: 'Arquivado',
+};
+
+// Programas sem núcleo são institucionais: o card usa a identidade do IPÊ
+const NUCLEO_INSTITUCIONAL: Nucleo =
+  NucleosCadastrados.find((n) => n.sigla === 'IPÊ') ?? NucleosCadastrados[0];
+
+// A data de início é só um dia: monta no horário local para não "voltar"
+// um dia no fuso do Brasil, e envia no formato AAAA-MM-DD
+const dataLocal = (iso: string) => {
+  const [ano, mes, dia] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+};
+const paraAAAAMMDD = (data: Date) =>
+  `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+
+// Responsável e participantes vêm só com id e nome; o formulário usa o id
+const usuarioResumido = (u: { id: string; nome: string }): Usuario => ({
+  id: u.id,
+  nome: u.nome,
+  email: '',
+  senha: '',
+  tipo: 'EC',
+  nucleos: [],
+  status: 1,
+});
+
+const programaDaApi = (item: ProgramaApi): Programa => ({
+  id: item.id,
+  nome: item.nome,
+  descricao: item.descricao ?? '',
+  nucleo: item.nucleo ? nucleoDaApi(item.nucleo) : undefined,
+  // Sem data de início cadastrada, mostra a data de cadastro
+  dataDeInicio: item.dataInicio
+    ? dataLocal(item.dataInicio)
+    : new Date(item.createdAt),
+  status: STATUS_DA_TELA[item.status] ?? 'Ativo',
+  responsavel: item.responsavel ? usuarioResumido(item.responsavel) : undefined,
+  participantes: (item.participantes ?? []).map((p) => usuarioResumido(p.user)),
+});
+
+const idsDosParticipantes = (programa: Programa) =>
+  programa.participantes.map((u) => u.id);
+const mesmosIds = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 function ProgramaObj({
   programaEmSi,
@@ -23,6 +90,8 @@ function ProgramaObj({
   editFunc: (obj: Programa) => void;
   delFunc: (obj: Programa) => void;
 }) {
+  const nucleo = programaEmSi.nucleo ?? NUCLEO_INSTITUCIONAL;
+
   return (
     <div
       className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-[16px] items-start min-h-[120px] px-[18px] py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
@@ -30,20 +99,20 @@ function ProgramaObj({
     >
       {/* Logo do Programa */}
       <div
-        className={`h-[75px] w-[75px] relative ${programaEmSi.nucleo.corBg} ${programaEmSi.nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
+        className={`h-[75px] w-[75px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
         data-name="Img"
       >
-        {programaEmSi.nucleo.icone ? (
+        {nucleo.icone ? (
           <div>
             <img
               alt=""
               className="absolute inset-0 object-cover pointer-events-none size-full"
-              src={programaEmSi.nucleo.icone}
+              src={nucleo.icone}
             />
           </div>
         ) : (
           <span className="font-bold text-[12px] tracking-wider">
-            {programaEmSi.nucleo.logoTexto}
+            {nucleo.logoTexto}
           </span>
         )}
       </div>
@@ -80,7 +149,7 @@ function ProgramaObj({
 
         {/* sigla */}
         <p className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[12px]">
-          {programaEmSi.nucleo.sigla}
+          {nucleo.sigla}
         </p>
 
         {/* desceição */}
@@ -135,7 +204,43 @@ function ProgramaObj({
 }
 
 export default function TelaProgramas() {
-  const [programas, setProgramas] = useState<Programa[]>(programasCadastrados);
+  const [programas, setProgramas] = useState<Programa[]>([]);
+
+  // Usuários reais para os campos de responsável e participantes (GET /users é do administrador)
+  const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Usuario[]>([]);
+
+  // O administrador vê também programas inativos e arquivados, para poder reativá-los;
+  // os demais perfis recebem só os ativos
+  const carregarProgramas = async () => {
+    try {
+      const status: StatusApi[] =
+        UsuarioAtual.tipo === 'ADM'
+          ? ['ATIVO', 'INATIVO', 'ARQUIVADO']
+          : ['ATIVO'];
+      const listas = await Promise.all(
+        status.map((s) => apiFetch<ProgramaApi[]>(`/programas?status=${s}`)),
+      );
+      setProgramas(
+        listas
+          .flat()
+          .map(programaDaApi)
+          .sort((a, b) => a.nome.localeCompare(b.nome)),
+      );
+    } catch (erro) {
+      console.error('Erro ao carregar programas:', erro);
+      alert('Não foi possível carregar os programas: ' + mensagemDeErro(erro));
+    }
+  };
+
+  useEffect(() => {
+    carregarProgramas();
+
+    if (UsuarioAtual.tipo === 'ADM') {
+      apiFetch<UsuarioApi[]>('/users')
+        .then((dados) => setUsuariosDisponiveis(dados.map(usuarioDaApi)))
+        .catch((erro) => console.error('Erro ao carregar usuários:', erro));
+    }
+  }, []);
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
@@ -183,27 +288,73 @@ export default function TelaProgramas() {
     setModalEdicao(true);
   };
 
-  const handleSalvarPrograma = (dadosProgram: Programa) => {
-    const existe = programas.some((u) => u.id === dadosProgram.id);
+  // Status escolhido no formulário -> rota da API (Arquivado só muda pela API)
+  const aplicarStatus = async (id: string, de: string, para: string) => {
+    if (de === para || para === 'Arquivado') return;
+    await apiFetch(
+      `/programas/${id}/${para === 'Inativo' ? 'desativar' : 'reativar'}`,
+      { method: 'PATCH' },
+    );
+  };
 
-    if (existe) {
-      setProgramas(
-        programas.map((u) => (u.id === dadosProgram.id ? dadosProgram : u)),
-      );
-      setModalEdicao(false);
-    } else {
-      const programaComIdUnico = {
-        ...dadosProgram,
-        id:
-          dadosProgram.id ||
-          (typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random()}`),
-      };
-      setProgramas([...programas, programaComIdUnico]);
-      setModalCriacao(false);
+  const handleSalvarPrograma = async (dadosProgram: Programa) => {
+    const original = programas.find((u) => u.id === dadosProgram.id);
+    const descricao = dadosProgram.descricao.trim();
+
+    try {
+      if (original) {
+        // Envia só o que mudou: a API recusa uma edição sem alterações
+        const alteracoes: Record<string, unknown> = {};
+        if (dadosProgram.nome !== original.nome)
+          alteracoes.nome = dadosProgram.nome;
+        if (descricao !== original.descricao) alteracoes.descricao = descricao;
+        if (dadosProgram.nucleo?.id !== original.nucleo?.id)
+          alteracoes.nucleoId = dadosProgram.nucleo?.id ?? null;
+        if (dadosProgram.responsavel?.id !== original.responsavel?.id)
+          alteracoes.responsavelId = dadosProgram.responsavel?.id ?? null;
+        if (
+          paraAAAAMMDD(dadosProgram.dataDeInicio) !==
+          paraAAAAMMDD(original.dataDeInicio)
+        )
+          alteracoes.dataInicio = paraAAAAMMDD(dadosProgram.dataDeInicio);
+        if (
+          !mesmosIds(
+            idsDosParticipantes(dadosProgram),
+            idsDosParticipantes(original),
+          )
+        )
+          alteracoes.participanteIds = idsDosParticipantes(dadosProgram);
+
+        if (Object.keys(alteracoes).length > 0) {
+          await apiFetch(`/programas/${original.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(alteracoes),
+          });
+        }
+        await aplicarStatus(original.id, original.status, dadosProgram.status);
+        setModalEdicao(false);
+      } else {
+        const criado = await apiFetch<{ id: string }>('/programas', {
+          method: 'POST',
+          body: JSON.stringify({
+            nome: dadosProgram.nome,
+            descricao: descricao || undefined,
+            nucleoId: dadosProgram.nucleo?.id,
+            responsavelId: dadosProgram.responsavel?.id,
+            dataInicio: paraAAAAMMDD(dadosProgram.dataDeInicio),
+            participanteIds: idsDosParticipantes(dadosProgram),
+          }),
+        });
+        await aplicarStatus(criado.id, 'Ativo', dadosProgram.status);
+        setModalCriacao(false);
+      }
+
+      setProgramaSelecionado(undefined);
+    } catch (erro) {
+      alert('Não foi possível salvar o programa: ' + mensagemDeErro(erro));
+    } finally {
+      await carregarProgramas();
     }
-    setProgramaSelecionado(undefined);
   };
 
   // Deletamento handling
@@ -213,10 +364,18 @@ export default function TelaProgramas() {
     setModalDeletarAberto(true);
   };
 
-  const handleDeletarProgram = () => {
+  const handleDeletarProgram = async () => {
     if (!programaSelecionado) return;
-    setProgramas(programas.filter((n) => n.id !== programaSelecionado.id));
-    setModalDeletarAberto(false);
+    try {
+      await apiFetch(`/programas/${programaSelecionado.id}`, {
+        method: 'DELETE',
+      });
+      setModalDeletarAberto(false);
+      await carregarProgramas();
+    } catch (erro) {
+      // Ex.: 409 quando o programa tem indicadores ou ações vinculados
+      alert('Não foi possível excluir o programa: ' + mensagemDeErro(erro));
+    }
   };
 
   return (
@@ -305,6 +464,7 @@ export default function TelaProgramas() {
             dataDeInicio={new Date()}
             responsavel={undefined}
             participantes={[]}
+            usuarios={usuariosDisponiveis}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalCriacao(false)}
           />
@@ -323,6 +483,7 @@ export default function TelaProgramas() {
             dataDeInicio={programaSelecionado.dataDeInicio}
             responsavel={programaSelecionado.responsavel}
             participantes={programaSelecionado.participantes}
+            usuarios={usuariosDisponiveis}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalEdicao(false)}
           />
@@ -378,6 +539,8 @@ type programItems = {
   responsavel?: Usuario;
   participantes: Usuario[];
   onSubmit: (programa: Programa) => void;
+  // Usuários reais (GET /users) para responsável e participantes
+  usuarios: Usuario[];
   onClose: () => void;
 };
 
@@ -391,6 +554,7 @@ function EditProgramaPopup({
   status,
   responsavel,
   participantes,
+  usuarios,
   onSubmit,
   onClose,
 }: programItems) {
@@ -548,9 +712,7 @@ function EditProgramaPopup({
             <select
               value={formResponsavel?.id || ''}
               onChange={(e) => {
-                const u = UsuariosCadastrados.find(
-                  (item) => item.id === e.target.value,
-                );
+                const u = usuarios.find((item) => item.id === e.target.value);
                 setFormResponsavel(u);
               }}
               required
@@ -559,7 +721,7 @@ function EditProgramaPopup({
               <option value="" disabled>
                 Selecione um responsável...
               </option>
-              {UsuariosCadastrados.map((u) => (
+              {usuarios.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nome}
                 </option>
@@ -577,7 +739,7 @@ function EditProgramaPopup({
             onChange={(e) => {
               const id = e.target.value;
               if (!id) return;
-              const usuario = UsuariosCadastrados.find((u) => u.id === id);
+              const usuario = usuarios.find((u) => u.id === id);
               if (usuario && !formParticipantes.some((u) => u.id === id)) {
                 setFormParticipantes([...formParticipantes, usuario]);
               }
@@ -589,7 +751,7 @@ function EditProgramaPopup({
             <option value="" disabled>
               Adicionar participante...
             </option>
-            {UsuariosCadastrados.map((u) => (
+            {usuarios.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.nome}
               </option>

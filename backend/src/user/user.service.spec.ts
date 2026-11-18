@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -16,12 +19,17 @@ describe('UserService', () => {
     findActiveByEmail: jest.Mock;
     create: jest.Mock;
     findActiveById: jest.Mock;
-    updateName: jest.Mock;
+    updateDados: jest.Mock;
+    updateStatus: jest.Mock;
     updatePermissions: jest.Mock;
     syncNucleos: jest.Mock;
     findNucleosByUserId: jest.Mock;
+    softDelete: jest.Mock;
+    findActiveWithPasswordById: jest.Mock;
+    updatePassword: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
+  let notificacao: { notificarSenhaAlterada: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
   const dto = {
     name: 'Maria',
@@ -37,16 +45,22 @@ describe('UserService', () => {
       findActiveByEmail: jest.fn(),
       create: jest.fn(),
       findActiveById: jest.fn(),
-      updateName: jest.fn(),
+      updateDados: jest.fn().mockResolvedValue({ count: 1 }),
+      updateStatus: jest.fn().mockResolvedValue({ count: 1 }),
       updatePermissions: jest.fn().mockResolvedValue({ count: 1 }),
       syncNucleos: jest.fn(),
       findNucleosByUserId: jest.fn().mockResolvedValue([]),
+      softDelete: jest.fn().mockResolvedValue({ count: 1 }),
+      findActiveWithPasswordById: jest.fn(),
+      updatePassword: jest.fn().mockResolvedValue({ count: 1 }),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
+    notificacao = { notificarSenhaAlterada: jest.fn().mockResolvedValue(true) };
     service = new UserService(
       {} as PrismaService,
       repository as unknown as UserRepository,
       audit as unknown as AuditService,
+      notificacao as unknown as NotificacaoService,
     );
   });
 
@@ -127,7 +141,7 @@ describe('UserService', () => {
     });
   });
 
-  describe('updateName', () => {
+  describe('atualizarDados (Administração)', () => {
     const usuario = {
       id: 'usuario-uuid',
       nome: 'Maria da Silva',
@@ -137,66 +151,222 @@ describe('UserService', () => {
       createdAt,
     };
 
-    it('atualiza o nome do próprio usuário e registra a auditoria', async () => {
+    it('altera nome e e-mail de outro usuário e audita só o que mudou', async () => {
       repository.findActiveById
         .mockResolvedValueOnce(usuario)
         .mockResolvedValueOnce({ ...usuario, nome: 'Maria Silva' });
-      repository.updateName.mockResolvedValue({ count: 1 });
+      repository.findActiveByEmail.mockResolvedValue(null);
 
-      const result = await service.updateName('usuario-uuid', 'Maria Silva', {
-        id: 'usuario-uuid',
-        ip: '203.0.113.7',
-      });
-
-      expect(repository.updateName).toHaveBeenCalledWith(
+      await service.atualizarDados(
         'usuario-uuid',
-        'Maria Silva',
+        { name: 'Maria Silva', email: 'nova@exemplo.com' },
+        autor,
       );
-      expect(result).toMatchObject({ nome: 'Maria Silva' });
+
+      expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
+        nome: 'Maria Silva',
+        email: 'nova@exemplo.com',
+      });
       expect(audit.registrarAcao).toHaveBeenCalledWith({
-        userId: 'usuario-uuid',
+        userId: autor.id,
         acao: AcaoAuditoria.ATUALIZAR,
         entidade: 'User',
         entidadeId: 'usuario-uuid',
-        dadosAntigos: { nome: 'Maria da Silva' },
-        dadosNovos: { nome: 'Maria Silva' },
-        ip: '203.0.113.7',
+        dadosAntigos: { nome: 'Maria da Silva', email: 'maria@exemplo.com' },
+        dadosNovos: { nome: 'Maria Silva', email: 'nova@exemplo.com' },
+        ip: autor.ip,
       });
     });
 
-    it('impede atualizar o nome de outro usuário', async () => {
+    it('recusa e-mail já usado por outro usuário', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+      repository.findActiveByEmail.mockResolvedValue({ id: 'outro-uuid' });
+
       await expect(
-        service.updateName('outro-uuid', 'Maria Silva', {
-          id: 'usuario-uuid',
-        }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.findActiveById).not.toHaveBeenCalled();
-      expect(repository.updateName).not.toHaveBeenCalled();
-      expect(audit.registrarAcao).not.toHaveBeenCalled();
+        service.atualizarDados(
+          'usuario-uuid',
+          { email: 'x@exemplo.com' },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.updateDados).not.toHaveBeenCalled();
+    });
+
+    it('recusa requisição sem alterações', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await expect(
+        service.atualizarDados('usuario-uuid', { name: usuario.nome }, autor),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('retorna 404 para usuário inexistente ou excluído', async () => {
       repository.findActiveById.mockResolvedValue(null);
 
       await expect(
-        service.updateName('usuario-uuid', 'Maria Silva', {
-          id: 'usuario-uuid',
-        }),
+        service.atualizarDados('usuario-uuid', { name: 'X' }, autor),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(repository.updateName).not.toHaveBeenCalled();
       expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
 
-    it('não audita quando o usuário deixa de estar ativo antes da atualização', async () => {
+    it('não audita quando o usuário é excluído antes da atualização', async () => {
       repository.findActiveById.mockResolvedValue(usuario);
-      repository.updateName.mockResolvedValue({ count: 0 });
+      repository.updateDados.mockResolvedValue({ count: 0 });
 
       await expect(
-        service.updateName('usuario-uuid', 'Maria Silva', {
-          id: 'usuario-uuid',
-        }),
+        service.atualizarDados('usuario-uuid', { name: 'Outro' }, autor),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('atualizarPerfil (próprio usuário)', () => {
+    const usuario = {
+      id: 'usuario-uuid',
+      nome: 'Maria',
+      email: 'maria@exemplo.com',
+      perfil: Role.EQUIPE_GESTAO,
+      ativo: true,
+      createdAt,
+    };
+
+    it('troca o e-mail com a senha atual correta', async () => {
+      repository.findActiveWithPasswordById.mockResolvedValue({
+        ...usuario,
+        senhaHash: await bcrypt.hash('SenhaAtual123', 4),
+      });
+      repository.findActiveById.mockResolvedValue(usuario);
+      repository.findActiveByEmail.mockResolvedValue(null);
+
+      await service.atualizarPerfil(
+        'usuario-uuid',
+        { email: 'nova@exemplo.com', currentPassword: 'SenhaAtual123' },
+        { id: 'usuario-uuid' },
+      );
+
+      expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
+        email: 'nova@exemplo.com',
+      });
+    });
+
+    it('recusa trocar o e-mail com a senha atual errada', async () => {
+      repository.findActiveWithPasswordById.mockResolvedValue({
+        ...usuario,
+        senhaHash: await bcrypt.hash('SenhaAtual123', 4),
+      });
+
+      await expect(
+        service.atualizarPerfil(
+          'usuario-uuid',
+          { email: 'nova@exemplo.com', currentPassword: 'errada' },
+          { id: 'usuario-uuid' },
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(repository.updateDados).not.toHaveBeenCalled();
+    });
+
+    it('troca só o nome sem pedir senha', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await service.atualizarPerfil(
+        'usuario-uuid',
+        { name: 'Maria Souza' },
+        { id: 'usuario-uuid' },
+      );
+
+      expect(repository.findActiveWithPasswordById).not.toHaveBeenCalled();
+      expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
+        nome: 'Maria Souza',
+      });
+    });
+  });
+
+  describe('alterarStatus', () => {
+    const usuario = {
+      id: 'usuario-uuid',
+      nome: 'Maria',
+      email: 'maria@exemplo.com',
+      perfil: Role.EQUIPE_GESTAO as Role | null,
+      ativo: false,
+      createdAt,
+    };
+
+    it('ativa usuário com tipo de conta definido', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await service.alterarStatus('usuario-uuid', true, autor);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        'usuario-uuid',
+        true,
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.RESTAURAR,
+          dadosAntigos: { ativo: false },
+          dadosNovos: { ativo: true },
+        }),
+      );
+    });
+
+    it('não ativa usuário sem tipo de conta (o login continuaria bloqueado)', async () => {
+      repository.findActiveById.mockResolvedValue({ ...usuario, perfil: null });
+
+      await expect(
+        service.alterarStatus('usuario-uuid', true, autor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('impede alterar o status da própria conta', async () => {
+      await expect(
+        service.alterarStatus(autor.id, false, autor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('responde 409 quando o status já é o pedido', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await expect(
+        service.alterarStatus('usuario-uuid', false, autor),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('redefinirSenha', () => {
+    it('grava o hash da nova senha, audita sem a senha e avisa o usuário', async () => {
+      repository.findActiveWithPasswordById.mockResolvedValue({
+        id: 'usuario-uuid',
+        nome: 'Maria',
+        email: 'maria@exemplo.com',
+        senhaHash: 'hash-antigo',
+      });
+
+      await service.redefinirSenha('usuario-uuid', 'NovaSenhaForte2026', autor);
+
+      const [, hash] = repository.updatePassword.mock.calls[0] as [
+        string,
+        string,
+      ];
+      await expect(bcrypt.compare('NovaSenhaForte2026', hash)).resolves.toBe(
+        true,
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosNovos: { senha: 'redefinida pela administração' },
+        }),
+      );
+      expect(notificacao.notificarSenhaAlterada).toHaveBeenCalledWith({
+        email: 'maria@exemplo.com',
+        nome: 'Maria',
+      });
+    });
+
+    it('não redefine a própria senha por esta rota', async () => {
+      await expect(
+        service.redefinirSenha(autor.id, 'NovaSenhaForte2026', autor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
     });
   });
 
@@ -316,6 +486,187 @@ describe('UserService', () => {
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(repository.updatePermissions).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('faz exclusão lógica e registra auditoria', async () => {
+      repository.findActiveById.mockResolvedValue({
+        id: 'user-uuid',
+        ativo: true,
+        perfil: Role.EQUIPE_GESTAO,
+      });
+
+      await expect(service.remove('user-uuid', autor)).resolves.toEqual({
+        message: 'Usuário excluído com sucesso.',
+      });
+      expect(repository.softDelete).toHaveBeenCalledWith('user-uuid');
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidadeId: 'user-uuid',
+          userId: autor.id,
+        }),
+      );
+    });
+
+    it('registra na auditoria os núcleos desvinculados na exclusão', async () => {
+      repository.findActiveById.mockResolvedValue({
+        id: 'user-uuid',
+        ativo: true,
+        perfil: Role.DIRETORES_NUCLEOS,
+      });
+      repository.softDelete.mockResolvedValue({
+        count: 1,
+        nucleoIds: ['nei', 'nuri'],
+        programasParticipante: ['prog-1'],
+        programasResponsavel: ['prog-2'],
+      });
+
+      await service.remove('user-uuid', autor);
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dadosAntigos: {
+            ativo: true,
+            perfil: Role.DIRETORES_NUCLEOS,
+            nucleos: ['nei', 'nuri'],
+            programasParticipante: ['prog-1'],
+            programasResponsavel: ['prog-2'],
+          },
+          dadosNovos: {
+            ativo: false,
+            excluido: true,
+            nucleos: [],
+            programasParticipante: [],
+            programasResponsavel: [],
+          },
+        }),
+      );
+    });
+
+    it('impede o administrador de excluir a própria conta', async () => {
+      await expect(service.remove(autor.id, autor)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(repository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para usuário inexistente ou já excluído', async () => {
+      repository.findActiveById.mockResolvedValue(null);
+
+      await expect(service.remove('outro-uuid', autor)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(repository.softDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    const senhaAtual = 'SenhaAtual123';
+    const novaSenha = 'NovaSenhaForte2026';
+    let senhaHashAtual: string;
+    const dtoSenha = () => ({
+      currentPassword: senhaAtual,
+      newPassword: novaSenha,
+      confirmNewPassword: novaSenha,
+    });
+    const usuario = 'user-uuid';
+    const autorProprio = { id: usuario, ip: '203.0.113.7' };
+
+    beforeAll(async () => {
+      // Custo baixo só no teste, para não deixar a suíte lenta
+      senhaHashAtual = await bcrypt.hash(senhaAtual, 4);
+    });
+
+    beforeEach(() => {
+      repository.findActiveWithPasswordById.mockResolvedValue({
+        id: usuario,
+        nome: 'Maria',
+        email: 'maria@exemplo.com',
+        senhaHash: senhaHashAtual,
+      });
+    });
+
+    it('salva a nova senha com hash bcrypt, audita e envia o aviso por e-mail', async () => {
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).resolves.toEqual({ message: 'Senha alterada com sucesso.' });
+
+      const [, hashSalvo] = repository.updatePassword.mock.calls[0] as [
+        string,
+        string,
+      ];
+      expect(repository.updatePassword).toHaveBeenCalledWith(
+        usuario,
+        expect.any(String),
+      );
+      expect(hashSalvo).not.toBe(novaSenha);
+      await expect(bcrypt.compare(novaSenha, hashSalvo)).resolves.toBe(true);
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'User',
+          entidadeId: usuario,
+          dadosNovos: { senha: 'alterada' },
+        }),
+      );
+      const auditado = JSON.stringify(audit.registrarAcao.mock.calls[0]);
+      expect(auditado).not.toContain(novaSenha);
+      expect(auditado).not.toContain(hashSalvo);
+
+      expect(notificacao.notificarSenhaAlterada).toHaveBeenCalledWith({
+        email: 'maria@exemplo.com',
+        nome: 'Maria',
+      });
+    });
+
+    it('recusa senha atual incorreta com 401 sem alterar nada', async () => {
+      await expect(
+        service.changePassword(
+          usuario,
+          { ...dtoSenha(), currentPassword: 'Errada12345' },
+          autorProprio,
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+      expect(notificacao.notificarSenhaAlterada).not.toHaveBeenCalled();
+    });
+
+    it('recusa nova senha idêntica à atual (RN02)', async () => {
+      await expect(
+        service.changePassword(
+          usuario,
+          {
+            currentPassword: senhaAtual,
+            newPassword: senhaAtual,
+            confirmNewPassword: senhaAtual,
+          },
+          autorProprio,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para usuário inexistente ou excluído', async () => {
+      repository.findActiveWithPasswordById.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('conclui a troca mesmo se o aviso por e-mail falhar', async () => {
+      notificacao.notificarSenhaAlterada.mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(usuario, dtoSenha(), autorProprio),
+      ).resolves.toEqual({ message: 'Senha alterada com sucesso.' });
+      expect(repository.updatePassword).toHaveBeenCalled();
+      expect(audit.registrarAcao).toHaveBeenCalled();
     });
   });
 });

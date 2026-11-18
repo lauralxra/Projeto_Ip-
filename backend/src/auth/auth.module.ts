@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
 
 @Module({
   imports: [
@@ -17,7 +19,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
         return {
           secret,
           signOptions: {
-            expiresIn: (process.env.JWT_EXPIRES_IN ?? '1h') as NonNullable<
+            expiresIn: (process.env.JWT_EXPIRES_IN ?? '2h') as NonNullable<
               JwtSignOptions['expiresIn']
             >,
           },
@@ -26,7 +28,13 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
+  providers: [
+    AuthService,
+    JwtAuthGuard,
+    // Guards globais: toda rota exige JWT (exceto @Public) e respeita @Roles
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
   // UserModule usa o guard, que depende do JwtService
   exports: [JwtModule, JwtAuthGuard],
 })

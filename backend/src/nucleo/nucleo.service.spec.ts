@@ -14,6 +14,11 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { NucleoRepository } from './nucleo.repository';
 import { NucleoService } from './nucleo.service';
+import { removerUpload } from '../common/upload-imagem';
+
+jest.mock('../common/upload-imagem', () => ({
+  removerUpload: jest.fn(),
+}));
 
 describe('NucleoService', () => {
   let service: NucleoService;
@@ -26,6 +31,8 @@ describe('NucleoService', () => {
     findAtivoComVinculos: jest.Mock;
     softDelete: jest.Mock;
     deactivate: jest.Mock;
+    updateImagem: jest.Mock;
+    updateDados: jest.Mock;
     search: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
@@ -47,6 +54,8 @@ describe('NucleoService', () => {
       findAtivoComVinculos: jest.fn(),
       softDelete: jest.fn(),
       deactivate: jest.fn(),
+      updateImagem: jest.fn(),
+      updateDados: jest.fn(),
       search: jest.fn(),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
@@ -482,6 +491,127 @@ describe('NucleoService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
       expect(repository.search).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('atualizarImagem', () => {
+    const imagemUrl = '/uploads/nucleos/nova.png';
+
+    beforeEach(() => jest.mocked(removerUpload).mockClear());
+
+    it('grava a nova imagem, apaga a anterior e audita', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        id: 'nucleo-uuid',
+        imagemUrl: '/uploads/nucleos/antiga.png',
+      });
+      repository.updateImagem.mockResolvedValue(true);
+
+      await expect(
+        service.atualizarImagem('nucleo-uuid', imagemUrl, autor),
+      ).resolves.toEqual(expect.objectContaining({ imagemUrl }));
+
+      expect(repository.updateImagem).toHaveBeenCalledWith(
+        'nucleo-uuid',
+        imagemUrl,
+      );
+      expect(removerUpload).toHaveBeenCalledWith('/uploads/nucleos/antiga.png');
+      expect(removerUpload).not.toHaveBeenCalledWith(imagemUrl);
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'Nucleo',
+          dadosAntigos: { imagemUrl: '/uploads/nucleos/antiga.png' },
+          dadosNovos: { imagemUrl },
+        }),
+      );
+    });
+
+    it('descarta o arquivo enviado quando o núcleo não existe', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.atualizarImagem('nucleo-uuid', imagemUrl, autor),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repository.updateImagem).not.toHaveBeenCalled();
+      expect(removerUpload).toHaveBeenCalledWith(imagemUrl);
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    const atual = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo Antigo',
+      sigla: 'NA',
+      descricao: 'desc',
+      corHex: null,
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+
+    beforeEach(() => {
+      repository.findAtivoById.mockResolvedValue(atual);
+      repository.updateDados.mockResolvedValue(true);
+    });
+
+    it('altera só os campos que mudaram e audita antes e depois', async () => {
+      await service.update('nucleo-uuid', { nome: 'Núcleo Novo' }, autor);
+
+      expect(repository.findConflito).toHaveBeenCalledWith(
+        'Núcleo Novo',
+        'NA',
+        'nucleo-uuid',
+      );
+      expect(repository.updateDados).toHaveBeenCalledWith('nucleo-uuid', {
+        nome: 'Núcleo Novo',
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'Nucleo',
+          dadosAntigos: { nome: 'Núcleo Antigo' },
+          dadosNovos: { nome: 'Núcleo Novo' },
+        }),
+      );
+    });
+
+    it('recusa sigla usada por outro núcleo', async () => {
+      repository.findConflito.mockResolvedValue({ nome: 'Outro', sigla: 'NB' });
+
+      await expect(
+        service.update('nucleo-uuid', { sigla: 'NB' }, autor),
+      ).rejects.toThrow('Já existe um núcleo cadastrado com esta sigla.');
+      expect(repository.updateDados).not.toHaveBeenCalled();
+    });
+
+    it('limpa a descrição com texto vazio, sem checar nome e sigla', async () => {
+      await service.update('nucleo-uuid', { descricao: '' }, autor);
+
+      expect(repository.findConflito).not.toHaveBeenCalled();
+      expect(repository.updateDados).toHaveBeenCalledWith('nucleo-uuid', {
+        descricao: null,
+      });
+    });
+
+    it('recusa requisição sem alterações', async () => {
+      await expect(
+        service.update('nucleo-uuid', { nome: 'Núcleo Antigo' }, autor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('responde 404 para núcleo inexistente ou excluído no meio tempo', async () => {
+      repository.findAtivoById.mockResolvedValueOnce(null);
+      await expect(
+        service.update('nucleo-uuid', { nome: 'X' }, autor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      repository.updateDados.mockResolvedValue(false);
+      await expect(
+        service.update('nucleo-uuid', { nome: 'X' }, autor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 });

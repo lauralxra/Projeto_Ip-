@@ -1,3 +1,149 @@
+# [1.1.0-dev.18](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.17...v1.1.0-dev.18) (2026-11-18)
+
+
+### Bug Fixes
+
+* **deploy:** add prod docker-compose, nginx config and fix upload swagger ([cea931f](https://github.com/lauralxra/Projeto_Ip-/commit/cea931f731da0ab003fbbb79bb811f5d148ce6a5))
+
+# [1.1.0-dev.17](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.16...v1.1.0-dev.17) (2026-11-18)
+
+
+### Features
+
+* **indicadores:** implement indicator edit ([0ae229b](https://github.com/lauralxra/Projeto_Ip-/commit/0ae229b87629bc817b124b9aa6515bf8d9141a06))
+* **nucleos:** implement nucleus edit ([5aac99e](https://github.com/lauralxra/Projeto_Ip-/commit/5aac99e2c7bc560d4326181ee5fdaabccd15752d))
+* **programas:** store responsible user, start date and participants ([268c269](https://github.com/lauralxra/Projeto_Ip-/commit/268c2694186989b57c7c0e4f93937c2584a57274))
+* **users:** edit email, status, password and photo of users and own profile ([bfb5f39](https://github.com/lauralxra/Projeto_Ip-/commit/bfb5f39cd40794ea4648f3274fc9d89d48404c4f))
+
+# [1.1.0-dev.16](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.15...v1.1.0-dev.16) (2026-11-18)
+
+
+### Features
+
+* **auth:** return the profile photo path on login ([fe6cd30](https://github.com/lauralxra/Projeto_Ip-/commit/fe6cd30edfde9090ef5c2a2ff31d6042d21d37bc))
+* **frontend:** create, edit, change status and delete programs through the api ([1fce10d](https://github.com/lauralxra/Projeto_Ip-/commit/1fce10de9831411ccba8c173d638d1fbffe399e5))
+* **frontend:** save indicator approval through the api ([7a8b713](https://github.com/lauralxra/Projeto_Ip-/commit/7a8b7135b407e599610c1615e687041cbfc1e903))
+* **frontend:** show user photos and upload the profile photo ([8e53764](https://github.com/lauralxra/Projeto_Ip-/commit/8e53764a10a11717113c55b4e3e98d928844ba00))
+
+# [1.1.0-dev.15](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.14...v1.1.0-dev.15) (2026-11-18)
+
+
+### Bug Fixes
+
+* **dashboard:** ignore inactive values in indicator calculations ([283e410](https://github.com/lauralxra/Projeto_Ip-/commit/283e41005827ca6a8473ba0c9dd69ba17f92ebac))
+* **metas:** compute realized values for every goal and prevent duplicates ([aa117a3](https://github.com/lauralxra/Projeto_Ip-/commit/aa117a3a308a3894f806df59b2932d9e09d45332))
+* **registro:** align visibility, add filters and reactivation, avoid concurrent writes ([b2ada9a](https://github.com/lauralxra/Projeto_Ip-/commit/b2ada9a03f3a5e1d147e1a44be050cdbae4c4008))
+* **registro:** harden approval flow transitions and add tests ([1bd6a39](https://github.com/lauralxra/Projeto_Ip-/commit/1bd6a3952ef261745af00daab614e80953741496))
+* **registro:** restrict approving and returning values to the administrator ([31d0d2f](https://github.com/lauralxra/Projeto_Ip-/commit/31d0d2fb9326c8bb5be1f9a64dff6d04073ea0a2))
+* **user:** remove nucleus links when deleting a user ([e6994f5](https://github.com/lauralxra/Projeto_Ip-/commit/e6994f528c7b6c259a2de89376f7dbe560fa1a9b))
+
+
+### Features
+
+* **frontend:** show and save indicator goals through the metas api ([d4b75a7](https://github.com/lauralxra/Projeto_Ip-/commit/d4b75a78300f0aa80db6149a1bc9fa74d4754011))
+* **metas:** add full CRUD RF20-RF21 with meta vs realizado comparison and RBAC ([c2d3e44](https://github.com/lauralxra/Projeto_Ip-/commit/c2d3e441dd60c1ee26614eec57d0a7c105f5fa4c))
+* **registro:** add approval flow RF14-RF15 with enviar, devolver, aprovar and publicar ([7905f52](https://github.com/lauralxra/Projeto_Ip-/commit/7905f52b58ed9a73be0b09786fa55527fb5ab6f3))
+* **registro:** add full CRUD RF09-RF12 with RBAC, audit and visibility rules ([136a4e4](https://github.com/lauralxra/Projeto_Ip-/commit/136a4e417e7d9830d929d959702fcf6cd8705541))
+
+# [1.1.0-dev.14](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.13...v1.1.0-dev.14) (2026-11-18)
+
+
+### Bug Fixes
+
+* **programas:** keep list contract, scope visibility by role and protect deletion ([91ba59f](https://github.com/lauralxra/Projeto_Ip-/commit/91ba59fa12a5019349196d17a7b1ffe30e7fad7d))
+
+
+### Features
+
+* **programas:** add full CRUD RF27-RF32 with filters, audit and rbac ([18703e4](https://github.com/lauralxra/Projeto_Ip-/commit/18703e42b60cd5be671cf92ee59668a2aa58ff03))
+
+# [1.1.0-dev.13](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.12...v1.1.0-dev.13) (2026-11-18)
+
+
+### Bug Fixes
+
+* **notificacoes:** enforce rn01, harden email sending and fix quarterly cron ([ff66a32](https://github.com/lauralxra/Projeto_Ip-/commit/ff66a32901c92b777c0ba6568570e6bfb4b8cea8))
+* **user:** keep password change from failing when the email notice fails ([e7f9148](https://github.com/lauralxra/Projeto_Ip-/commit/e7f914833edb0b552b55b3bce37a1bef688616b1))
+
+
+### Features
+
+* **api:** return user nuclei and program creation date for the frontend ([fa7cb8a](https://github.com/lauralxra/Projeto_Ip-/commit/fa7cb8adcfe1ca03361baaabef83d4db7fce3f99))
+* **frontend:** integrate screens with the existing api endpoints ([3221812](https://github.com/lauralxra/Projeto_Ip-/commit/322181217feddc40f40abf2d461e82202c6ea61a))
+* **notificacoes:** add notifications endpoint with smtp email and cron scheduler ([d01c6d6](https://github.com/lauralxra/Projeto_Ip-/commit/d01c6d66d5152486954837be71ec9a76aea7b27a))
+* **notificacoes:** add read and read-all endpoints with user filter ([fafd067](https://github.com/lauralxra/Projeto_Ip-/commit/fafd067d785d89b32558da670675839583ea2972))
+* **nucleo:** add image upload endpoint and serve uploaded files ([cc2d65b](https://github.com/lauralxra/Projeto_Ip-/commit/cc2d65b51cf45076c9010ce670018f8059ef246c))
+
+# [1.1.0-dev.12](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.11...v1.1.0-dev.12) (2026-11-18)
+
+
+### Bug Fixes
+
+* **frontend:** excluir indicador pela api e remover a opcao de limpar todos ([265a710](https://github.com/lauralxra/Projeto_Ip-/commit/265a71071d7f41d747b2679fd12e621379ff54b2))
+* **indicador:** proteger rotas de indicadores e registros com dto, rbac e auditoria ([f99b090](https://github.com/lauralxra/Projeto_Ip-/commit/f99b090ae8e8c1ed03ae80f2bc3438c86106549c))
+
+# [1.1.0-dev.11](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.10...v1.1.0-dev.11) (2026-11-18)
+
+
+### Bug Fixes
+
+* **mail:** add sendMail and validate SMTP config on startup ([cb72949](https://github.com/lauralxra/Projeto_Ip-/commit/cb72949a0611046e1ed2522c949ad2b7c112efcf))
+* **user:** corrigir troca de senha com repositorio, notificacao, swagger e testes ([23828a9](https://github.com/lauralxra/Projeto_Ip-/commit/23828a954410528b1a4197d9924dce04f3b086cf))
+
+
+### Features
+
+* **mail:** add mail module as shared email service ([079f6ec](https://github.com/lauralxra/Projeto_Ip-/commit/079f6ecb2d33db67517608087ad3b315f5541057))
+* **mail:** adicionar e-mail de aviso de seguranca para troca de senha ([16aa3c7](https://github.com/lauralxra/Projeto_Ip-/commit/16aa3c7c572217f938f25ffd6c0e5c113a335fec))
+* **notificacao:** enviar aviso de troca de senha sem interromper o fluxo em falha de smtp ([1571d42](https://github.com/lauralxra/Projeto_Ip-/commit/1571d428356123b038ba69030b3c4e71f8b4b735))
+* **user:** add change password endpoint with email notification via gmail smtp ([340aff6](https://github.com/lauralxra/Projeto_Ip-/commit/340aff615e39c949aec452210993bc05e0293600))
+* **user:** validar complexidade, senhas comuns e confirmacao no dto de troca de senha ([a521b45](https://github.com/lauralxra/Projeto_Ip-/commit/a521b4547ded0710e75bc1393b3061fcb1288048))
+
+# [1.1.0-dev.10](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.9...v1.1.0-dev.10) (2026-11-18)
+
+
+### Bug Fixes
+
+* **auth:** exigir jwt em todas as rotas por padrao com guard global e decorator public ([f64723e](https://github.com/lauralxra/Projeto_Ip-/commit/f64723e8229eda09fb37136774fbafc11314d657))
+* **auth:** manter validade padrao do jwt em 2h no exemplo de ambiente ([aabeecd](https://github.com/lauralxra/Projeto_Ip-/commit/aabeecd2db60fa7b613144ba666212d70b52eb0b))
+* **auth:** padronizar resposta de login para nao revelar e-mails cadastrados nem a senha durante o bloqueio ([8b9395b](https://github.com/lauralxra/Projeto_Ip-/commit/8b9395b51042b0b03c8bf7e2c325141b7af1303a))
+* **frontend:** proteger rotas internas exigindo sessao valida ([649b23a](https://github.com/lauralxra/Projeto_Ip-/commit/649b23a4a18db8e017ecbf4fd33591a8c8558c74))
+* **prisma:** adicionar unicidade parcial, check de escopo e trigger de auditoria imutavel ([b7b7fd7](https://github.com/lauralxra/Projeto_Ip-/commit/b7b7fd7ff9e38475f560add8f5b8253f94f825a5))
+* **seed:** remover senha padrao do administrador do codigo ([0a1a7e1](https://github.com/lauralxra/Projeto_Ip-/commit/0a1a7e17c5e4fc78faa56fb0696ca8a5e8a81ff1))
+
+
+### Features
+
+* add ipe-indicadores skill ([49b16b8](https://github.com/lauralxra/Projeto_Ip-/commit/49b16b8f6d492a2790e732f4fc3c6ceae5e82e34))
+* **frontend:** integrar tela de cadastro com a api ([a8894f7](https://github.com/lauralxra/Projeto_Ip-/commit/a8894f77c202d2254d90fa285d7331bb5fa71b10))
+* **user:** implementar exclusao logica de usuario com auditoria ([dfc2219](https://github.com/lauralxra/Projeto_Ip-/commit/dfc22195493d9484e1bb42e215050939daa00b9e))
+
+# [1.1.0-dev.9](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.8...v1.1.0-dev.9) (2026-11-15)
+
+
+### Bug Fixes
+
+* **backend:** accept multiple CORS origins from environment ([df5a8a6](https://github.com/lauralxra/Projeto_Ip-/commit/df5a8a6eb99bc385837ca5b1e71bfdc1fb5053c0))
+* **docker:** bind postgres port to localhost only ([0f43cb6](https://github.com/lauralxra/Projeto_Ip-/commit/0f43cb67f034f84836c8b78b2d65d18324f4378c))
+* **frontend:** read API URL and allowed hosts from server environment ([7ce194f](https://github.com/lauralxra/Projeto_Ip-/commit/7ce194f3f1ff363a254c57654322f00981d644c2))
+
+# [1.1.0-dev.8](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.7...v1.1.0-dev.8) (2026-11-15)
+
+
+### Bug Fixes
+
+* **frontend:** remover env.production do versionamento ([aac8d07](https://github.com/lauralxra/Projeto_Ip-/commit/aac8d079ecb35d18ab9b867aa86335e119a57ad8))
+
+# [1.1.0-dev.7](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.6...v1.1.0-dev.7) (2026-11-15)
+
+
+### Features
+
+* **frontend:** conectar tela de dashboard com api base url ([8584cc9](https://github.com/lauralxra/Projeto_Ip-/commit/8584cc93a7d5174d6f14799d1ce15dd2b5788b03))
+* **frontend:** conectar tela de indicadores com api base url ([dcdb2b4](https://github.com/lauralxra/Projeto_Ip-/commit/dcdb2b47c7c752fa4e046ad8034b3f42e02b5f71))
+* **frontend:** conectar tela de login com api base url ([131e8d5](https://github.com/lauralxra/Projeto_Ip-/commit/131e8d5210791804fa4b3f1d3fdb6c2463473f3d))
+* **frontend:** criar modulo de configuracao de api e variaveis de ambiente ([78c09db](https://github.com/lauralxra/Projeto_Ip-/commit/78c09dba75e8c427376bbc0ffdf67f7843c65b84))
+
 # [1.1.0-dev.6](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.5...v1.1.0-dev.6) (2026-11-15)
 
 

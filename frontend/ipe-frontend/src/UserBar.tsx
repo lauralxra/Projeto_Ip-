@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { UserbarPopupUser } from './UserbarPopupUser';
 import { UsuarioAtual } from './dados/usuarios';
+import { urlDaImagem } from './api/mapeadores';
 
 export function User() {
   const [popupUser, setPopupUser] = useState(false);
@@ -59,7 +60,7 @@ export function User() {
               className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
               src={
                 UsuarioAtual.imagem
-                  ? '/src/assets/' + UsuarioAtual.imagem
+                  ? urlDaImagem(UsuarioAtual.imagem)
                   : Imagens.DefaultPFP
               }
             />

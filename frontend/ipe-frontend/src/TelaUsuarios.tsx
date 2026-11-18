@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 
 import { type Nucleo } from './dados/nucleos';
 import { type Usuario, TipoDeConta, UsuarioAtual } from './dados/usuarios';
-import { UsuariosCadastrados } from './dados/usuarios';
 import { BtnCriar } from './BtnCriar';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import {
+  perfilDoTipo,
+  SENHA_OCULTA,
+  usuarioDaApi,
+  urlDaImagem,
+  type UsuarioApi,
+} from './api/mapeadores';
+import { atualizarUsuarioSessao } from './routes/sessao';
+import { enviarFotoUsuario, trocarPropriaSenha } from './api/usuarios';
+
+const mesmosNucleos = (a: Nucleo[], b: Nucleo[]) =>
+  a.length === b.length && a.every((n) => b.some((m) => m.id === n.id));
 
 type LinhaUsuarioCadastradoEditarBtnProps = {
   usuarioEmSi: Usuario;
@@ -165,7 +177,7 @@ function LinhaUsuarioCadastrado({
                   className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
                   src={
                     usuario.imagem
-                      ? '/src/assets/' + usuario.imagem
+                      ? urlDaImagem(usuario.imagem)
                       : Imagens.DefaultPFP
                   }
                 />
@@ -231,8 +243,24 @@ function LinhaUsuarioCadastrado({
 }
 
 export default function TelaUsuarios() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>(UsuariosCadastrados);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
+
+  // GET /users é exclusivo do administrador
+  const carregarUsuarios = async () => {
+    if (UsuarioAtual.tipo !== 'ADM') return;
+    try {
+      const dados = await apiFetch<UsuarioApi[]>('/users');
+      setUsuarios(dados.map(usuarioDaApi));
+    } catch (erro) {
+      console.error('Erro ao carregar usuários:', erro);
+      alert('Não foi possível carregar os usuários: ' + mensagemDeErro(erro));
+    }
+  };
+
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
 
   const [formNome, setFormNome] = useState('');
   const [formMail, setFormMail] = useState('');
@@ -279,19 +307,118 @@ export default function TelaUsuarios() {
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = (dadosUsuario: Usuario) => {
-    const existe = usuarios.some((u) => u.id === dadosUsuario.id);
+  // Status da tela (1 = Ativo, 0 = Inativo) -> PATCH /users/:id/status
+  const aplicarStatus = (id: string, status: number) =>
+    apiFetch(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ativo: status === 1 }),
+    });
 
-    if (existe) {
-      setUsuarios(
-        usuarios.map((u) => (u.id === dadosUsuario.id ? dadosUsuario : u)),
-      );
-      setModalEdicao(false);
-    } else {
-      setUsuarios([...usuarios, dadosUsuario]);
-      setModalCriacao(false);
+  const criarUsuario = async (dados: Usuario, arquivoImagem: File | null) => {
+    const criado = await apiFetch<{ id: string }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: dados.nome,
+        email: dados.email,
+        password: dados.senha,
+        confirmPassword: dados.senha,
+        role: perfilDoTipo(dados.tipo),
+      }),
+    });
+
+    if (dados.nucleos.length > 0) {
+      await apiFetch(`/users/${criado.id}/permissions`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nucleoIds: dados.nucleos.map((n) => n.id) }),
+      });
     }
-    setUserSelecionado(undefined);
+    // Usuários cadastrados pela Administração já nascem ativos
+    if (dados.status !== 1) await aplicarStatus(criado.id, dados.status);
+    if (arquivoImagem) await enviarFotoUsuario(criado.id, arquivoImagem);
+  };
+
+  // Envia só o que mudou; cada campo tem seu endpoint
+  const editarUsuario = async (
+    dados: Usuario,
+    original: Usuario,
+    arquivoImagem: File | null,
+  ) => {
+    const proprio = dados.id === UsuarioAtual.id;
+
+    // Nome e e-mail: a Administração edita qualquer usuário
+    const alteracoes: Record<string, string> = {};
+    if (dados.nome !== original.nome) alteracoes.name = dados.nome;
+    if (dados.email !== original.email) alteracoes.email = dados.email;
+    if (Object.keys(alteracoes).length > 0) {
+      await apiFetch(`/users/${dados.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(alteracoes),
+      });
+      if (proprio) {
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
+      }
+    }
+
+    // Tipo de conta e núcleos antes do status: ativar exige tipo de conta
+    const tipoMudou = dados.tipo !== original.tipo;
+    const nucleosMudaram = !mesmosNucleos(dados.nucleos, original.nucleos);
+    if (tipoMudou || nucleosMudaram) {
+      await apiFetch(`/users/${dados.id}/permissions`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...(tipoMudou && { role: perfilDoTipo(dados.tipo) }),
+          ...(nucleosMudaram && { nucleoIds: dados.nucleos.map((n) => n.id) }),
+        }),
+      });
+    }
+
+    if (dados.status !== original.status) {
+      await aplicarStatus(dados.id, dados.status);
+    }
+
+    // Senha: a Administração redefine a de outro usuário; a própria exige a senha atual
+    if (dados.senha !== SENHA_OCULTA) {
+      if (proprio) {
+        await trocarPropriaSenha(dados.senha);
+      } else {
+        await apiFetch(`/users/${dados.id}/password`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            newPassword: dados.senha,
+            confirmNewPassword: dados.senha,
+          }),
+        });
+      }
+    }
+
+    if (arquivoImagem) await enviarFotoUsuario(dados.id, arquivoImagem);
+  };
+
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem: File | null,
+  ) => {
+    const original = usuarios.find((u) => u.id === dadosUsuario.id);
+
+    try {
+      if (original) {
+        await editarUsuario(dadosUsuario, original, arquivoImagem);
+        setModalEdicao(false);
+      } else {
+        await criarUsuario(dadosUsuario, arquivoImagem);
+        setModalCriacao(false);
+      }
+      setUserSelecionado(undefined);
+    } catch (erro) {
+      alert('Não foi possível salvar o usuário: ' + mensagemDeErro(erro));
+    } finally {
+      await carregarUsuarios();
+    }
   };
 
   const [modalDeletando, setModalDelete] = useState(false);
@@ -300,10 +427,15 @@ export default function TelaUsuarios() {
     setModalDelete(true);
   };
 
-  const deletarUsuario = () => {
+  const deletarUsuario = async () => {
     if (!usuarioSelecionado) return;
-    setUsuarios(usuarios.filter((n) => n.id !== usuarioSelecionado.id));
-    setModalDelete(false);
+    try {
+      await apiFetch(`/users/${usuarioSelecionado.id}`, { method: 'DELETE' });
+      setModalDelete(false);
+      await carregarUsuarios();
+    } catch (erro) {
+      alert('Não foi possível excluir o usuário: ' + mensagemDeErro(erro));
+    }
   };
 
   return (

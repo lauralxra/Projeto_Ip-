@@ -4,13 +4,14 @@ import TelaLogin from './TelaLogin';
 import TelaRecuperarSenha from './TelaRecuperarSenha';
 import TelaRedefinirSenha from './TelaRedefinirSenha';
 //import TelaCadastro from './TelaCadastro';
+import TelaCadastro from './TelaCadastro';
 import TelaDashboard from './TelaDashboard';
 import TelaNucleos from './TelaNucleos';
 import TelaIndicadores from './TelaIndicadores';
 import TelaUsuarios from './TelaUsuarios';
 import TelaProgramas from './TelaProgramas';
 import TelaHistorico from './TelaHistorico';
-import { UsuarioAtual } from './dados/usuarios';
+import RotaProtegida from './routes';
 
 export default function App() {
   return (
@@ -20,7 +21,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
 
         <Route path="/login" element={<TelaLogin />} />
-        {/*<Route path="/cadastro" element={<TelaCadastro />} />*/}
+        <Route path="/cadastro" element={<TelaCadastro />} />
 
         {UsuarioAtual ? '' : <Navigate to="/login" replace />}
 

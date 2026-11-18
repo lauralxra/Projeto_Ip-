@@ -12,9 +12,19 @@ import {
   ParseUUIDPipe,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { isUUID } from 'class-validator';
+import {
+  opcoesUploadImagem,
+  removerUpload,
+  urlDoUpload,
+} from '../common/upload-imagem';
 import { Role } from '@prisma/client';
 import { NucleoService } from './nucleo.service';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
@@ -67,8 +77,19 @@ export class NucleoController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNucleoDto: UpdateNucleoDto) {
-    return this.nucleoService.update(+id, updateNucleoDto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @ApiBearerAuth('JWT-auth')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateNucleoDto: UpdateNucleoDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.update(id, updateNucleoDto, {
+      id: req.user.id,
+      ip,
+    });
   }
 
   @Delete(':id')
@@ -82,6 +103,44 @@ export class NucleoController {
     @Ip() ip: string,
   ) {
     return this.nucleoService.remove(id, { id: req.user.id, ip });
+  }
+
+  // multipart/form-data com o campo "imagem" (JPEG, PNG ou WEBP, até 5 MB)
+  @Patch(':id/imagem')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['imagem'],
+      properties: { imagem: { type: 'string', format: 'binary' } },
+    },
+  })
+  @UseInterceptors(FileInterceptor('imagem', opcoesUploadImagem('nucleos')))
+  atualizarImagem(
+    // O interceptor grava o arquivo antes dos pipes; o id é validado aqui para
+    // poder descartar o arquivo quando for inválido
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Nenhuma imagem enviada.');
+    }
+
+    const imagemUrl = urlDoUpload('nucleos', file.filename);
+    if (!isUUID(id)) {
+      removerUpload(imagemUrl);
+      throw new BadRequestException('Identificador de núcleo inválido.');
+    }
+
+    return this.nucleoService.atualizarImagem(id, imagemUrl, {
+      id: req.user.id,
+      ip,
+    });
   }
 
   @Patch(':id/desativar')

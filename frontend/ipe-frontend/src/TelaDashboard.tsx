@@ -31,6 +31,7 @@ import { UsuarioAtual } from './dados/usuarios';
 import * as XLSX from 'xlsx';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { API_BASE_URL } from './config/api';
 
 interface RegistroDashboard {
   id: string;
@@ -328,7 +329,7 @@ export default function TelaDashboard() {
       }
 
       try {
-        const resposta = await fetch('http://localhost:3000/api/indicadores', {
+        const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -377,14 +378,11 @@ export default function TelaDashboard() {
       try {
         const token = localStorage.getItem('access_token');
 
-        const resposta = await fetch(
-          'http://localhost:3000/api/users/contagem',
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const resposta = await fetch(`${API_BASE_URL}/users/contagem`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         if (!resposta.ok) {
           throw new Error('Erro ao buscar quantidade de usuários');
@@ -405,14 +403,11 @@ export default function TelaDashboard() {
       try {
         const token = localStorage.getItem('access_token');
 
-        const resposta = await fetch(
-          'http://localhost:3000/api/programas/contagem',
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const resposta = await fetch(`${API_BASE_URL}/programas/contagem`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         if (!resposta.ok) {
           throw new Error('Erro ao buscar quantidade de programas');
@@ -433,7 +428,7 @@ export default function TelaDashboard() {
 
     if (!token) return;
 
-    fetch('http://localhost:3000/api/programas/por-nucleo', {
+    fetch(`${API_BASE_URL}/programas/por-nucleo`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
