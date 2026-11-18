@@ -108,6 +108,14 @@ export class NucleoRepository {
     return count > 0;
   }
 
+  async updateImagem(id: string, imagemUrl: string) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null },
+      data: { imagemUrl },
+    });
+    return count > 0;
+  }
+
   // Desativação mantém o núcleo e seus vínculos; não altera deletedAt.
   async deactivate(id: string) {
     const { count } = await this.prisma.nucleo.updateMany({
