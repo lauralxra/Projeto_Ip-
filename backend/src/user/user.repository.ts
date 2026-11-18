@@ -75,4 +75,12 @@ export class UserRepository {
   countAtivos() {
     return this.prisma.user.count({ where: { ativo: true, deletedAt: null } });
   }
+
+  // Exclusão lógica: preserva o histórico e a rastreabilidade (RN07)
+  softDelete(id: string) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date(), ativo: false },
+    });
+  }
 }
