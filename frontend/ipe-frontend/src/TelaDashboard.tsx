@@ -12,6 +12,7 @@ import {
   TrendingDown,
   Search,
   X,
+  Camera,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -160,6 +161,7 @@ export default function TelaDashboard() {
   const [tiposGraficos, setTiposGraficos] = useState<Record<string, string>>(
     {},
   );
+  const [exportando, setExportando] = useState<string | null>(null);
 
   const exportarCSV = () => {
     const linhas = indicadoresFiltrados.flatMap((indicador) =>
@@ -263,37 +265,39 @@ export default function TelaDashboard() {
 
   const exportarPDF = async () => {
     const dashboard = document.getElementById('dashboard-export');
+    const headerEl = document.getElementById('dashboard-pdf-header');
 
-    if (!dashboard) {
-      alert('Não foi possível localizar o dashboard.');
+    if (!dashboard || !headerEl) {
+      alert(
+        'Não foi possível localizar o conteúdo do dashboard para exportação.',
+      );
       return;
     }
+
+    setExportando('pdf');
 
     const alturaOriginal = dashboard.style.height;
     const overflowOriginal = dashboard.style.overflow;
 
     try {
-      // Calcula a altura total, incluindo o conteúdo fora da tela
-      const alturaCompleta = dashboard.scrollHeight;
-
-      // Expande temporariamente o dashboard para capturar tudo
-      dashboard.style.height = `${alturaCompleta}px`;
+      // Garante que o layout esteja completo no fluxo normal para captura
+      dashboard.style.height = 'auto';
       dashboard.style.overflow = 'visible';
 
-      // Aguarda a atualização visual
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
       );
 
-      const imagem = await toPng(dashboard, {
-        pixelRatio: 2,
-        backgroundColor: '#f8fafc',
-        filter: (node) => {
-          return !(
-            node instanceof HTMLElement && node.id === 'menu-exportacao'
-          );
-        },
-      });
+      const filterNoExport = (node: HTMLElement) => {
+        if (
+          node instanceof HTMLElement &&
+          (node.classList.contains('no-export') ||
+            node.id === 'menu-exportacao')
+        ) {
+          return false;
+        }
+        return true;
+      };
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -301,35 +305,143 @@ export default function TelaDashboard() {
         format: 'a4',
       });
 
-      const larguraPagina = pdf.internal.pageSize.getWidth();
-      const alturaPagina = pdf.internal.pageSize.getHeight();
+      const larguraPagina = pdf.internal.pageSize.getWidth(); // 297 mm
+      const alturaPagina = pdf.internal.pageSize.getHeight(); // 210 mm
 
-      const margem = 10;
-      const larguraDisponivel = larguraPagina - margem * 2;
-      const alturaDisponivel = alturaPagina - margem * 2;
+      const margem = 12;
+      const larguraDisponivel = larguraPagina - margem * 2; // 273 mm
+      const espacoRodape = 10;
 
-      const propriedades = pdf.getImageProperties(imagem);
+      let currentY = margem;
 
-      // Mantém a proporção da imagem
-      const proporcao = larguraDisponivel / propriedades.width;
-      const larguraImagem = larguraDisponivel;
-      const alturaImagem = propriedades.height * proporcao;
+      // 1. Captura e renderiza Cabeçalho e Métricas
+      const imagemHeader = await toPng(headerEl, {
+        pixelRatio: 2,
+        backgroundColor: '#f8fafc',
+        filter: filterNoExport,
+      });
 
-      // Calcula quantas páginas serão necessárias
-      const totalPaginas = Math.ceil(alturaImagem / alturaDisponivel);
+      const propsHeader = pdf.getImageProperties(imagemHeader);
+      const alturaHeader =
+        (propsHeader.height * larguraDisponivel) / propsHeader.width;
 
-      for (let pagina = 0; pagina < totalPaginas; pagina++) {
-        if (pagina > 0) {
+      pdf.addImage(
+        imagemHeader,
+        'PNG',
+        margem,
+        currentY,
+        larguraDisponivel,
+        alturaHeader,
+      );
+
+      currentY += alturaHeader + 6;
+
+      // 2. Captura e renderiza Cards de Gráficos evitando cortes em quebras de página
+      const cards = Array.from(
+        document.querySelectorAll<HTMLElement>('.card-grafico-item'),
+      );
+
+      if (cards.length === 1) {
+        const card = cards[0];
+        const img = await toPng(card, {
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          filter: filterNoExport,
+        });
+        const props = pdf.getImageProperties(img);
+        const cardWidth = Math.min(larguraDisponivel, 180);
+        const h = (props.height * cardWidth) / props.width;
+        const xPos = margem + (larguraDisponivel - cardWidth) / 2;
+
+        if (currentY + h > alturaPagina - margem - espacoRodape) {
           pdf.addPage();
+          currentY = margem;
         }
 
-        pdf.addImage(
-          imagem,
-          'PNG',
+        pdf.addImage(img, 'PNG', xPos, currentY, cardWidth, h);
+      } else if (cards.length > 1) {
+        const colGap = 6;
+        const colWidth = (larguraDisponivel - colGap) / 2;
+
+        for (let i = 0; i < cards.length; i += 2) {
+          const card1 = cards[i];
+          const card2 = i + 1 < cards.length ? cards[i + 1] : null;
+
+          const img1 = await toPng(card1, {
+            pixelRatio: 2,
+            backgroundColor: '#ffffff',
+            filter: filterNoExport,
+          });
+          const props1 = pdf.getImageProperties(img1);
+          const h1 = (props1.height * colWidth) / props1.width;
+
+          let img2: string | null = null;
+          let h2 = 0;
+          if (card2) {
+            img2 = await toPng(card2, {
+              pixelRatio: 2,
+              backgroundColor: '#ffffff',
+              filter: filterNoExport,
+            });
+            const props2 = pdf.getImageProperties(img2);
+            h2 = (props2.height * colWidth) / props2.width;
+          }
+
+          const alturaLinha = Math.max(h1, h2);
+
+          // Se a linha não couber no espaço restante da página, move para nova página
+          if (currentY + alturaLinha > alturaPagina - margem - espacoRodape) {
+            pdf.addPage();
+            currentY = margem;
+          }
+
+          pdf.addImage(img1, 'PNG', margem, currentY, colWidth, h1);
+
+          if (card2 && img2) {
+            pdf.addImage(
+              img2,
+              'PNG',
+              margem + colWidth + colGap,
+              currentY,
+              colWidth,
+              h2,
+            );
+          }
+
+          currentY += alturaLinha + colGap;
+        }
+      }
+
+      // 3. Rodapé Institucional e Numeração em todas as páginas
+      const totalPaginas = pdf.getNumberOfPages();
+      for (let p = 1; p <= totalPaginas; p++) {
+        pdf.setPage(p);
+        pdf.setFontSize(8);
+        pdf.setTextColor(148, 163, 184);
+
+        // Linha separadora
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setLineWidth(0.2);
+        pdf.line(
           margem,
-          margem - pagina * alturaDisponivel,
-          larguraImagem,
-          alturaImagem,
+          alturaPagina - margem - 3,
+          larguraPagina - margem,
+          alturaPagina - margem - 3,
+        );
+
+        pdf.text(
+          'Instituto de Pesquisas e Ensino (IPÊ) • Dashboard de Indicadores',
+          margem,
+          alturaPagina - margem + 1,
+        );
+
+        const dataHoje = new Date().toLocaleDateString('pt-BR');
+        const rodapeDireito = `${dataHoje} • Página ${p} de ${totalPaginas}`;
+        const larguraTexto = pdf.getTextWidth(rodapeDireito);
+        pdf.text(
+          rodapeDireito,
+          larguraPagina - margem - larguraTexto,
+          alturaPagina - margem + 1,
         );
       }
 
@@ -338,9 +450,103 @@ export default function TelaDashboard() {
       console.error('Erro ao exportar PDF:', erro);
       alert('Não foi possível gerar o PDF.');
     } finally {
-      // Restaura o dashboard ao tamanho original
       dashboard.style.height = alturaOriginal;
       dashboard.style.overflow = overflowOriginal;
+      setExportando(null);
+    }
+  };
+
+  const exportarDashboardPNG = async () => {
+    const dashboard = document.getElementById('dashboard-export');
+    if (!dashboard) {
+      alert('Não foi possível localizar o dashboard.');
+      return;
+    }
+
+    setExportando('png');
+
+    const alturaOriginal = dashboard.style.height;
+    const overflowOriginal = dashboard.style.overflow;
+
+    try {
+      const alturaCompleta = dashboard.scrollHeight;
+      dashboard.style.height = `${alturaCompleta}px`;
+      dashboard.style.overflow = 'visible';
+
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+
+      const imagem = await toPng(dashboard, {
+        pixelRatio: 2,
+        backgroundColor: '#f8fafc',
+        filter: (node) => {
+          if (
+            node instanceof HTMLElement &&
+            (node.classList.contains('no-export') ||
+              node.id === 'menu-exportacao')
+          ) {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      const link = document.createElement('a');
+      link.download = 'dashboard-ipe.png';
+      link.href = imagem;
+      link.click();
+    } catch (erro) {
+      console.error('Erro ao exportar PNG do painel:', erro);
+      alert('Não foi possível gerar a imagem do dashboard.');
+    } finally {
+      dashboard.style.height = alturaOriginal;
+      dashboard.style.overflow = overflowOriginal;
+      setExportando(null);
+    }
+  };
+
+  const exportarCardPNG = async (cardId: string, titulo: string) => {
+    const card = document.getElementById(cardId);
+    if (!card) {
+      alert('Não foi possível localizar o gráfico para exportação.');
+      return;
+    }
+
+    setExportando(cardId);
+
+    try {
+      const dataUrl = await toPng(card, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        filter: (node) => {
+          if (
+            node instanceof HTMLElement &&
+            (node.classList.contains('no-export') ||
+              node.id === 'menu-exportacao')
+          ) {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      const nomeLimpo = titulo
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      const link = document.createElement('a');
+      link.download = `indicador-${nomeLimpo || 'grafico'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (erro) {
+      console.error('Erro ao exportar imagem PNG:', erro);
+      alert('Não foi possível gerar a imagem PNG do gráfico.');
+    } finally {
+      setExportando(null);
     }
   };
 
@@ -646,187 +852,277 @@ export default function TelaDashboard() {
         id="dashboard-export"
         className="flex-1 px-[30px] w-full h-full overflow-y-auto pt-[60px] pb-[25px]"
       >
-        {/* Cabeçalho do Dashboard */}
-        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
-              Dashboard
-            </h1>
-            <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
-              Acompanhe os resultados dos núcleos, programas e indicadores
-              institucionais
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Barra de Pesquisa Rápida */}
-            <div className="relative min-w-[200px] md:min-w-[240px]">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder="Buscar indicador ou programa..."
-                value={pesquisaTexto}
-                onChange={(e) => setPesquisaTexto(e.target.value)}
-                className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-7 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#832b62] shadow-xs"
-              />
-              {pesquisaTexto && (
-                <button
-                  type="button"
-                  onClick={() => setPesquisaTexto('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                  title="Limpar busca"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            {/* Filtro Núcleos */}
-            <div id="menu-exportacao" className="relative">
-              <select
-                value={nucleoFiltro}
-                onChange={(e) => setNucleoFiltro(e.target.value)}
-                className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
-              >
-                <option>Todos os Núcleos</option>
-                {UsuarioAtual.nucleos.map((n) => (
-                  <option key={n.id} value={n.sigla}>
-                    {n.sigla}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
-              />
-            </div>
-
-            {/* Filtro Programas do Banco de Dados */}
-            <div className="relative">
-              <select
-                value={programaFiltro}
-                onChange={(e) => setProgramaFiltro(e.target.value)}
-                className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none max-w-[220px] truncate"
-              >
-                <option>Todos os Programas</option>
-                {programasDoBanco
-                  .filter((prog) => {
-                    if (nucleoFiltro === 'Todos os Núcleos') return true;
-                    const nucleoSelecionado = UsuarioAtual.nucleos.find(
-                      (n) => n.sigla === nucleoFiltro,
-                    );
-                    return (
-                      !prog.nucleoId || prog.nucleoId === nucleoSelecionado?.id
-                    );
-                  })
-                  .map((p) => (
-                    <option key={p.id} value={p.nome}>
-                      {p.nome}
-                    </option>
-                  ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
-              />
-            </div>
-
-            {/* Filtro Período */}
-            <div className="relative">
-              <select
-                value={periodoFiltro}
-                onChange={(e) => setPeriodoFiltro(e.target.value)}
-                className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
-              >
-                <option>Todos os períodos</option>
-                <option>Ano de 2026</option>
-                <option>Ano de 2025</option>
-                <option>Ano de 2024</option>
-                <option>Últimos 12 meses</option>
-                <option>Últimos 6 meses</option>
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
-              />
-            </div>
-
-            {/* Botão Exportar CSV */}
-            <div className="relative">
-              <button
-                onClick={() => setMenuExportacaoAberto(!menuExportacaoAberto)}
-                className="flex items-center gap-2 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
-              >
-                <Download size={14} />
-                <span>Exportar</span>
-              </button>
-
-              <div
-                className={`absolute right-0 top-full mt-1 ${
-                  menuExportacaoAberto ? 'block' : 'hidden'
-                } bg-white border border-gray-200 rounded-lg shadow-lg min-w-40 z-50`}
-              >
-                <button
-                  onClick={() => {
-                    setMenuExportacaoAberto(false);
-                    exportarCSV();
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
-                >
-                  Exportar CSV
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMenuExportacaoAberto(false);
-                    exportarExcel();
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
-                >
-                  Exportar Excel
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMenuExportacaoAberto(false);
-                    exportarPDF();
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-100"
-                >
-                  Exportar PDF
-                </button>
+        {/* Container do Cabeçalho e Métricas (usado também para exportação em PDF) */}
+        <div id="dashboard-pdf-header">
+          {/* Cabeçalho do Dashboard */}
+          <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+                Dashboard
+              </h1>
+              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
+                Acompanhe os resultados dos núcleos, programas e indicadores
+                institucionais
+              </p>
+              {/* Badges dos filtros ativos (úteis para PDF e visualização rápida) */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                  Núcleo: {nucleoFiltro}
+                </span>
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                  Programa: {programaFiltro}
+                </span>
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                  Período: {periodoFiltro}
+                </span>
               </div>
             </div>
+
+            <div className="flex flex-wrap items-center gap-3 no-export">
+              {/* Barra de Pesquisa Rápida */}
+              <div className="relative min-w-[200px] md:min-w-[240px]">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar indicador ou programa..."
+                  value={pesquisaTexto}
+                  onChange={(e) => setPesquisaTexto(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-7 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#832b62] shadow-xs"
+                />
+                {pesquisaTexto && (
+                  <button
+                    type="button"
+                    onClick={() => setPesquisaTexto('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    title="Limpar busca"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Filtro Núcleos */}
+              <div className="relative">
+                <select
+                  value={nucleoFiltro}
+                  onChange={(e) => setNucleoFiltro(e.target.value)}
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
+                >
+                  <option>Todos os Núcleos</option>
+                  {UsuarioAtual.nucleos.map((n) => (
+                    <option key={n.id} value={n.sigla}>
+                      {n.sigla}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                />
+              </div>
+
+              {/* Filtro Programas do Banco de Dados */}
+              <div className="relative">
+                <select
+                  value={programaFiltro}
+                  onChange={(e) => setProgramaFiltro(e.target.value)}
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none max-w-[220px] truncate"
+                >
+                  <option>Todos os Programas</option>
+                  {programasDoBanco
+                    .filter((prog) => {
+                      if (nucleoFiltro === 'Todos os Núcleos') return true;
+                      const nucleoSelecionado = UsuarioAtual.nucleos.find(
+                        (n) => n.sigla === nucleoFiltro,
+                      );
+                      return (
+                        !prog.nucleoId ||
+                        prog.nucleoId === nucleoSelecionado?.id
+                      );
+                    })
+                    .map((p) => (
+                      <option key={p.id} value={p.nome}>
+                        {p.nome}
+                      </option>
+                    ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                />
+              </div>
+
+              {/* Filtro Período */}
+              <div className="relative">
+                <select
+                  value={periodoFiltro}
+                  onChange={(e) => setPeriodoFiltro(e.target.value)}
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
+                >
+                  <option>Todos os períodos</option>
+                  <option>Ano de 2026</option>
+                  <option>Ano de 2025</option>
+                  <option>Ano de 2024</option>
+                  <option>Últimos 12 meses</option>
+                  <option>Últimos 6 meses</option>
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                />
+              </div>
+
+              {/* Botão Exportar com Opções */}
+              <div id="menu-exportacao" className="relative">
+                <button
+                  type="button"
+                  disabled={exportando !== null}
+                  onClick={() => setMenuExportacaoAberto(!menuExportacaoAberto)}
+                  className="flex items-center gap-2 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <Download size={14} />
+                  <span>
+                    {exportando === 'pdf'
+                      ? 'Gerando PDF...'
+                      : exportando === 'png'
+                        ? 'Gerando PNG...'
+                        : 'Exportar'}
+                  </span>
+                </button>
+
+                <div
+                  className={`absolute right-0 top-full mt-1 ${
+                    menuExportacaoAberto ? 'block' : 'hidden'
+                  } bg-white border border-gray-200 rounded-lg shadow-lg min-w-52 z-50 py-1`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuExportacaoAberto(false);
+                      exportarCSV();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-slate-700"
+                  >
+                    <Download size={13} className="text-slate-400" />
+                    <span>Exportar CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuExportacaoAberto(false);
+                      exportarExcel();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-slate-700"
+                  >
+                    <Download size={13} className="text-slate-400" />
+                    <span>Exportar Excel</span>
+                  </button>
+
+                  <div className="border-t border-slate-100 my-1" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuExportacaoAberto(false);
+                      exportarPDF();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-slate-700"
+                  >
+                    <Download size={13} className="text-[#832b62]" />
+                    <div>
+                      <span className="font-medium text-slate-800">
+                        Exportar PDF
+                      </span>
+                      <span className="block text-[10px] text-slate-400">
+                        Relatório paginado sem cortes
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuExportacaoAberto(false);
+                      exportarDashboardPNG();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-slate-700"
+                  >
+                    <Camera size={13} className="text-[#832b62]" />
+                    <div>
+                      <span className="font-medium text-slate-800">
+                        Exportar Imagem (PNG)
+                      </span>
+                      <span className="block text-[10px] text-slate-400">
+                        Painel completo em alta resolução
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Grade de Cards Métricas */}
+          <div className="content-stretch flex w-full gap-8 mb-6 h-30">
+            <CardMetrica
+              TipoMetrica="usuario"
+              valAtual={totalUsuarios}
+              valVariacao={0}
+              corBg="bg-[#fcf2f7]"
+            />
+
+            <CardMetrica
+              TipoMetrica="programas"
+              valAtual={totalProgramas}
+              valVariacao={0}
+              corBg="bg-[#f0f4f9]"
+            />
+
+            <CardMetrica
+              TipoMetrica="indicadores"
+              valAtual={indicadoresFiltrados.length}
+              valVariacao={0}
+              corBg="bg-[#fcf2f7]"
+            />
           </div>
-        </header>
 
-        {/* Grade de Cards Métricas */}
-        <div className="content-stretch flex w-full gap-8 mb-8 h-30">
-          <CardMetrica
-            TipoMetrica="usuario"
-            valAtual={totalUsuarios}
-            valVariacao={0}
-            corBg="bg-[#fcf2f7]"
-          />
-
-          {/*<CardMetrica TipoMetrica='nucleos' valAtual={NucleosCadastrados.length} valVariacao={varUsers} corBg="bg-[#f0f4f9]"/>*/}
-
-          <CardMetrica
-            TipoMetrica="programas"
-            valAtual={totalProgramas}
-            valVariacao={0}
-            corBg="bg-[#f0f4f9]"
-          />
-
-          <CardMetrica
-            TipoMetrica="indicadores"
-            valAtual={indicadoresFiltrados.length}
-            valVariacao={0}
-            corBg="bg-[#fcf2f7]"
-          />
+          {/* Banner de filtro focado em indicador único vindo da Tela de Indicadores */}
+          {indicadorIdParam && (
+            <div className="bg-[#fcf2f7] border border-[#f5e1ed] rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#832b62] text-white rounded-xl shadow-xs">
+                  <BarChart3 size={20} />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+                    Visualização focada no indicador
+                  </p>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {indicadoresFiltrados[0]?.nome ||
+                      nomeParam ||
+                      'Indicador selecionado'}
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.delete('indicadorId');
+                  params.delete('nome');
+                  setSearchParams(params);
+                }}
+                className="no-export flex items-center gap-1.5 text-xs bg-[#832b62] hover:bg-[#6e2352] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+              >
+                <span>Ver todos os indicadores</span>
+                <X size={14} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Seção de Gráficos */}
@@ -875,40 +1171,6 @@ export default function TelaDashboard() {
             </div>
           )}
 
-        {/* Banner de filtro focado em indicador único vindo da Tela de Indicadores */}
-        {indicadorIdParam && (
-          <div className="bg-[#fcf2f7] border border-[#f5e1ed] rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#832b62] text-white rounded-xl shadow-xs">
-                <BarChart3 size={20} />
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-                  Visualização focada no indicador
-                </p>
-                <h2 className="text-base font-bold text-slate-900">
-                  {indicadoresFiltrados[0]?.nome ||
-                    nomeParam ||
-                    'Indicador selecionado'}
-                </h2>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const params = new URLSearchParams(searchParams);
-                params.delete('indicadorId');
-                params.delete('nome');
-                setSearchParams(params);
-              }}
-              className="flex items-center gap-1.5 text-xs bg-[#832b62] hover:bg-[#6e2352] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
-            >
-              <span>Ver todos os indicadores</span>
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
         <div
           className={`grid gap-6 ${
             indicadorIdParam && indicadoresFiltrados.length === 1
@@ -944,11 +1206,33 @@ export default function TelaDashboard() {
             return (
               <div
                 key={indicador.id}
-                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
+                id={`card-grafico-${indicador.id}`}
+                className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
               >
-                <h3 className="text-base font-bold text-slate-800 mb-1">
-                  {indicador.nome}
-                </h3>
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <h3 className="text-base font-bold text-slate-800">
+                    {indicador.nome}
+                  </h3>
+                  <button
+                    type="button"
+                    disabled={exportando === `card-grafico-${indicador.id}`}
+                    onClick={() =>
+                      exportarCardPNG(
+                        `card-grafico-${indicador.id}`,
+                        indicador.nome,
+                      )
+                    }
+                    className="no-export flex items-center gap-1.5 text-xs text-[#832b62] hover:text-white bg-[#fcf2f7] hover:bg-[#832b62] border border-[#f5e1ed] hover:border-[#832b62] px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                    title="Baixar imagem deste gráfico em PNG (com informações do indicador)"
+                  >
+                    <Camera size={13} />
+                    <span className="font-medium">
+                      {exportando === `card-grafico-${indicador.id}`
+                        ? 'Salvando...'
+                        : 'Salvar PNG'}
+                    </span>
+                  </button>
+                </div>
                 <div className="mb-2 text-[11px] text-slate-500 space-y-0.5">
                   <div>
                     <span className="font-semibold text-slate-600">
@@ -1008,7 +1292,7 @@ export default function TelaDashboard() {
                     )}
                 </div>
 
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 no-export">
                   <span className="text-xs text-slate-500">
                     Tipo de visualização
                   </span>
@@ -1140,16 +1424,40 @@ export default function TelaDashboard() {
             );
           })}
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-base font-bold text-slate-800">
-                Programas em Execução por Núcleo
-              </h3>
+          <div
+            id="card-grafico-programas"
+            className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
+          >
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  Programas em Execução por Núcleo
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Quantidade de programas ativos por núcleo
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={exportando === 'card-grafico-programas'}
+                onClick={() =>
+                  exportarCardPNG(
+                    'card-grafico-programas',
+                    'programas_por_nucleo',
+                  )
+                }
+                className="no-export flex items-center gap-1.5 text-xs text-[#832b62] hover:text-white bg-[#fcf2f7] hover:bg-[#832b62] border border-[#f5e1ed] hover:border-[#832b62] px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                title="Baixar imagem deste gráfico em PNG"
+              >
+                <Camera size={13} />
+                <span className="font-medium">
+                  {exportando === 'card-grafico-programas'
+                    ? 'Salvando...'
+                    : 'Salvar PNG'}
+                </span>
+              </button>
             </div>
-
-            <p className="text-xs text-slate-400 mb-6">
-              Quantidade de programas ativos por núcleo
-            </p>
+            <div className="mb-4" />
 
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
