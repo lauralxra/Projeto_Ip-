@@ -124,9 +124,64 @@ describe('AuthService', () => {
 
     it('recusa e-mail inexistente com a mesma mensagem da senha errada', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
+      const erroEmailInexistente = await service
+        .login(dto, meta)
+        .catch((e: unknown) => e);
+
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
+        senhaHash,
+        ativo: true,
+        perfil: 'EQUIPE_GESTAO',
+        tentativas: 0,
+      });
+      const erroSenhaErrada = await service
+        .login({ ...dto, password: 'errada123' }, meta)
+        .catch((e: unknown) => e);
+
+      expect(erroEmailInexistente).toBeInstanceOf(UnauthorizedException);
+      expect(erroSenhaErrada).toBeInstanceOf(UnauthorizedException);
+      expect((erroSenhaErrada as Error).message).toBe(
+        (erroEmailInexistente as Error).message,
+      );
+    });
+
+    it('bloqueia a conta na 5ª tentativa errada sem mudar a resposta', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
+        senhaHash,
+        ativo: true,
+        perfil: 'EQUIPE_GESTAO',
+        tentativas: 4,
+      });
+
+      await expect(
+        service.login({ ...dto, password: 'errada123' }, meta),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'uuid' },
+        data: expect.objectContaining({
+          tentativas: 0,
+          bloqueioAte: expect.any(Date),
+        }),
+      });
+    });
+
+    it('conta bloqueada recusa até a senha correta com a mesma resposta genérica', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'uuid',
+        senhaHash,
+        ativo: true,
+        perfil: 'EQUIPE_GESTAO',
+        tentativas: 0,
+        bloqueioAte: new Date(Date.now() + 60_000),
+      });
+
       await expect(service.login(dto, meta)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('recusa conta ainda não liberada com 403, mesmo com senha correta', async () => {
