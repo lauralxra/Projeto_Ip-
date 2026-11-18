@@ -87,8 +87,9 @@ export class RegistroController {
     return this.registroService.enviarParaRevisao(id, req.user, ip);
   }
 
+  // Aprovar e devolver são da Administração; a Gestão só consulta valores homologados
   @Patch(':id/devolver')
-  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  @Roles(Role.ADMINISTRADOR)
   devolver(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dados: DevolverRegistroDto,
@@ -102,7 +103,7 @@ export class RegistroController {
   }
 
   @Patch(':id/aprovar')
-  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  @Roles(Role.ADMINISTRADOR)
   aprovar(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
