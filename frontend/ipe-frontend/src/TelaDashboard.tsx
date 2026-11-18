@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Users,
   TrendingDown,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -134,7 +136,12 @@ function CardMetrica({
 }
 
 export default function TelaDashboard() {
+  const [pesquisaTexto, setPesquisaTexto] = useState('');
   const [nucleoFiltro, setNucleoFiltro] = useState('Todos os Núcleos');
+  const [programaFiltro, setProgramaFiltro] = useState('Todos os Programas');
+  const [programasDoBanco, setProgramasDoBanco] = useState<
+    { id: string; nome: string; nucleoId?: string | null }[]
+  >([]);
   const [periodoFiltro, setPeriodoFiltro] = useState('Todos os períodos');
   const [totalUsuarios, setTotalUsuarios] = useState(0);
   const [indicadores, setIndicadores] = useState<IndicadorDashboard[]>([]);
@@ -526,12 +533,52 @@ export default function TelaDashboard() {
       .catch((erro) => console.error(erro));
   }, []);
 
-  // Os indicadores já vêm consolidados e únicos da API agregada do Dashboard
-  const indicadoresFiltrados = indicadores.filter(
-    (indicador) =>
+  useEffect(() => {
+    const carregarProgramas = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/programas?limite=100`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const dados = await res.json();
+          const itens = Array.isArray(dados) ? dados : (dados.itens ?? []);
+          setProgramasDoBanco(itens);
+        }
+      } catch (erro) {
+        console.error(
+          'Erro ao carregar programas para filtro do dashboard:',
+          erro,
+        );
+      }
+    };
+    carregarProgramas();
+  }, []);
+
+  // Filtros combinados: Núcleo, Programa do banco e Barra de Pesquisa
+  const indicadoresFiltrados = indicadores.filter((indicador) => {
+    const matchNucleo =
       nucleoFiltro === 'Todos os Núcleos' ||
-      indicador.nucleo?.sigla === nucleoFiltro,
-  );
+      indicador.nucleo?.sigla === nucleoFiltro;
+
+    const matchPrograma =
+      programaFiltro === 'Todos os Programas' ||
+      indicador.programa?.nome === programaFiltro ||
+      indicador.programa?.id === programaFiltro;
+
+    const termo = pesquisaTexto.trim().toLowerCase();
+    const matchPesquisa =
+      !termo ||
+      indicador.nome.toLowerCase().includes(termo) ||
+      (indicador.programa?.nome &&
+        indicador.programa.nome.toLowerCase().includes(termo)) ||
+      (indicador.nucleo?.sigla &&
+        indicador.nucleo.sigla.toLowerCase().includes(termo)) ||
+      (indicador.codigo && indicador.codigo.toLowerCase().includes(termo));
+
+    return matchNucleo && matchPrograma && matchPesquisa;
+  });
 
   const agora = new Date();
   const indiceTrimestreAtual =
@@ -603,6 +650,31 @@ export default function TelaDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Barra de Pesquisa Rápida */}
+            <div className="relative min-w-[200px] md:min-w-[240px]">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Buscar indicador ou programa..."
+                value={pesquisaTexto}
+                onChange={(e) => setPesquisaTexto(e.target.value)}
+                className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-7 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#832b62] shadow-xs"
+              />
+              {pesquisaTexto && (
+                <button
+                  type="button"
+                  onClick={() => setPesquisaTexto('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  title="Limpar busca"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
             {/* Filtro Núcleos */}
             <div id="menu-exportacao" className="relative">
               <select
@@ -616,6 +688,36 @@ export default function TelaDashboard() {
                     {n.sigla}
                   </option>
                 ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+              />
+            </div>
+
+            {/* Filtro Programas do Banco de Dados */}
+            <div className="relative">
+              <select
+                value={programaFiltro}
+                onChange={(e) => setProgramaFiltro(e.target.value)}
+                className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none max-w-[220px] truncate"
+              >
+                <option>Todos os Programas</option>
+                {programasDoBanco
+                  .filter((prog) => {
+                    if (nucleoFiltro === 'Todos os Núcleos') return true;
+                    const nucleoSelecionado = UsuarioAtual.nucleos.find(
+                      (n) => n.sigla === nucleoFiltro,
+                    );
+                    return (
+                      !prog.nucleoId || prog.nucleoId === nucleoSelecionado?.id
+                    );
+                  })
+                  .map((p) => (
+                    <option key={p.id} value={p.nome}>
+                      {p.nome}
+                    </option>
+                  ))}
               </select>
               <ChevronDown
                 size={14}
@@ -728,6 +830,34 @@ export default function TelaDashboard() {
             {erroIndicadores}
           </p>
         )}
+
+        {!carregando &&
+          !erroIndicadores &&
+          indicadoresFiltrados.length === 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center my-6 shadow-xs">
+              <p className="text-slate-700 font-semibold text-sm mb-1">
+                Nenhum indicador encontrado para os filtros selecionados.
+              </p>
+              <p className="text-slate-400 text-xs mb-4">
+                Tente buscar por outro termo, núcleo, programa ou período.
+              </p>
+              {(pesquisaTexto ||
+                nucleoFiltro !== 'Todos os Núcleos' ||
+                programaFiltro !== 'Todos os Programas') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPesquisaTexto('');
+                    setNucleoFiltro('Todos os Núcleos');
+                    setProgramaFiltro('Todos os Programas');
+                  }}
+                  className="text-xs bg-[#832b62] text-white font-medium px-4 py-2 rounded-lg hover:bg-[#6e2352] transition-colors cursor-pointer"
+                >
+                  Limpar filtros de busca
+                </button>
+              )}
+            </div>
+          )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {indicadoresFiltrados.map((indicador) => {
             {
