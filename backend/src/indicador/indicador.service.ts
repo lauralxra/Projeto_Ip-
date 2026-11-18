@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,7 +7,6 @@ import {
 import {
   AcaoAuditoria,
   EscopoIndicador,
-  Prisma,
   Role,
   StatusAprovacao,
   StatusRegistro,
@@ -20,33 +18,15 @@ import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
 import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
+import {
+  alterarValorRegistro,
+  STATUS_VISIVEIS_COMUNICACAO,
+} from '../registro/regras-registro';
 
 export interface UsuarioAutenticado {
   id: string;
   role: Role;
 }
-
-// RN01: só dado homologado chega à Comunicação
-const STATUS_VISIVEIS_COMUNICACAO: StatusAprovacao[] = [
-  StatusAprovacao.APROVADO,
-  StatusAprovacao.PUBLICADO,
-];
-
-// RN02: o núcleo só edita enquanto o dado não foi enviado para revisão
-const STATUS_EDITAVEIS_NUCLEO: StatusAprovacao[] = [
-  StatusAprovacao.PENDENTE,
-  StatusAprovacao.EM_PREENCHIMENTO,
-  StatusAprovacao.NECESSITA_CORRECAO,
-];
-
-// RN04: mudar um valor já homologado devolve o dado para revisão
-const STATUS_HOMOLOGADOS: StatusAprovacao[] = [
-  StatusAprovacao.APROVADO,
-  StatusAprovacao.PUBLICADO,
-];
-
-const valorParaAuditoria = (valor: Prisma.Decimal | null | undefined) =>
-  valor === null || valor === undefined ? null : valor.toString();
 
 @Injectable()
 export class IndicadorService {
@@ -414,62 +394,19 @@ export class IndicadorService {
       return criado;
     }
 
-    if (
-      !ehAdministrador &&
-      !STATUS_EDITAVEIS_NUCLEO.includes(existente.statusAprovacao)
-    ) {
-      throw new ConflictException(
-        'Este valor já foi enviado para revisão e não pode mais ser alterado pelo núcleo.',
-      );
-    }
-
-    const eraHomologado = STATUS_HOMOLOGADOS.includes(
-      existente.statusAprovacao,
+    // Mesma regra de PATCH /registros/:id: valor inativo, fluxo de aprovação
+    // (RN02/RN04) e proteção contra alterações concorrentes
+    await alterarValorRegistro(
+      this.prisma,
+      this.audit,
+      existente,
+      dados.valorRealizado,
+      usuario,
+      ip,
     );
 
-    let novoStatus: StatusAprovacao;
-    if (eraHomologado) {
-      novoStatus = StatusAprovacao.ENVIADO_REVISAO;
-    } else if (existente.statusAprovacao === StatusAprovacao.ENVIADO_REVISAO) {
-      novoStatus = StatusAprovacao.ENVIADO_REVISAO;
-    } else {
-      novoStatus = StatusAprovacao.EM_PREENCHIMENTO;
-    }
-
-    const atualizado = await this.prisma.indicadorRegistro.update({
+    return this.prisma.indicadorRegistro.findUniqueOrThrow({
       where: { id: existente.id },
-      data: {
-        valorRealizado: dados.valorRealizado,
-        responsavelId: usuario.id,
-        statusAprovacao: novoStatus,
-        // Um valor homologado que mudou perde a aprovação e a publicação anteriores
-        ...(eraHomologado
-          ? {
-              aprovadorId: null,
-              revisadoEm: null,
-              publicadoPorId: null,
-              publicadoEm: null,
-            }
-          : {}),
-      },
     });
-
-    await this.audit.registrarAcao({
-      userId: usuario.id,
-      acao: AcaoAuditoria.ATUALIZAR,
-      entidade: 'IndicadorRegistro',
-      entidadeId: existente.id,
-      dadosAntigos: {
-        valorRealizado: valorParaAuditoria(existente.valorRealizado),
-        statusAprovacao: existente.statusAprovacao,
-      },
-      dadosNovos: {
-        valorRealizado: dados.valorRealizado,
-        statusAprovacao: novoStatus,
-      },
-      ip,
-    });
-
-    return atualizado;
   }
 }

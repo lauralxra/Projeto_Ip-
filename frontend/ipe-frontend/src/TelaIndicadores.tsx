@@ -11,6 +11,8 @@ import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
 import { API_BASE_URL } from './config/api';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { buscarTodasMetas, metaDoPeriodo, type MetaApi } from './api/metas';
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -386,8 +388,23 @@ export default function TelaIndicadores() {
 
       const dados = await resposta.json();
 
+      // As metas ficam em GET /metas; uma falha nelas não impede a listagem
+      let metas: MetaApi[] = [];
+      try {
+        metas = await buscarTodasMetas();
+      } catch (erroMetas) {
+        console.error('Erro ao carregar metas:', erroMetas);
+      }
+
       const indicadoresReais: Indicador[] = dados.map((item: any) => {
         const registro = item.registros?.[0];
+        // Meta do período exibido no card; sem valor lançado, a anual do ano corrente
+        const meta = metaDoPeriodo(
+          metas,
+          item.id,
+          registro?.ano ?? new Date().getFullYear(),
+          registro?.trimestre,
+        );
 
         const unidade = item.unidadeMedida ?? 'Unidade';
 
@@ -408,10 +425,8 @@ export default function TelaIndicadores() {
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
-          meta:
-            registro?.metaAplicada != null
-              ? String(registro.metaAplicada)
-              : undefined,
+          meta: meta ? String(meta.valorMeta) : undefined,
+          metaId: meta?.id,
           valAtual:
             registro?.valorRealizado != null
               ? String(registro.valorRealizado)
@@ -886,6 +901,42 @@ export default function TelaIndicadores() {
     setEditAberto(true);
   };
 
+  // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
+  // exibido no card. Devolve o id da meta resultante.
+  const salvarMeta = async (indicador: Indicador, texto: string) => {
+    if (texto === '') {
+      if (indicador.metaId) {
+        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+      }
+      return undefined;
+    }
+
+    const valorMeta = Number(texto.replace(',', '.'));
+    if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
+      throw new Error('Informe uma meta maior que zero.');
+    }
+
+    if (indicador.metaId) {
+      await apiFetch(`/metas/${indicador.metaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ valorMeta }),
+      });
+      return indicador.metaId;
+    }
+
+    // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const criada = await apiFetch<{ id: string }>('/metas', {
+      method: 'POST',
+      body: JSON.stringify({
+        indicadorId: indicador.id,
+        ano: indicador.ano ?? new Date().getFullYear(),
+        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        valorMeta,
+      }),
+    });
+    return criada.id;
+  };
+
   const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
@@ -896,7 +947,14 @@ export default function TelaIndicadores() {
       return;
     }
 
+    const textoMeta = formMeta.trim();
+    const metaMudou = textoMeta !== (indicSelecionado.meta ?? '');
+
     try {
+      if (metaMudou) {
+        await salvarMeta(indicSelecionado, textoMeta);
+      }
+
       const resposta = await fetch(
         `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
         {
@@ -927,9 +985,7 @@ export default function TelaIndicadores() {
       alert('Indicador atualizado com sucesso!');
     } catch (erro) {
       console.error('Erro ao atualizar indicador:', erro);
-      alert(
-        erro instanceof Error ? erro.message : 'Erro ao atualizar indicador.',
-      );
+      alert('Erro ao atualizar indicador: ' + mensagemDeErro(erro));
     }
   };
 

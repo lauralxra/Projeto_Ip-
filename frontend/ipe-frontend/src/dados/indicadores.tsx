@@ -8,6 +8,8 @@ export interface Indicador {
   unidade: string;
   simbolUni?: string;
   meta?: string;
+  // Meta cadastrada na API para o período exibido (para editar ou excluir)
+  metaId?: string;
   valAtual: string;
   ano?: number;
   trimestre?: string;

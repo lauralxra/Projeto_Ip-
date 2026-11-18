@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -50,9 +51,15 @@ export class CreateMetaDto {
   @Max(9999999999999.99, { message: 'Valor da meta inválido.' })
   valorMeta!: number;
 
-  @ApiPropertyOptional({ example: 'Meta pactuada no planejamento anual' })
+  @ApiPropertyOptional({
+    example: 'Meta pactuada no planejamento anual',
+    maxLength: 500,
+  })
   @Transform(vazioParaIndefinido)
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'A descrição deve ser um texto.' })
+  @MaxLength(500, {
+    message: 'A descrição deve ter no máximo 500 caracteres.',
+  })
   descricao?: string;
 }

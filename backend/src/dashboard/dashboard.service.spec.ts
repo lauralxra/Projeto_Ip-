@@ -3,6 +3,7 @@ import {
   Prisma,
   Role,
   StatusAprovacao,
+  StatusRegistro,
   TipoDadoIndicador,
   TrimestreEnum,
 } from '@prisma/client';
@@ -64,7 +65,7 @@ describe('DashboardService', () => {
 
       expect(filtroUsado()).toEqual({
         where: { deletedAt: null },
-        registros: { deletedAt: null, ano: 2026 },
+        registros: { deletedAt: null, status: StatusRegistro.ATIVO, ano: 2026 },
         ano: 2026,
         trimestreMeta: null,
       });
@@ -77,6 +78,7 @@ describe('DashboardService', () => {
 
         const registros = {
           deletedAt: null,
+          status: StatusRegistro.ATIVO,
           ano: 2026,
           statusAprovacao: {
             in: [StatusAprovacao.APROVADO, StatusAprovacao.PUBLICADO],
@@ -98,7 +100,7 @@ describe('DashboardService', () => {
           deletedAt: null,
           nucleo: { users: { some: { userId: 'user-uuid' } } },
         },
-        registros: { deletedAt: null, ano: 2026 },
+        registros: { deletedAt: null, status: StatusRegistro.ATIVO, ano: 2026 },
       });
       expect(filtroUsado().where.registros).toBeUndefined();
     });
@@ -162,6 +164,7 @@ describe('DashboardService', () => {
         },
         registros: {
           deletedAt: null,
+          status: StatusRegistro.ATIVO,
           ano: 2026,
           trimestre: TrimestreEnum.Q3,
           statusAprovacao: { in: [StatusAprovacao.APROVADO] },

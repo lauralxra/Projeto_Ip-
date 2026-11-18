@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -18,18 +19,23 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { RegistroService } from './registro.service';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
+import { FilterRegistroDto } from './dto/filter-registro.dto';
 import { DevolverRegistroDto } from './dto/devolver-registro.dto';
 
+// Valores trimestrais dos indicadores. A criação acontece em POST /indicadores/:id/registros.
 @ApiTags('registros')
 @ApiBearerAuth('JWT-auth')
-@Controller('registro')
+@Controller('registros')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RegistroController {
   constructor(private readonly registroService: RegistroService) {}
 
   @Get()
-  findAll(@Req() req: AuthenticatedRequest) {
-    return this.registroService.findAll(req.user);
+  findAll(
+    @Query() filtros: FilterRegistroDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.registroService.findAll(filtros, req.user);
   }
 
   @Get(':id')
@@ -61,6 +67,16 @@ export class RegistroController {
     return this.registroService.inativar(id, { id: req.user.id, ip });
   }
 
+  @Patch(':id/reativar')
+  @Roles(Role.ADMINISTRADOR)
+  reativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.registroService.reativar(id, { id: req.user.id, ip });
+  }
+
   @Patch(':id/enviar-revisao')
   @Roles(Role.ADMINISTRADOR, Role.DIRETORES_NUCLEOS)
   enviarParaRevisao(
@@ -71,8 +87,9 @@ export class RegistroController {
     return this.registroService.enviarParaRevisao(id, req.user, ip);
   }
 
+  // Aprovar e devolver são da Administração; a Gestão só consulta valores homologados
   @Patch(':id/devolver')
-  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  @Roles(Role.ADMINISTRADOR)
   devolver(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dados: DevolverRegistroDto,
@@ -86,7 +103,7 @@ export class RegistroController {
   }
 
   @Patch(':id/aprovar')
-  @Roles(Role.ADMINISTRADOR, Role.EQUIPE_GESTAO)
+  @Roles(Role.ADMINISTRADOR)
   aprovar(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
