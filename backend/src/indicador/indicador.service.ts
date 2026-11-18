@@ -131,6 +131,32 @@ export class IndicadorService {
       }
     }
 
+    const nomeTrimmed = dados.nome.trim();
+
+    // Se já existe um indicador ativo com o mesmo nome e escopo/núcleo, reaproveita
+    // para não criar indicadores duplicados e desconexos no banco de dados
+    const indicadorExistente = await this.prisma.indicador.findFirst({
+      where: {
+        nome: { equals: nomeTrimmed, mode: 'insensitive' },
+        deletedAt: null,
+        status: StatusRegistro.ATIVO,
+        ...(dados.nucleoId ? { nucleoId: dados.nucleoId } : { nucleoId: null }),
+        ...(dados.programaId ? { programaId: dados.programaId } : {}),
+      },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+        registros: {
+          where: { deletedAt: null, status: StatusRegistro.ATIVO },
+          orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
+        },
+      },
+    });
+
+    if (indicadorExistente) {
+      return indicadorExistente;
+    }
+
     const indicador = await this.prisma.indicador.create({
       data: {
         nome: dados.nome,

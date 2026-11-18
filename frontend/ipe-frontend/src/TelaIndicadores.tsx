@@ -4,7 +4,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, History } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -179,12 +179,14 @@ function Lista({
   setIndicVal,
   delIndic,
   aprovIndic,
+  abrirHistorico,
 }: {
   leList: Indicador[];
   editIndic: (arg0: Indicador) => void;
   setIndicVal: (indic: Indicador) => void;
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
+  abrirHistorico: (indic: Indicador) => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-start gap-[12px] w-full">
@@ -204,7 +206,23 @@ function Lista({
           >
             <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.nome}</p>
+                <p className="font-semibold">{indicador.nome}</p>
+                {indicador.registros && indicador.registros.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => abrirHistorico(indicador)}
+                    className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit mt-1 transition-colors"
+                    title="Ver todas as medições trimestrais cadastradas"
+                  >
+                    <History className="size-3" />
+                    <span>
+                      {indicador.registros.length}{' '}
+                      {indicador.registros.length === 1
+                        ? 'período'
+                        : 'períodos'}
+                    </span>
+                  </button>
+                )}
               </div>
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
                 <p>{indicador.ano ?? '-'}</p>
@@ -301,6 +319,15 @@ function Lista({
                 ) : (
                   ''
                 )}
+
+                <button
+                  type="button"
+                  title="Histórico de Medições (ver e adicionar novos anos/trimestres)"
+                  onClick={() => abrirHistorico(indicador)}
+                  className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
+                >
+                  <History className="size-full" />
+                </button>
 
                 <a
                   title="Ver nos Dashboards"
@@ -437,6 +464,17 @@ export default function TelaIndicadores() {
           programa: item.programa ?? undefined,
           status: item.status,
           aprovado: registro?.statusAprovacao === 'APROVADO',
+          registros: (item.registros ?? []).map((r: any) => ({
+            id: r.id,
+            ano: r.ano,
+            trimestre: r.trimestre,
+            valorRealizado:
+              r.valorRealizado != null ? String(r.valorRealizado) : null,
+            metaAplicada:
+              r.metaAplicada != null ? String(r.metaAplicada) : null,
+            statusAprovacao: r.statusAprovacao,
+            status: r.status,
+          })),
         };
       });
 
@@ -656,21 +694,6 @@ export default function TelaIndicadores() {
   const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
 
-  function getUnitSimb() {
-    switch (formUnidade) {
-      case 'Porcentagem':
-        return '%';
-      case 'Toneladas':
-        return 't';
-      case 'Quilos':
-        return 'Kg';
-      case 'Reais':
-        return '$';
-      default:
-        return '';
-    }
-  }
-
   // Janelas popup
 
   const [modalNovoAberto, setModalNovoAberto] = useState(false);
@@ -745,21 +768,34 @@ export default function TelaIndicadores() {
     const trimestreInicial = formTrimestre;
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dadosIndicador),
-      });
+      // 1. Verifica se já existe um indicador com este mesmo nome no núcleo ou escopo institucional
+      const indicadorExistente = indicadores.find(
+        (ind) =>
+          ind.nome.trim().toLowerCase() === nome.toLowerCase() &&
+          (formNucleoId ? ind.nucleo?.id === formNucleoId : !ind.nucleo),
+      );
 
-      const resultado = await resposta.json();
+      let idIndicador = indicadorExistente?.id;
 
-      if (!resposta.ok) {
-        throw new Error(
-          resultado.message || 'Não foi possível cadastrar o indicador.',
-        );
+      if (!idIndicador) {
+        const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(dadosIndicador),
+        });
+
+        const resultado = await resposta.json();
+
+        if (!resposta.ok) {
+          throw new Error(
+            resultado.message || 'Não foi possível cadastrar o indicador.',
+          );
+        }
+
+        idIndicador = resultado.id;
       }
 
       const valorParaSalvar = Number.isFinite(valorInicial) ? valorInicial : 0;
@@ -770,7 +806,7 @@ export default function TelaIndicadores() {
         anoInicial >= 2000 &&
         anoInicial <= 2100
       ) {
-        await fetch(`${API_BASE_URL}/indicadores/${resultado.id}/registros`, {
+        await fetch(`${API_BASE_URL}/indicadores/${idIndicador}/registros`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -784,36 +820,8 @@ export default function TelaIndicadores() {
         });
       }
 
-      const novo: Indicador = {
-        id: resultado.id,
-        nome: resultado.nome,
-        unidade: resultado.unidadeMedida || 'Unidade',
-        simbolUni: getUnitSimb(),
-        ano: anoInicial,
-        trimestre: trimestreInicial,
-        nucleo: resultado.nucleo
-          ? {
-              id: resultado.nucleo.id,
-              nome: resultado.nucleo.nome,
-              sigla: resultado.nucleo.sigla,
-              descricao: resultado.nucleo.descricao || '',
-              corBg: 'bg-[#832b62]',
-              corIcone: 'text-white',
-            }
-          : undefined,
-        programa: resultado.programa
-          ? ({
-              ...programSelecionado,
-              id: resultado.programa.id,
-              nome: resultado.programa.nome,
-            } as Programa)
-          : undefined,
-        valAtual: String(valorParaSalvar),
-        status: resultado.status || 'ATIVO',
-        aprovado: false,
-      };
+      await carregarIndicadores();
 
-      setIndicadores((prev) => [...prev, novo]);
       setModalNovoAberto(false);
       setNomeForm('');
       setUnidadeForm('');
@@ -823,7 +831,13 @@ export default function TelaIndicadores() {
       setFormAno(String(new Date().getFullYear()));
       setFormTrimestre('Q4');
 
-      alert('Indicador cadastrado com sucesso!');
+      if (indicadorExistente) {
+        alert(
+          `O indicador "${indicadorExistente.nome}" já existe. A nova medição para ${anoInicial} (${trimestreInicial}) foi adicionada ao histórico com sucesso!`,
+        );
+      } else {
+        alert('Indicador cadastrado com sucesso!');
+      }
     } catch (erro) {
       console.error('Erro ao cadastrar indicador:', erro);
       alert(
@@ -875,17 +889,115 @@ export default function TelaIndicadores() {
         throw new Error(erro.message || 'Não foi possível salvar o valor.');
       }
 
-      setIndicadores(
-        indicadores.map((n) =>
-          n.id === indicSelecionado.id ? { ...n, valAtual: formValor } : n,
-        ),
-      );
-
+      await carregarIndicadores();
       inserindoValor(false);
-      alert('Valor salvo com sucesso!');
+      alert('Medição salva no histórico com sucesso!');
     } catch (erro) {
       console.error('Erro ao salvar valor:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao salvar o valor.');
+    }
+  };
+
+  // Histórico de medições (ver todas e adicionar novos períodos a um indicador existente)
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+  const [historicoAno, setHistoricoAno] = useState(
+    String(new Date().getFullYear()),
+  );
+  const [historicoTrimestre, setHistoricoTrimestre] = useState('Q1');
+  const [historicoValor, setHistoricoValor] = useState('');
+
+  const abrirHistoricoModal = (indicador: Indicador) => {
+    setIndicSelecionado(indicador);
+    setHistoricoAno(String(new Date().getFullYear()));
+    setHistoricoTrimestre('Q1');
+    setHistoricoValor('');
+    setModalHistoricoAberto(true);
+  };
+
+  const salvarMedicaoHistorico = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indicSelecionado) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    const valor = Number(historicoValor);
+    if (!Number.isFinite(valor) || valor < 0) {
+      alert('Informe um valor realizado válido.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}/registros`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ano: Number(historicoAno),
+            trimestre: historicoTrimestre,
+            valorRealizado: valor,
+          }),
+        },
+      );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível salvar a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : prev.valAtual,
+                  ano: atual.registros?.[0]?.ano ?? prev.ano,
+                  trimestre: atual.registros?.[0]?.trimestre ?? prev.trimestre,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      setHistoricoValor('');
+      alert(
+        `Medição para ${historicoAno} (${historicoTrimestre}) salva no histórico com sucesso!`,
+      );
+    } catch (erro) {
+      console.error('Erro ao salvar medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao salvar medição.');
     }
   };
 
@@ -1318,6 +1430,7 @@ export default function TelaIndicadores() {
                 setIndicVal={abrirValModal}
                 delIndic={abrirDeletarModal}
                 aprovIndic={abrirAprovacaoModal}
+                abrirHistorico={abrirHistoricoModal}
               />
             </div>
           </div>
@@ -1762,6 +1875,209 @@ export default function TelaIndicadores() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Histórico de Medições do Indicador */}
+      {modalHistoricoAberto && indicSelecionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between mb-4 border-b border-slate-200 pb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <History className="size-5 text-[#832b62]" />
+                  Histórico de Medições
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Indicador:{' '}
+                  <span className="font-semibold text-slate-800">
+                    {indicSelecionado.nome}
+                  </span>
+                  {indicSelecionado.nucleo &&
+                    ` • Núcleo: ${indicSelecionado.nucleo.sigla}`}
+                  {` • Unidade: ${indicSelecionado.unidade}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Listagem do Histórico */}
+            <div className="flex-1 overflow-y-auto mb-6 pr-1">
+              <h3 className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                Medições Registradas ({indicSelecionado.registros?.length ?? 0})
+              </h3>
+
+              {!indicSelecionado.registros ||
+              indicSelecionado.registros.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">
+                  Nenhuma medição registrada para este indicador ainda.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">Ano</th>
+                        <th className="py-2.5 px-3">Trimestre</th>
+                        <th className="py-2.5 px-3">Realizado</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...indicSelecionado.registros]
+                        .sort((a, b) => {
+                          if (b.ano !== a.ano) return b.ano - a.ano;
+                          return b.trimestre.localeCompare(a.trimestre);
+                        })
+                        .map((reg) => (
+                          <tr
+                            key={reg.id}
+                            className="hover:bg-slate-50 transition-colors"
+                          >
+                            <td className="py-2.5 px-3 font-medium">
+                              {reg.ano}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded font-mono font-semibold">
+                                {reg.trimestre}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-[#832b62]">
+                              {reg.valorRealizado != null
+                                ? `${reg.valorRealizado}${
+                                    indicSelecionado.simbolUni
+                                      ? ' ' + indicSelecionado.simbolUni
+                                      : ''
+                                  }`
+                                : '-'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {reg.statusAprovacao === 'APROVADO' ||
+                              reg.statusAprovacao === 'PUBLICADO' ? (
+                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  Aprovado
+                                </span>
+                              ) : (
+                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  {reg.statusAprovacao ?? 'Pendente'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHistoricoAno(String(reg.ano));
+                                  setHistoricoTrimestre(reg.trimestre);
+                                  setHistoricoValor(
+                                    reg.valorRealizado != null
+                                      ? String(reg.valorRealizado)
+                                      : '',
+                                  );
+                                }}
+                                className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                              >
+                                Carregar para editar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Formulário para adicionar nova medição ou atualizar */}
+            {(UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+              <form
+                onSubmit={salvarMedicaoHistorico}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
+              >
+                <h4 className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-1.5">
+                  <span>+ Adicionar ou atualizar medição neste indicador</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Ano
+                    </label>
+                    <input
+                      type="number"
+                      min="2000"
+                      max="2100"
+                      value={historicoAno}
+                      onChange={(e) => setHistoricoAno(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Trimestre
+                    </label>
+                    <select
+                      value={historicoTrimestre}
+                      onChange={(e) => setHistoricoTrimestre(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    >
+                      <option value="Q1">1º trimestre (Q1)</option>
+                      <option value="Q2">2º trimestre (Q2)</option>
+                      <option value="Q3">3º trimestre (Q3)</option>
+                      <option value="Q4">4º trimestre (Q4)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Valor Realizado{' '}
+                      {indicSelecionado.simbolUni
+                        ? `(${indicSelecionado.simbolUni})`
+                        : ''}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 50"
+                      value={historicoValor}
+                      onChange={(e) => setHistoricoValor(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-3">
+                  <button
+                    type="submit"
+                    className="py-2 px-5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
+                  >
+                    Salvar Medição
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="flex justify-end pt-4">
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="py-2 px-6 rounded-full border border-slate-400 text-slate-700 font-medium text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

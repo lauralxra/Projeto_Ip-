@@ -1,6 +1,16 @@
 import { NucleosCadastrados, type Nucleo } from './nucleos';
 import type { Programa } from './programas';
 
+export interface RegistroIndicador {
+  id: string;
+  ano: number;
+  trimestre: string;
+  valorRealizado: string | number | null;
+  metaAplicada?: string | number | null;
+  statusAprovacao?: string;
+  status?: string;
+}
+
 export interface Indicador {
   id: string;
   registroId?: string;
@@ -17,6 +27,7 @@ export interface Indicador {
   programa?: Programa;
   status: string;
   aprovado: boolean;
+  registros?: RegistroIndicador[];
 }
 
 export const IndicadoresCadastrados: Indicador[] = [
