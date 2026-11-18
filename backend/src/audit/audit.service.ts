@@ -37,7 +37,7 @@ export class AuditService {
     });
   }
 
-  // Grava em audit_logs; a tabela é imutável (trigger em migration_extra.sql)
+  // Grava em audit_logs; a tabela é imutável (trigger na migration 20261117120000_unicidade_parcial_e_restricoes)
   registrarAcao(dados: RegistroAcao) {
     return this.prisma.auditLog.create({
       data: {

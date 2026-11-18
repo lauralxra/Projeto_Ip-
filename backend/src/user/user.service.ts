@@ -253,7 +253,33 @@ export class UserService {
     }
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} user`;
+  async remove(id: string, autor: AutorAcao) {
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Você não pode excluir a sua própria conta.',
+      );
+    }
+
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const { count } = await this.userRepository.softDelete(id);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.EXCLUIR_LOGICO,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { ativo: usuarioAtual.ativo, perfil: usuarioAtual.perfil },
+      dadosNovos: { ativo: false, excluido: true },
+      ip: autor.ip,
+    });
+
+    return { message: 'Usuário excluído com sucesso.' };
   }
 }
