@@ -1,4 +1,12 @@
-import { PartialType } from '@nestjs/swagger';
+import { PartialType, PickType } from '@nestjs/swagger';
 import { CreateIndicadorDto } from './create-indicador.dto';
 
-export class UpdateIndicadorDto extends PartialType(CreateIndicadorDto) {}
+// RF02: só os dados descritivos são editáveis; escopo, núcleo e programa não mudam
+export class UpdateIndicadorDto extends PartialType(
+  PickType(CreateIndicadorDto, [
+    'nome',
+    'descricao',
+    'unidadeMedida',
+    'codigo',
+  ] as const),
+) {}

@@ -6,6 +6,7 @@
   Ip,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -19,11 +20,15 @@ import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { IndicadorService } from './indicador.service';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import {
   CreateIndicadorSwagger,
   FindAllIndicadoresSwagger,
+  FindOneIndicadorSwagger,
+  InativarIndicadorSwagger,
   RemoveIndicadorSwagger,
   SalvarRegistroSwagger,
+  UpdateIndicadorSwagger,
 } from './swagger/indicador.swagger';
 
 @ApiTags('indicadores')
@@ -37,6 +42,38 @@ export class IndicadorController {
   @FindAllIndicadoresSwagger()
   findAll(@Req() req: AuthenticatedRequest) {
     return this.indicadorService.findAll(req.user);
+  }
+
+  @Get(':id')
+  @FindOneIndicadorSwagger()
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.indicadorService.findOne(id, req.user);
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMINISTRADOR)
+  @UpdateIndicadorSwagger()
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dados: UpdateIndicadorDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.indicadorService.update(id, dados, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/inativar')
+  @Roles(Role.ADMINISTRADOR)
+  @InativarIndicadorSwagger()
+  inativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.indicadorService.inativar(id, { id: req.user.id, ip });
   }
 
   @Post()

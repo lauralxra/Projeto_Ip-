@@ -93,3 +93,75 @@ export function SalvarRegistroSwagger() {
     }),
   );
 }
+
+export function FindOneIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Consultar um indicador (RF04)',
+      description:
+        'Administração e Comunicação consultam qualquer indicador; os demais perfis, apenas os institucionais e os dos seus núcleos. A Comunicação recebe apenas registros aprovados ou publicados.',
+    }),
+    ApiOkResponse({ description: 'Indicador com seus registros.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Indicador de outro núcleo.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function UpdateIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Editar um indicador (RF02)',
+      description:
+        'Altera nome, descrição, unidade de medida e código. A ação é registrada na auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador atualizado e auditado.' }),
+    ApiBadRequestResponse({
+      description: 'Dados inválidos ou nenhum campo informado.',
+      type: AuthErrorResponseDto,
+    }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração edita indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'Já existe um indicador com este código.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function InativarIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Inativar um indicador (RF11)',
+      description:
+        'Muda o status do indicador para INATIVO sem excluí-lo. A ação é registrada na auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador inativado.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração inativa indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'O indicador já está inativo.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}

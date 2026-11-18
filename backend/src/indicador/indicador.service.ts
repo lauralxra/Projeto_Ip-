@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 
 export interface UsuarioAutenticado {
   id: string;
@@ -183,6 +184,150 @@ export class IndicadorService {
     });
 
     return indicador;
+  }
+
+  // RF04: mesmas regras de visibilidade do findAll, aplicadas a um único indicador
+  async findOne(id: string, usuario: UsuarioAutenticado) {
+    const ehAdministrador = usuario.role === Role.ADMINISTRADOR;
+    const somenteHomologados = usuario.role === Role.EQUIPE_COMUNICACAO;
+
+    const indicador = await this.prisma.indicador.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        // Indicadores inativos só aparecem para a administração
+        ...(ehAdministrador ? {} : { status: StatusRegistro.ATIVO }),
+      },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+        registros: {
+          where: {
+            deletedAt: null,
+            status: StatusRegistro.ATIVO,
+            ...(somenteHomologados
+              ? { statusAprovacao: { in: STATUS_VISIVEIS_COMUNICACAO } }
+              : {}),
+          },
+          orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
+        },
+      },
+    });
+
+    if (!indicador) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    const veTodosOsNucleos =
+      ehAdministrador || usuario.role === Role.EQUIPE_COMUNICACAO;
+
+    if (
+      !veTodosOsNucleos &&
+      indicador.escopo !== EscopoIndicador.INSTITUCIONAL
+    ) {
+      const nucleos = await this.nucleosDoUsuario(usuario.id);
+      if (!indicador.nucleoId || !nucleos.includes(indicador.nucleoId)) {
+        throw new ForbiddenException(
+          'Você só pode consultar indicadores do seu núcleo.',
+        );
+      }
+    }
+
+    return indicador;
+  }
+
+  // RF02: edita os dados descritivos do indicador
+  async update(id: string, dados: UpdateIndicadorDto, autor: AutorAcao) {
+    const atual = await this.prisma.indicador.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        unidadeMedida: true,
+        codigo: true,
+      },
+    });
+
+    if (!atual) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    const alteracoes: Prisma.IndicadorUpdateInput = {};
+    if (dados.nome !== undefined) alteracoes.nome = dados.nome;
+    if (dados.descricao !== undefined) alteracoes.descricao = dados.descricao;
+    if (dados.unidadeMedida !== undefined)
+      alteracoes.unidadeMedida = dados.unidadeMedida;
+    if (dados.codigo !== undefined) alteracoes.codigo = dados.codigo;
+
+    if (Object.keys(alteracoes).length === 0) {
+      throw new BadRequestException('Nenhum campo informado para atualização.');
+    }
+
+    // Código duplicado vira 409 pelo PrismaExceptionFilter (P2002)
+    const indicador = await this.prisma.indicador.update({
+      where: { id },
+      data: alteracoes,
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+      },
+    });
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Indicador',
+      entidadeId: id,
+      dadosAntigos: {
+        nome: atual.nome,
+        descricao: atual.descricao,
+        unidadeMedida: atual.unidadeMedida,
+        codigo: atual.codigo,
+      },
+      dadosNovos: {
+        nome: indicador.nome,
+        descricao: indicador.descricao,
+        unidadeMedida: indicador.unidadeMedida,
+        codigo: indicador.codigo,
+      },
+      ip: autor.ip,
+    });
+
+    return indicador;
+  }
+
+  // RF11: inativa o indicador sem excluí-lo, preservando o histórico
+  async inativar(id: string, autor: AutorAcao) {
+    const indicador = await this.prisma.indicador.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, nome: true, status: true },
+    });
+
+    if (!indicador) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    if (indicador.status === StatusRegistro.INATIVO) {
+      throw new ConflictException('O indicador já está inativo.');
+    }
+
+    const inativado = await this.prisma.indicador.update({
+      where: { id },
+      data: { status: StatusRegistro.INATIVO },
+    });
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.DESATIVAR,
+      entidade: 'Indicador',
+      entidadeId: id,
+      dadosAntigos: { status: indicador.status },
+      dadosNovos: { status: StatusRegistro.INATIVO },
+      ip: autor.ip,
+    });
+
+    return inativado;
   }
 
   // RF03: remove um indicador por vez (exclusão lógica), levando junto metas e registros
