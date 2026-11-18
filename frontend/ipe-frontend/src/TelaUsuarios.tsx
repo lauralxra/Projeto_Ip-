@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 
 import { type Nucleo } from './dados/nucleos';
 import { type Usuario, TipoDeConta, UsuarioAtual } from './dados/usuarios';
-import { UsuariosCadastrados } from './dados/usuarios';
 import { BtnCriar } from './BtnCriar';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import {
+  perfilDoTipo,
+  SENHA_OCULTA,
+  usuarioDaApi,
+  type UsuarioApi,
+} from './api/mapeadores';
+import { atualizarUsuarioSessao } from './routes/sessao';
+
+const mesmosNucleos = (a: Nucleo[], b: Nucleo[]) =>
+  a.length === b.length && a.every((n) => b.some((m) => m.id === n.id));
 
 type LinhaUsuarioCadastradoEditarBtnProps = {
   usuarioEmSi: Usuario;
@@ -231,8 +241,24 @@ function LinhaUsuarioCadastrado({
 }
 
 export default function TelaUsuarios() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>(UsuariosCadastrados);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
+
+  // GET /users é exclusivo do administrador
+  const carregarUsuarios = async () => {
+    if (UsuarioAtual.tipo !== 'ADM') return;
+    try {
+      const dados = await apiFetch<UsuarioApi[]>('/users');
+      setUsuarios(dados.map(usuarioDaApi));
+    } catch (erro) {
+      console.error('Erro ao carregar usuários:', erro);
+      alert('Não foi possível carregar os usuários: ' + mensagemDeErro(erro));
+    }
+  };
+
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
 
   const [formNome, setFormNome] = useState('');
   const [formMail, setFormMail] = useState('');
@@ -279,19 +305,82 @@ export default function TelaUsuarios() {
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = (dadosUsuario: Usuario) => {
-    const existe = usuarios.some((u) => u.id === dadosUsuario.id);
+  const criarUsuario = async (dados: Usuario) => {
+    const criado = await apiFetch<{ id: string }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: dados.nome,
+        email: dados.email,
+        password: dados.senha,
+        confirmPassword: dados.senha,
+        role: perfilDoTipo(dados.tipo),
+      }),
+    });
 
-    if (existe) {
-      setUsuarios(
-        usuarios.map((u) => (u.id === dadosUsuario.id ? dadosUsuario : u)),
-      );
-      setModalEdicao(false);
-    } else {
-      setUsuarios([...usuarios, dadosUsuario]);
-      setModalCriacao(false);
+    if (dados.nucleos.length > 0) {
+      await apiFetch(`/users/${criado.id}/permissions`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nucleoIds: dados.nucleos.map((n) => n.id) }),
+      });
     }
-    setUserSelecionado(undefined);
+  };
+
+  // Envia só o que mudou; cada campo tem seu endpoint
+  const editarUsuario = async (dados: Usuario, original: Usuario) => {
+    const avisos: string[] = [];
+
+    if (dados.nome !== original.nome) {
+      // PATCH /users/:id só permite ao administrador alterar o próprio nome
+      await apiFetch(`/users/${dados.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: dados.nome }),
+      });
+      if (dados.id === UsuarioAtual.id) {
+        UsuarioAtual.nome = dados.nome;
+        atualizarUsuarioSessao({ nome: dados.nome });
+      }
+    }
+
+    const tipoMudou = dados.tipo !== original.tipo;
+    const nucleosMudaram = !mesmosNucleos(dados.nucleos, original.nucleos);
+    if (tipoMudou || nucleosMudaram) {
+      await apiFetch(`/users/${dados.id}/permissions`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...(tipoMudou && { role: perfilDoTipo(dados.tipo) }),
+          ...(nucleosMudaram && { nucleoIds: dados.nucleos.map((n) => n.id) }),
+        }),
+      });
+    }
+
+    if (dados.email !== original.email) avisos.push('e-mail');
+    if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
+    if (dados.status !== original.status) avisos.push('status');
+    if ((dados.imagem || '') !== (original.imagem || '')) avisos.push('foto');
+    if (avisos.length > 0) {
+      alert(
+        `Ainda não há endpoint para alterar ${avisos.join(', ')} de um usuário; esses campos não foram salvos.`,
+      );
+    }
+  };
+
+  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+    const original = usuarios.find((u) => u.id === dadosUsuario.id);
+
+    try {
+      if (original) {
+        await editarUsuario(dadosUsuario, original);
+        setModalEdicao(false);
+      } else {
+        await criarUsuario(dadosUsuario);
+        setModalCriacao(false);
+      }
+      setUserSelecionado(undefined);
+    } catch (erro) {
+      alert('Não foi possível salvar o usuário: ' + mensagemDeErro(erro));
+    } finally {
+      await carregarUsuarios();
+    }
   };
 
   const [modalDeletando, setModalDelete] = useState(false);
@@ -300,10 +389,15 @@ export default function TelaUsuarios() {
     setModalDelete(true);
   };
 
-  const deletarUsuario = () => {
+  const deletarUsuario = async () => {
     if (!usuarioSelecionado) return;
-    setUsuarios(usuarios.filter((n) => n.id !== usuarioSelecionado.id));
-    setModalDelete(false);
+    try {
+      await apiFetch(`/users/${usuarioSelecionado.id}`, { method: 'DELETE' });
+      setModalDelete(false);
+      await carregarUsuarios();
+    } catch (erro) {
+      alert('Não foi possível excluir o usuário: ' + mensagemDeErro(erro));
+    }
   };
 
   return (
