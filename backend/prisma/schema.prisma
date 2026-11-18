@@ -334,6 +334,7 @@ model Meta {
 
   indicador Indicador @relation(fields: [indicadorId], references: [id], onDelete: Restrict)
 
+  // Uma meta por indicador e período entre não excluídas: migration 20261118120000_metas_unicidade_periodo
   @@index([indicadorId, ano])
   @@map("metas")
 }

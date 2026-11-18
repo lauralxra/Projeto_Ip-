@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -20,10 +21,11 @@ import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { MetaService } from './meta.service';
 import { CreateMetaDto } from './dto/create-meta.dto';
 import { UpdateMetaDto } from './dto/update-meta.dto';
+import { FilterMetaDto } from './dto/filter-meta.dto';
 
 @ApiTags('metas')
 @ApiBearerAuth('JWT-auth')
-@Controller('meta')
+@Controller('metas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MetaController {
   constructor(private readonly metaService: MetaService) {}
@@ -39,8 +41,8 @@ export class MetaController {
   }
 
   @Get()
-  findAll(@Req() req: AuthenticatedRequest) {
-    return this.metaService.findAll(req.user);
+  findAll(@Query() filtros: FilterMetaDto, @Req() req: AuthenticatedRequest) {
+    return this.metaService.findAll(filtros, req.user);
   }
 
   @Get(':id')
