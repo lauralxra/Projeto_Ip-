@@ -1,3 +1,11 @@
+# [1.1.0-dev.12](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.11...v1.1.0-dev.12) (2026-11-18)
+
+
+### Bug Fixes
+
+* **frontend:** excluir indicador pela api e remover a opcao de limpar todos ([265a710](https://github.com/lauralxra/Projeto_Ip-/commit/265a71071d7f41d747b2679fd12e621379ff54b2))
+* **indicador:** proteger rotas de indicadores e registros com dto, rbac e auditoria ([f99b090](https://github.com/lauralxra/Projeto_Ip-/commit/f99b090ae8e8c1ed03ae80f2bc3438c86106549c))
+
 # [1.1.0-dev.11](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.10...v1.1.0-dev.11) (2026-11-18)
 
 
