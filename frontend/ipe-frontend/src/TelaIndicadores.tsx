@@ -435,7 +435,12 @@ export default function TelaIndicadores() {
           nucleo: item.nucleo ?? undefined,
           programa: item.programa ?? undefined,
           status: item.status,
-          aprovado: registro?.statusAprovacao === 'APROVADO',
+          // Publicado também é um valor aprovado
+          aprovado:
+            registro?.statusAprovacao === 'APROVADO' ||
+            registro?.statusAprovacao === 'PUBLICADO',
+          registroId: registro?.id,
+          statusAprovacao: registro?.statusAprovacao,
         };
       });
 
@@ -882,6 +887,8 @@ export default function TelaIndicadores() {
 
       inserindoValor(false);
       alert('Valor salvo com sucesso!');
+      // Recarrega para o card refletir o valor, o status de aprovação e a meta do período
+      await carregarIndicadores();
     } catch (erro) {
       console.error('Erro ao salvar valor:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao salvar o valor.');
@@ -1050,26 +1057,61 @@ export default function TelaIndicadores() {
     setModelAprov(true);
   };
 
-  const handleAprovacao = (e: React.FormEvent) => {
+  // A API só aprova ou devolve valores enviados para revisão: um valor ainda em
+  // preenchimento (ou devolvido) é enviado antes, em nome do administrador
+  const garantirEmRevisao = async (registroId: string, status?: string) => {
+    if (status !== 'ENVIADO_REVISAO') {
+      await apiFetch(`/registros/${registroId}/enviar-revisao`, {
+        method: 'PATCH',
+      });
+    }
+  };
+
+  const handleAprovacao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              aprovado: formAprovacao,
-            }
-          : n,
-      ),
-    );
+    const { registroId, statusAprovacao, aprovado } = indicSelecionado;
+    if (!registroId) {
+      alert('Este indicador ainda não tem valor lançado para aprovar.');
+      return;
+    }
 
-    formAprovacao
-      ? ''
-      : alert('Voce desaprovou por motivo: ' + formDesaprovMotivo);
+    try {
+      if (formAprovacao) {
+        // Já aprovado ou publicado: nada a fazer
+        if (!aprovado) {
+          await garantirEmRevisao(registroId, statusAprovacao);
+          await apiFetch(`/registros/${registroId}/aprovar`, {
+            method: 'PATCH',
+          });
+        }
+      } else {
+        const justificativa = formDesaprovMotivo.trim();
+        if (!justificativa) {
+          alert('Informe o motivo da desaprovação.');
+          return;
+        }
+        if (aprovado) {
+          alert(
+            'Um valor já aprovado não pode ser devolvido. Para corrigi-lo, altere o valor: ele volta para revisão.',
+          );
+          return;
+        }
+        await garantirEmRevisao(registroId, statusAprovacao);
+        await apiFetch(`/registros/${registroId}/devolver`, {
+          method: 'PATCH',
+          body: JSON.stringify({ justificativa }),
+        });
+      }
 
-    setModelAprov(false);
+      setModelAprov(false);
+      await carregarIndicadores();
+    } catch (erro) {
+      alert('Não foi possível salvar a aprovação: ' + mensagemDeErro(erro));
+      // O valor pode ter sido enviado para revisão antes da falha
+      await carregarIndicadores();
+    }
   };
 
   const totalIndicadores = indicadoresFiltrados.length;

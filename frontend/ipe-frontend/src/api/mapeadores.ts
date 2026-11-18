@@ -69,7 +69,20 @@ export interface UsuarioApi {
   email: string;
   perfil?: string | null;
   ativo?: boolean;
+  fotoUrl?: string | null;
   nucleos?: { nucleo: NucleoApi }[];
+}
+
+// Foto do usuário: caminho da API (/uploads/...) vira o endereço público
+export function fotoDaApi(fotoUrl?: string | null): string | undefined {
+  return fotoUrl ? urlDoArquivo(fotoUrl) : undefined;
+}
+
+// Endereço para exibir `Usuario.imagem`: fotos da API já vêm com o endereço
+// completo; nomes de arquivo (dados de exemplo) ficam em /src/assets
+export function urlDaImagem(imagem?: string): string | undefined {
+  if (!imagem) return undefined;
+  return imagem.includes('/') ? imagem : '/src/assets/' + imagem;
 }
 
 export function usuarioDaApi(item: UsuarioApi): Usuario {
@@ -78,8 +91,7 @@ export function usuarioDaApi(item: UsuarioApi): Usuario {
     nome: item.nome,
     email: item.email,
     senha: SENHA_OCULTA,
-    // Fotos enviadas ficam no backend e ainda não são servidas: usa a foto padrão
-    imagem: undefined,
+    imagem: fotoDaApi(item.fotoUrl),
     tipo: tipoDoPerfil(item.perfil),
     nucleos: (item.nucleos ?? []).map((v) => nucleoDaApi(v.nucleo)),
     status: item.ativo === false ? 0 : 1,

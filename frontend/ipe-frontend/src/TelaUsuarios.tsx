@@ -10,8 +10,10 @@ import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { apiFetch, mensagemDeErro } from './api/cliente';
 import {
   perfilDoTipo,
+  fotoDaApi,
   SENHA_OCULTA,
   usuarioDaApi,
+  urlDaImagem,
   type UsuarioApi,
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
@@ -175,7 +177,7 @@ function LinhaUsuarioCadastrado({
                   className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
                   src={
                     usuario.imagem
-                      ? '/src/assets/' + usuario.imagem
+                      ? urlDaImagem(usuario.imagem)
                       : Imagens.DefaultPFP
                   }
                 />
@@ -326,7 +328,11 @@ export default function TelaUsuarios() {
   };
 
   // Envia só o que mudou; cada campo tem seu endpoint
-  const editarUsuario = async (dados: Usuario, original: Usuario) => {
+  const editarUsuario = async (
+    dados: Usuario,
+    original: Usuario,
+    arquivoImagem: File | null,
+  ) => {
     const avisos: string[] = [];
 
     if (dados.nome !== original.nome) {
@@ -356,7 +362,19 @@ export default function TelaUsuarios() {
     if (dados.email !== original.email) avisos.push('e-mail');
     if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
     if (dados.status !== original.status) avisos.push('status');
-    if ((dados.imagem || '') !== (original.imagem || '')) avisos.push('foto');
+    // A API só troca a foto do próprio usuário (PATCH /users/profile/photo)
+    if (arquivoImagem && dados.id === UsuarioAtual.id) {
+      const formulario = new FormData();
+      formulario.append('photo', arquivoImagem);
+      const { fotoUrl } = await apiFetch<{ fotoUrl: string }>(
+        '/users/profile/photo',
+        { method: 'PATCH', body: formulario },
+      );
+      UsuarioAtual.imagem = fotoDaApi(fotoUrl);
+      atualizarUsuarioSessao({ fotoUrl });
+    } else if (arquivoImagem) {
+      avisos.push('foto');
+    }
     if (avisos.length > 0) {
       alert(
         `Ainda não há endpoint para alterar ${avisos.join(', ')} de um usuário; esses campos não foram salvos.`,
@@ -364,12 +382,15 @@ export default function TelaUsuarios() {
     }
   };
 
-  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem: File | null,
+  ) => {
     const original = usuarios.find((u) => u.id === dadosUsuario.id);
 
     try {
       if (original) {
-        await editarUsuario(dadosUsuario, original);
+        await editarUsuario(dadosUsuario, original, arquivoImagem);
         setModalEdicao(false);
       } else {
         await criarUsuario(dadosUsuario);

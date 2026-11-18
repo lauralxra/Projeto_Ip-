@@ -16,6 +16,9 @@ export interface Indicador {
   programa?: Programa;
   status: string;
   aprovado: boolean;
+  // Valor trimestral exibido no card (usado pela aprovação)
+  registroId?: string;
+  statusAprovacao?: string;
 }
 
 export const IndicadoresCadastrados: Indicador[] = [
