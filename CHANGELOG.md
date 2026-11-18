@@ -1,3 +1,20 @@
+# [1.1.0-dev.13](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.12...v1.1.0-dev.13) (2026-11-18)
+
+
+### Bug Fixes
+
+* **notificacoes:** enforce rn01, harden email sending and fix quarterly cron ([ff66a32](https://github.com/lauralxra/Projeto_Ip-/commit/ff66a32901c92b777c0ba6568570e6bfb4b8cea8))
+* **user:** keep password change from failing when the email notice fails ([e7f9148](https://github.com/lauralxra/Projeto_Ip-/commit/e7f914833edb0b552b55b3bce37a1bef688616b1))
+
+
+### Features
+
+* **api:** return user nuclei and program creation date for the frontend ([fa7cb8a](https://github.com/lauralxra/Projeto_Ip-/commit/fa7cb8adcfe1ca03361baaabef83d4db7fce3f99))
+* **frontend:** integrate screens with the existing api endpoints ([3221812](https://github.com/lauralxra/Projeto_Ip-/commit/322181217feddc40f40abf2d461e82202c6ea61a))
+* **notificacoes:** add notifications endpoint with smtp email and cron scheduler ([d01c6d6](https://github.com/lauralxra/Projeto_Ip-/commit/d01c6d66d5152486954837be71ec9a76aea7b27a))
+* **notificacoes:** add read and read-all endpoints with user filter ([fafd067](https://github.com/lauralxra/Projeto_Ip-/commit/fafd067d785d89b32558da670675839583ea2972))
+* **nucleo:** add image upload endpoint and serve uploaded files ([cc2d65b](https://github.com/lauralxra/Projeto_Ip-/commit/cc2d65b51cf45076c9010ce670018f8059ef246c))
+
 # [1.1.0-dev.12](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.11...v1.1.0-dev.12) (2026-11-18)
 
 
