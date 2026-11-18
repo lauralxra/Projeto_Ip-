@@ -181,7 +181,7 @@ export default function TelaLogin() {
 
               <div className="flex justify-between items-center text-xs pt-1">
                 <a
-                  href="#esqueci-senha"
+                  href="/recuperar-senha"
                   className="text-slate-500 hover:text-[#9d3878] font-medium transition-colors"
                 >
                   Esqueci minha senha
