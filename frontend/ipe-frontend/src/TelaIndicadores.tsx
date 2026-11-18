@@ -4,7 +4,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -917,19 +917,15 @@ export default function TelaIndicadores() {
   };
 
   const [modalDeletando, setDeletando] = useState(false);
-  const [modalLimparAberto, setModalLimparAberto] = useState(false);
   const abrirDeletarModal = (indicador: Indicador) => {
     setIndicSelecionado(indicador);
     setDeletando(true);
   };
 
-  const deletarIndic = () => {
+  // RF03: exclui um indicador por vez (exclusão lógica no backend, com auditoria)
+  const deletarIndic = async () => {
     if (!indicSelecionado) return;
-    setIndicadores(indicadores.filter((n) => n.id !== indicSelecionado.id));
-    setDeletando(false);
-  };
 
-  const limparTodosIndicadores = async () => {
     const token = localStorage.getItem('access_token');
 
     if (!token) {
@@ -938,37 +934,30 @@ export default function TelaIndicadores() {
     }
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const resultado = await resposta.json().catch(() => ({}));
 
       if (!resposta.ok) {
         throw new Error(
-          resultado.message || 'Não foi possível limpar os indicadores.',
+          resultado.message || 'Não foi possível excluir o indicador.',
         );
       }
 
-      setIndicadores([]);
-      setModalLimparAberto(false);
-      setTermoPesquisa('');
-      setFiltroNucleo('');
-      setFiltroPrograma('');
-      setFiltroAprovacao('');
-
-      alert(
-        resultado.removidos > 0
-          ? `Todos os ${resultado.removidos} indicadores ativos foram removidos.`
-          : 'Não há indicadores ativos para limpar.',
-      );
+      setIndicadores(indicadores.filter((n) => n.id !== indicSelecionado.id));
+      setDeletando(false);
     } catch (erro) {
-      console.error('Erro ao limpar indicadores:', erro);
+      console.error('Erro ao excluir indicador:', erro);
       alert(
-        erro instanceof Error ? erro.message : 'Erro ao limpar indicadores.',
+        erro instanceof Error ? erro.message : 'Erro ao excluir indicador.',
       );
     }
   };
@@ -1173,21 +1162,6 @@ export default function TelaIndicadores() {
               {UsuarioAtual.tipo == 'ADM' ? (
                 <>
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
-
-                  <button
-                    type="button"
-                    onClick={() => setModalLimparAberto(true)}
-                    className="group flex items-center justify-center gap-2 border-[2px] border-[#3b142f] bg-white hover:bg-[#f8f1f6] text-[#3b142f] h-[48px] px-[16px] py-[4px] rounded-[9px] shrink-0 transition-colors cursor-pointer shadow-[0_1px_2px_rgba(59,20,47,0.08)]"
-                    title="Limpar todos os indicadores"
-                  >
-                    <Trash2
-                      size={16}
-                      className="text-[#3b142f] group-hover:text-[#591b3e]"
-                    />
-                    <span className="font-normal text-[15px] whitespace-nowrap">
-                      Limpar todos
-                    </span>
-                  </button>
 
                   {/* Botão importar */}
                   <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
@@ -1610,47 +1584,6 @@ export default function TelaIndicadores() {
                 className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
               >
                 Deletar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalLimparAberto && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5eaf2] text-[#3b142f]">
-              <Trash2 size={22} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">
-              Limpar indicadores
-            </h2>
-            <p className="text-sm text-slate-600 mb-1">
-              Você deseja remover{' '}
-              <span className="font-bold text-slate-800">
-                todos os indicadores ativos
-              </span>{' '}
-              do sistema?
-            </p>
-            <p className="text-xs text-slate-500 mb-6">
-              Essa ação não pode ser desfeita e vai ocultar os indicadores
-              cadastrados no momento.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setModalLimparAberto(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={limparTodosIndicadores}
-                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer"
-              >
-                Limpar
               </button>
             </div>
           </div>
