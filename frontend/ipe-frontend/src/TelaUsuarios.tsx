@@ -7,7 +7,7 @@ import { type Nucleo } from './dados/nucleos';
 import { type Usuario, TipoDeConta, UsuarioAtual } from './dados/usuarios';
 import { BtnCriar } from './BtnCriar';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
-import { apiFetch, mensagemDeErro } from './api/cliente';
+import { apiFetch, mensagemDeErro, urlDoArquivo } from './api/cliente';
 import {
   perfilDoTipo,
   SENHA_OCULTA,
@@ -173,11 +173,7 @@ function LinhaUsuarioCadastrado({
                 <img
                   alt=""
                   className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-                  src={
-                    usuario.imagem
-                      ? '/src/assets/' + usuario.imagem
-                      : Imagens.DefaultPFP
-                  }
+                  src={usuario.imagem || Imagens.DefaultPFP}
                 />
               </div>
             </div>
@@ -326,7 +322,11 @@ export default function TelaUsuarios() {
   };
 
   // Envia só o que mudou; cada campo tem seu endpoint
-  const editarUsuario = async (dados: Usuario, original: Usuario) => {
+  const editarUsuario = async (
+    dados: Usuario,
+    original: Usuario,
+    arquivoImagem?: File | null,
+  ) => {
     const avisos: string[] = [];
 
     if (dados.nome !== original.nome) {
@@ -337,6 +337,7 @@ export default function TelaUsuarios() {
       if (dados.id === UsuarioAtual.id) {
         UsuarioAtual.nome = dados.nome;
         atualizarUsuarioSessao({ nome: dados.nome });
+        window.dispatchEvent(new Event('usuario-atualizado'));
       }
     }
 
@@ -370,8 +371,26 @@ export default function TelaUsuarios() {
       });
     }
 
+    if (arquivoImagem) {
+      if (dados.id === UsuarioAtual.id) {
+        const formulario = new FormData();
+        formulario.append('photo', arquivoImagem);
+        const resposta = await apiFetch<{ message: string; fotoUrl: string }>(
+          '/users/profile/photo',
+          {
+            method: 'PATCH',
+            body: formulario,
+          },
+        );
+        UsuarioAtual.imagem = urlDoArquivo(resposta.fotoUrl);
+        atualizarUsuarioSessao({ fotoUrl: resposta.fotoUrl });
+        window.dispatchEvent(new Event('usuario-atualizado'));
+      } else {
+        avisos.push('foto');
+      }
+    }
+
     if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
-    if ((dados.imagem || '') !== (original.imagem || '')) avisos.push('foto');
     if (avisos.length > 0) {
       alert(
         `Ainda não há endpoint para alterar ${avisos.join(', ')} de um usuário; esses campos não foram salvos.`,
@@ -379,12 +398,15 @@ export default function TelaUsuarios() {
     }
   };
 
-  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem?: File | null,
+  ) => {
     const original = usuarios.find((u) => u.id === dadosUsuario.id);
 
     try {
       if (original) {
-        await editarUsuario(dadosUsuario, original);
+        await editarUsuario(dadosUsuario, original, arquivoImagem);
         setModalEdicao(false);
       } else {
         await criarUsuario(dadosUsuario);

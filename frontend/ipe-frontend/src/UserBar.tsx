@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { UserbarPopupUser } from './UserbarPopupUser';
 import { UsuarioAtual } from './dados/usuarios';
@@ -6,7 +6,14 @@ import { UsuarioAtual } from './dados/usuarios';
 export function User() {
   const [popupUser, setPopupUser] = useState(false);
   const [popUserIsClosing, setUserClosing] = useState(false);
+  const [, setVersaoUsuario] = useState(0);
   //const [popupNotif, setPopupNotif] = useState(false);
+
+  useEffect(() => {
+    const atualizar = () => setVersaoUsuario((v) => v + 1);
+    window.addEventListener('usuario-atualizado', atualizar);
+    return () => window.removeEventListener('usuario-atualizado', atualizar);
+  }, []);
 
   const fecharUserPopup = () => {
     setUserClosing(true);
@@ -57,11 +64,7 @@ export function User() {
             <img
               alt=""
               className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-              src={
-                UsuarioAtual.imagem
-                  ? '/src/assets/' + UsuarioAtual.imagem
-                  : Imagens.DefaultPFP
-              }
+              src={UsuarioAtual.imagem || Imagens.DefaultPFP}
             />
           </div>
         </div>
@@ -81,6 +84,7 @@ export function User() {
           <UserbarPopupUser
             onClose={fecharUserPopup}
             isClosing={popUserIsClosing}
+            onUsuarioAtualizado={() => setVersaoUsuario((v) => v + 1)}
           />
         </div>
       )}

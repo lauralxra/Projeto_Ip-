@@ -132,7 +132,7 @@ type userItems = {
   tipo: string;
   nucleos?: Nucleo[];
   status: number;
-  onSubmit: (usuario: Usuario) => void;
+  onSubmit: (usuario: Usuario, arquivoImagem?: File | null) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -158,7 +158,7 @@ export function TelaUsuarioUserPopup({
   const [formStatus, setFormStatus] = useState<number>(status ?? 1);
 
   const [imagemPreview, setImagemPreview] = useState<string | null>(
-    imagem ? '/src/assets/' + imagem : null,
+    imagem || null,
   );
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 
@@ -174,16 +174,19 @@ export function TelaUsuarioUserPopup({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    onSubmit({
-      id: id || Date.now().toString(),
-      nome: formNome,
-      email: formMail,
-      senha: formSenha,
-      tipo: formTipo as TipoDeConta,
-      nucleos: formNucleos,
-      status: formStatus,
-      imagem: arquivoImagem ? arquivoImagem.name : imagem,
-    });
+    onSubmit(
+      {
+        id: id || Date.now().toString(),
+        nome: formNome,
+        email: formMail,
+        senha: formSenha,
+        tipo: formTipo as TipoDeConta,
+        nucleos: formNucleos,
+        status: formStatus,
+        imagem: arquivoImagem ? arquivoImagem.name : imagem,
+      },
+      arquivoImagem,
+    );
   };
 
   return (
@@ -218,7 +221,11 @@ export function TelaUsuarioUserPopup({
             className="bg-tranparent content-stretch flex h-[170px] items-start relative rounded-[20px] shrink-0 w-[173px]"
             data-name="Foto"
           >
-            <div className="size-full relative shrink-0" data-name="Img">
+            <label
+              className="size-full relative shrink-0 block cursor-pointer"
+              data-name="Img"
+              title="Alterar foto"
+            >
               <img
                 alt=""
                 className="absolute inset-0 max-w-none object-cover rounded-[5px] size-full"
@@ -247,12 +254,11 @@ export function TelaUsuarioUserPopup({
 
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handleMudarImagem}
-                className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
-                title="Alterar foto"
+                className="hidden"
               />
-            </div>
+            </label>
           </div>
 
           {/* Nome, email e senha */}

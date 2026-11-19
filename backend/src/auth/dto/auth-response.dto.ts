@@ -23,6 +23,14 @@ export class PublicUserResponseDto {
   email!: string;
 
   @ApiProperty({
+    nullable: true,
+    required: false,
+    example: '/uploads/photos/3fa85f64-5717-4562-b3fc-2c963f66afa6.png',
+    description: 'URL relativa da foto de perfil do usuário',
+  })
+  fotoUrl?: string | null;
+
+  @ApiProperty({
     enum: Role,
     nullable: true,
     example: Role.ADMINISTRADOR,
