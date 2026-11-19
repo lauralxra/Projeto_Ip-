@@ -77,8 +77,18 @@ export class NucleoController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNucleoDto: UpdateNucleoDto) {
-    return this.nucleoService.update(+id, updateNucleoDto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateNucleoDto: UpdateNucleoDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.update(id, updateNucleoDto, {
+      id: req.user.id,
+      ip,
+    });
   }
 
   @Delete(':id')

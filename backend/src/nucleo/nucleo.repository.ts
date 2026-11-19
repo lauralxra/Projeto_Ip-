@@ -38,6 +38,23 @@ export class NucleoRepository {
     });
   }
 
+  findConflitoOutro(nome?: string, sigla?: string, ignorarId?: string) {
+    const condicoes: Prisma.NucleoWhereInput[] = [];
+    if (nome) condicoes.push({ nome: { equals: nome, mode: 'insensitive' } });
+    if (sigla)
+      condicoes.push({ sigla: { equals: sigla, mode: 'insensitive' } });
+    if (condicoes.length === 0) return null;
+
+    return this.prisma.nucleo.findFirst({
+      where: {
+        deletedAt: null,
+        NOT: ignorarId ? { id: ignorarId } : undefined,
+        OR: condicoes,
+      },
+      select: { nome: true, sigla: true },
+    });
+  }
+
   // Página de resultados e total na mesma transação, para a contagem bater com os itens
   search(where: Prisma.NucleoWhereInput, skip: number, take: number) {
     return this.prisma.$transaction([
@@ -116,6 +133,14 @@ export class NucleoRepository {
       data: { imagemUrl },
     });
     return count > 0;
+  }
+
+  async update(id: string, data: Prisma.NucleoUpdateInput) {
+    return this.prisma.nucleo.update({
+      where: { id },
+      data,
+      select: nucleoSelect,
+    });
   }
 
   // Desativação mantém o núcleo e seus vínculos; não altera deletedAt.

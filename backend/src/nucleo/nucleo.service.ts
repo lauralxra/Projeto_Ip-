@@ -173,8 +173,54 @@ export class NucleoService {
     return { message: 'Imagem do núcleo atualizada com sucesso.', imagemUrl };
   }
 
-  update(id: number, _updateNucleoDto: UpdateNucleoDto) {
-    return `This action updates a #${id} nucleo`;
+  async update(id: string, updateNucleoDto: UpdateNucleoDto, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    if (updateNucleoDto.nome || updateNucleoDto.sigla) {
+      const conflito = await this.nucleoRepository.findConflitoOutro(
+        updateNucleoDto.nome,
+        updateNucleoDto.sigla,
+        id,
+      );
+      if (conflito) {
+        throw new ConflictException(
+          updateNucleoDto.nome &&
+            conflito.nome.toLowerCase() === updateNucleoDto.nome.toLowerCase()
+            ? 'Já existe um núcleo cadastrado com este nome.'
+            : 'Já existe um núcleo cadastrado com esta sigla.',
+        );
+      }
+    }
+
+    const data: Prisma.NucleoUpdateInput = {};
+    if (updateNucleoDto.nome !== undefined) data.nome = updateNucleoDto.nome;
+    if (updateNucleoDto.sigla !== undefined) data.sigla = updateNucleoDto.sigla;
+    if (updateNucleoDto.descricao !== undefined)
+      data.descricao = updateNucleoDto.descricao;
+    if (updateNucleoDto.corHex !== undefined)
+      data.corHex = updateNucleoDto.corHex;
+    if (updateNucleoDto.imagemUrl !== undefined)
+      data.imagemUrl = updateNucleoDto.imagemUrl;
+
+    const atualizado = await this.nucleoRepository.update(id, data);
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },
+      dadosNovos: {
+        ...atualizado,
+        createdAt: atualizado.createdAt.toISOString(),
+      },
+      ip: autor.ip,
+    });
+
+    return atualizado;
   }
 
   async remove(id: string, autor: AutorAcao) {

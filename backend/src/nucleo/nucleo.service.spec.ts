@@ -32,6 +32,8 @@ describe('NucleoService', () => {
     softDelete: jest.Mock;
     deactivate: jest.Mock;
     updateImagem: jest.Mock;
+    update: jest.Mock;
+    findConflitoOutro: jest.Mock;
     search: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
@@ -54,6 +56,8 @@ describe('NucleoService', () => {
       softDelete: jest.fn(),
       deactivate: jest.fn(),
       updateImagem: jest.fn(),
+      update: jest.fn(),
+      findConflitoOutro: jest.fn(),
       search: jest.fn(),
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
@@ -534,6 +538,70 @@ describe('NucleoService', () => {
       expect(repository.updateImagem).not.toHaveBeenCalled();
       expect(removerUpload).toHaveBeenCalledWith(imagemUrl);
       expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    const id = 'nucleo-uuid';
+    const nucleoExistente = {
+      id,
+      nome: 'Núcleo Original',
+      sigla: 'NO',
+      descricao: 'Descrição original',
+      corHex: '#123456',
+      imagemUrl: null,
+      status: 'ATIVO',
+      createdAt,
+    };
+
+    it('atualiza os dados com sucesso e registra auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoExistente);
+      repository.findConflitoOutro.mockResolvedValue(null);
+      const atualizado = {
+        ...nucleoExistente,
+        nome: 'Núcleo Atualizado',
+        sigla: 'NA',
+      };
+      repository.update.mockResolvedValue(atualizado);
+
+      const res = await service.update(
+        id,
+        { nome: 'Núcleo Atualizado', sigla: 'NA' },
+        autor,
+      );
+
+      expect(res).toEqual(atualizado);
+      expect(repository.update).toHaveBeenCalledWith(id, {
+        nome: 'Núcleo Atualizado',
+        sigla: 'NA',
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'Nucleo',
+          entidadeId: id,
+        }),
+      );
+    });
+
+    it('lança NotFoundException se o núcleo não existir', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.update(id, { nome: 'Novo Nome' }, autor),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('lança ConflictException se outro núcleo já usa o nome informado', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoExistente);
+      repository.findConflitoOutro.mockResolvedValue({
+        nome: 'Núcleo Conflito',
+        sigla: 'OUTRA',
+      });
+
+      await expect(
+        service.update(id, { nome: 'Núcleo Conflito' }, autor),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });
