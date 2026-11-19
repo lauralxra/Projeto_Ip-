@@ -11,7 +11,7 @@ COPY backend/vendor ./vendor
 # --ignore-scripts: o postinstall roda `prisma generate`, que precisa do schema (copiado depois)
 RUN npm ci --ignore-scripts
 ENV NODE_ENV=development
-EXPOSE 3000
+EXPOSE 3000 3001
 CMD ["npm", "run", "start:dev"]
 
 # --- BUILDER: compila o NestJS (gera o Prisma Client e a pasta dist/) ---

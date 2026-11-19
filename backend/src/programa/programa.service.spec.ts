@@ -12,6 +12,7 @@ import { ProgramaService } from './programa.service';
 const PROGRAMA_ID = '6b1f0c2e-1d3a-4c5b-8e9f-0a1b2c3d4e5f';
 const NUCLEO_ID = '7c2a1d3f-2e4b-4d6c-9f0a-1b2c3d4e5f60';
 const OUTRO_NUCLEO = '8d3b2e4a-3f5c-4e7d-a01b-2c3d4e5f6071';
+const RESPONSAVEL_ID = '9e4c3f5b-4a6d-5e8f-b12c-3d4e5f607182';
 const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
 const admin = { id: 'admin-uuid', role: Role.ADMINISTRADOR };
 const diretor = { id: 'diretor-uuid', role: Role.DIRETORES_NUCLEOS };
@@ -22,6 +23,7 @@ const programaAtual = {
   descricao: 'Descrição atual',
   status: StatusRegistro.ATIVO,
   nucleoId: NUCLEO_ID,
+  responsavelId: null,
 };
 
 // Chamadas de prisma mockadas recebem argumentos `any`; tipamos o primeiro argumento
@@ -45,6 +47,7 @@ describe('ProgramaService', () => {
       groupBy: jest.Mock;
     };
     nucleo: { findFirst: jest.Mock };
+    user: { findFirst: jest.Mock };
   };
   let audit: { registrarAcao: jest.Mock };
 
@@ -63,6 +66,11 @@ describe('ProgramaService', () => {
         findFirst: jest
           .fn()
           .mockResolvedValue({ status: StatusRegistro.ATIVO }),
+      },
+      user: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: RESPONSAVEL_ID, ativo: true }),
       },
     };
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
@@ -89,6 +97,7 @@ describe('ProgramaService', () => {
         nome: 'Novo',
         descricao: null,
         nucleoId: NUCLEO_ID,
+        responsavelId: null,
       });
       expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,6 +107,74 @@ describe('ProgramaService', () => {
           ip: autor.ip,
         }),
       );
+    });
+
+    it('cria o programa com responsável válido', async () => {
+      prisma.programa.findFirst.mockResolvedValue(null);
+      prisma.programa.create.mockResolvedValue({
+        id: PROGRAMA_ID,
+        nome: 'Com Responsavel',
+        descricao: null,
+        nucleoId: NUCLEO_ID,
+        responsavelId: RESPONSAVEL_ID,
+        status: StatusRegistro.ATIVO,
+      });
+
+      await service.create(
+        {
+          nome: 'Com Responsavel',
+          nucleoId: NUCLEO_ID,
+          responsavelId: RESPONSAVEL_ID,
+        },
+        autor,
+      );
+
+      expect(argumento(prisma.programa.create).data).toEqual({
+        nome: 'Com Responsavel',
+        descricao: null,
+        nucleoId: NUCLEO_ID,
+        responsavelId: RESPONSAVEL_ID,
+      });
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: RESPONSAVEL_ID, deletedAt: null },
+        }),
+      );
+    });
+
+    it('rejeita responsável inexistente', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            nome: 'Sem User',
+            nucleoId: NUCLEO_ID,
+            responsavelId: RESPONSAVEL_ID,
+          },
+          autor,
+        ),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.programa.create).not.toHaveBeenCalled();
+    });
+
+    it('rejeita responsável inativo', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: RESPONSAVEL_ID,
+        ativo: false,
+      });
+
+      await expect(
+        service.create(
+          {
+            nome: 'User Inativo',
+            nucleoId: NUCLEO_ID,
+            responsavelId: RESPONSAVEL_ID,
+          },
+          autor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.programa.create).not.toHaveBeenCalled();
     });
 
     it('cria programa institucional (sem núcleo) sem consultar núcleo', async () => {
@@ -243,6 +320,37 @@ describe('ProgramaService', () => {
         nucleoId: null,
       });
       expect(prisma.nucleo.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('permite atualizar o responsavelId', async () => {
+      await service.update(
+        PROGRAMA_ID,
+        { responsavelId: RESPONSAVEL_ID },
+        autor,
+      );
+
+      expect(argumento(prisma.programa.update).data).toMatchObject({
+        responsavelId: RESPONSAVEL_ID,
+      });
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: RESPONSAVEL_ID, deletedAt: null },
+        }),
+      );
+    });
+
+    it('permite remover o responsável com null', async () => {
+      prisma.programa.findFirst.mockReset().mockResolvedValueOnce({
+        ...programaAtual,
+        responsavelId: RESPONSAVEL_ID,
+      });
+
+      await service.update(PROGRAMA_ID, { responsavelId: null }, autor);
+
+      expect(argumento(prisma.programa.update).data).toMatchObject({
+        responsavelId: null,
+      });
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
     });
 
     it('valida o novo núcleo', async () => {

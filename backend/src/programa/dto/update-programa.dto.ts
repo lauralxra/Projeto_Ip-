@@ -39,4 +39,13 @@ export class UpdateProgramaDto {
   @IsOptional()
   @IsUUID('4', { message: 'nucleoId deve ser um UUID válido.' })
   nucleoId?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'ID do usuário responsável pelo programa. null desvincula o responsável.',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'responsavelId deve ser um UUID válido.' })
+  responsavelId?: string | null;
 }

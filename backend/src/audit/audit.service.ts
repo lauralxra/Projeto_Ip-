@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { AcaoAuditoria, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { FilterAuditDto } from './dto/filter-audit.dto';
+
 export interface RegistroTentativaLogin {
   email: string;
   sucesso: boolean;
@@ -56,7 +58,50 @@ export class AuditService {
     });
   }
 
-  async findAll() {
-    return await this.prisma.auditLog.findMany();
+  async findAll(filtros?: FilterAuditDto) {
+    const where: Prisma.AuditLogWhereInput = {};
+
+    if (filtros?.entidade) {
+      where.entidade = { equals: filtros.entidade, mode: 'insensitive' };
+    }
+
+    if (filtros?.acao) {
+      where.acao = filtros.acao;
+    }
+
+    if (filtros?.dataInicio || filtros?.dataFim) {
+      where.createdAt = {
+        ...(filtros.dataInicio && { gte: new Date(filtros.dataInicio) }),
+        ...(filtros.dataFim && { lte: new Date(filtros.dataFim) }),
+      };
+    }
+
+    return this.prisma.auditLog.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            perfil: true,
+            fotoUrl: true,
+            nucleos: {
+              select: {
+                nucleo: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    sigla: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filtros?.limite ? Math.min(filtros.limite, 500) : 100,
+    });
   }
 }

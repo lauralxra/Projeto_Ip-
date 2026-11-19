@@ -1,4 +1,4 @@
-﻿import {
+import {
   Body,
   Controller,
   Delete,
@@ -6,6 +6,7 @@
   Ip,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -18,6 +19,7 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { IndicadorService } from './indicador.service';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 import {
   CreateIndicadorSwagger,
@@ -48,6 +50,17 @@ export class IndicadorController {
     @Ip() ip: string,
   ) {
     return this.indicadorService.create(dados, { id: req.user.id, ip });
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMINISTRADOR)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dados: UpdateIndicadorDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.indicadorService.update(id, dados, { id: req.user.id, ip });
   }
 
   @Delete(':id')

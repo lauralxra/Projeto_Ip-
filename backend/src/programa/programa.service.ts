@@ -28,6 +28,8 @@ const SELECT_PROGRAMA = {
   status: true,
   nucleoId: true,
   nucleo: { select: { id: true, nome: true, sigla: true } },
+  responsavelId: true,
+  responsavel: { select: { id: true, nome: true, email: true } },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ProgramaSelect;
@@ -63,12 +65,19 @@ export class ProgramaService {
 
   async create(dto: CreateProgramaDto, autor: AutorAcao) {
     const nucleoId = dto.nucleoId ?? null;
+    const responsavelId = dto.responsavelId ?? null;
 
     if (nucleoId) await this.garantirNucleoAtivo(nucleoId);
+    if (responsavelId) await this.garantirUsuarioAtivo(responsavelId);
     await this.garantirNomeDisponivel(dto.nome, nucleoId);
 
     const programa = await this.prisma.programa.create({
-      data: { nome: dto.nome, descricao: dto.descricao || null, nucleoId },
+      data: {
+        nome: dto.nome,
+        descricao: dto.descricao || null,
+        nucleoId,
+        responsavelId,
+      },
       select: SELECT_PROGRAMA,
     });
 
@@ -81,6 +90,7 @@ export class ProgramaService {
         nome: programa.nome,
         descricao: programa.descricao,
         nucleoId: programa.nucleoId,
+        responsavelId: programa.responsavelId,
         status: programa.status,
       },
       ip: autor.ip,
@@ -157,6 +167,8 @@ export class ProgramaService {
 
     const nome = dto.nome ?? atual.nome;
     const nucleoId = dto.nucleoId === undefined ? atual.nucleoId : dto.nucleoId;
+    const responsavelId =
+      dto.responsavelId === undefined ? atual.responsavelId : dto.responsavelId;
     const descricao =
       dto.descricao === undefined ? atual.descricao : dto.descricao || null;
 
@@ -168,6 +180,12 @@ export class ProgramaService {
     if (nucleoId !== atual.nucleoId) {
       mudancas.nucleoId = { de: atual.nucleoId, para: nucleoId };
     }
+    if (responsavelId !== atual.responsavelId) {
+      mudancas.responsavelId = {
+        de: atual.responsavelId,
+        para: responsavelId,
+      };
+    }
 
     if (Object.keys(mudancas).length === 0) {
       throw new BadRequestException('Nenhuma alteração informada.');
@@ -176,13 +194,16 @@ export class ProgramaService {
     if (mudancas.nucleoId && nucleoId) {
       await this.garantirNucleoAtivo(nucleoId);
     }
+    if (mudancas.responsavelId && responsavelId) {
+      await this.garantirUsuarioAtivo(responsavelId);
+    }
     if (mudancas.nome || mudancas.nucleoId) {
       await this.garantirNomeDisponivel(nome, nucleoId, id);
     }
 
     const atualizado = await this.prisma.programa.update({
       where: { id },
-      data: { nome, descricao, nucleoId },
+      data: { nome, descricao, nucleoId, responsavelId },
       select: SELECT_PROGRAMA,
     });
 
@@ -343,6 +364,7 @@ export class ProgramaService {
         descricao: true,
         status: true,
         nucleoId: true,
+        responsavelId: true,
       },
     });
 
@@ -351,6 +373,22 @@ export class ProgramaService {
     }
 
     return programa;
+  }
+
+  private async garantirUsuarioAtivo(userId: string) {
+    const usuario = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, ativo: true },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuário responsável não encontrado.');
+    }
+    if (!usuario.ativo) {
+      throw new BadRequestException(
+        'Não é possível vincular um usuário inativo como responsável pelo programa.',
+      );
+    }
   }
 
   private async garantirNucleoAtivo(nucleoId: string) {

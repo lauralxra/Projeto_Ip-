@@ -37,4 +37,11 @@ export class CreateProgramaDto {
   @IsOptional()
   @IsUUID('4', { message: 'nucleoId deve ser um UUID válido.' })
   nucleoId?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID do usuário responsável pelo programa.',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'responsavelId deve ser um UUID válido.' })
+  responsavelId?: string;
 }

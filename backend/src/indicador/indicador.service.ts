@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
+import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 import {
   alterarValorRegistro,
@@ -130,6 +131,32 @@ export class IndicadorService {
       }
     }
 
+    const nomeTrimmed = dados.nome.trim();
+
+    // Se já existe um indicador ativo com o mesmo nome e escopo/núcleo, reaproveita
+    // para não criar indicadores duplicados e desconexos no banco de dados
+    const indicadorExistente = await this.prisma.indicador.findFirst({
+      where: {
+        nome: { equals: nomeTrimmed, mode: 'insensitive' },
+        deletedAt: null,
+        status: StatusRegistro.ATIVO,
+        ...(dados.nucleoId ? { nucleoId: dados.nucleoId } : { nucleoId: null }),
+        ...(dados.programaId ? { programaId: dados.programaId } : {}),
+      },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+        registros: {
+          where: { deletedAt: null, status: StatusRegistro.ATIVO },
+          orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
+        },
+      },
+    });
+
+    if (indicadorExistente) {
+      return indicadorExistente;
+    }
+
     const indicador = await this.prisma.indicador.create({
       data: {
         nome: dados.nome,
@@ -140,6 +167,7 @@ export class IndicadorService {
         nucleoId: dados.nucleoId ?? null,
         programaId: dados.programaId ?? null,
         codigo: dados.codigo ?? null,
+        status: dados.status ?? StatusRegistro.ATIVO,
       },
       include: {
         nucleo: { select: { id: true, nome: true, sigla: true } },
@@ -163,6 +191,131 @@ export class IndicadorService {
     });
 
     return indicador;
+  }
+
+  async update(id: string, dados: UpdateIndicadorDto, autor: AutorAcao) {
+    const indicador = await this.prisma.indicador.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+      },
+    });
+
+    if (!indicador) {
+      throw new NotFoundException('Indicador não encontrado.');
+    }
+
+    const nucleoId =
+      dados.nucleoId !== undefined ? dados.nucleoId : indicador.nucleoId;
+    const escopo = dados.escopo !== undefined ? dados.escopo : indicador.escopo;
+
+    if (escopo === EscopoIndicador.NUCLEO && !nucleoId) {
+      throw new BadRequestException(
+        'É obrigatório vincular um núcleo ao indicador com escopo de núcleo.',
+      );
+    }
+
+    if (escopo === EscopoIndicador.INSTITUCIONAL && nucleoId) {
+      throw new BadRequestException(
+        'Indicadores institucionais não devem ter núcleo vinculado.',
+      );
+    }
+
+    if (dados.nucleoId) {
+      const nucleo = await this.prisma.nucleo.findFirst({
+        where: { id: dados.nucleoId, deletedAt: null, status: 'ATIVO' },
+      });
+      if (!nucleo) {
+        throw new BadRequestException('Núcleo não encontrado ou inativo.');
+      }
+    }
+
+    if (dados.programaId) {
+      const programa = await this.prisma.programa.findFirst({
+        where: {
+          id: dados.programaId,
+          deletedAt: null,
+          status: 'ATIVO',
+          ...(nucleoId ? { nucleoId } : {}),
+        },
+      });
+      if (!programa) {
+        throw new BadRequestException(
+          'Programa não encontrado, inativo ou incompatível com o núcleo.',
+        );
+      }
+    }
+
+    const atualizado = await this.prisma.indicador.update({
+      where: { id },
+      data: {
+        ...(dados.nome ? { nome: dados.nome.trim() } : {}),
+        ...(dados.descricao !== undefined
+          ? { descricao: dados.descricao?.trim() || null }
+          : {}),
+        ...(dados.unidadeMedida !== undefined
+          ? { unidadeMedida: dados.unidadeMedida?.trim() || null }
+          : {}),
+        ...(dados.escopo ? { escopo: dados.escopo } : {}),
+        ...(dados.tipoDado ? { tipoDado: dados.tipoDado } : {}),
+        ...(dados.status !== undefined ? { status: dados.status } : {}),
+        ...(dados.nucleoId !== undefined
+          ? { nucleoId: dados.nucleoId || null }
+          : {}),
+        ...(dados.programaId !== undefined
+          ? { programaId: dados.programaId || null }
+          : {}),
+        ...(dados.codigo !== undefined
+          ? { codigo: dados.codigo?.trim() || null }
+          : {}),
+      },
+      include: {
+        nucleo: { select: { id: true, nome: true, sigla: true } },
+        programa: { select: { id: true, nome: true } },
+        registros: {
+          where: { deletedAt: null },
+          orderBy: [{ ano: 'desc' }, { trimestre: 'desc' }],
+        },
+      },
+    });
+
+    if (dados.semMeta) {
+      const agora = new Date();
+      await this.prisma.$transaction([
+        this.prisma.meta.updateMany({
+          where: { indicadorId: id, deletedAt: null },
+          data: { deletedAt: agora, status: StatusRegistro.INATIVO },
+        }),
+        this.prisma.indicadorRegistro.updateMany({
+          where: { indicadorId: id, deletedAt: null },
+          data: { metaAplicada: null },
+        }),
+      ]);
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Indicador',
+      entidadeId: id,
+      dadosAntigos: {
+        nome: indicador.nome,
+        escopo: indicador.escopo,
+        nucleoId: indicador.nucleoId,
+        programaId: indicador.programaId,
+      },
+      dadosNovos: {
+        nome: atualizado.nome,
+        escopo: atualizado.escopo,
+        nucleoId: atualizado.nucleoId,
+        programaId: atualizado.programaId,
+        ...(dados.semMeta ? { semMeta: true } : {}),
+      },
+      ip: autor.ip,
+    });
+
+    return atualizado;
   }
 
   // RF03: remove um indicador por vez (exclusão lógica), levando junto metas e registros

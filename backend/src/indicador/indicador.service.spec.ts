@@ -168,6 +168,52 @@ describe('IndicadorService', () => {
     });
   });
 
+  describe('update', () => {
+    it('atualiza indicador e remove metas ao passar semMeta: true', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        nucleoId: null,
+        programaId: null,
+      });
+      prisma.indicador.update.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        nucleoId: null,
+        programaId: null,
+        registros: [],
+      });
+
+      await service.update(
+        'ind-uuid',
+        { semMeta: true },
+        { id: admin.id, ip: '127.0.0.1' },
+      );
+
+      expect(prisma.meta.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { indicadorId: 'ind-uuid', deletedAt: null },
+          data: expect.objectContaining({ status: StatusRegistro.INATIVO }),
+        }),
+      );
+      expect(prisma.indicadorRegistro.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { indicadorId: 'ind-uuid', deletedAt: null },
+          data: { metaAplicada: null },
+        }),
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidadeId: 'ind-uuid',
+          dadosNovos: expect.objectContaining({ semMeta: true }),
+        }),
+      );
+    });
+  });
+
   describe('remove', () => {
     it('exclui um único indicador com registros e metas e audita', async () => {
       prisma.indicador.findFirst.mockResolvedValue({

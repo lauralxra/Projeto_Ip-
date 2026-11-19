@@ -42,6 +42,21 @@ export class UserRepository {
       data: { nome },
     });
   }
+
+  updateEmail(id: string, email: string) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { email },
+    });
+  }
+
+  updateStatus(id: string, ativo: boolean) {
+    return this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { ativo },
+    });
+  }
+
   updatePermissions(id: string, role: Role) {
     return this.prisma.user.updateMany({
       where: { id, deletedAt: null },

@@ -158,6 +158,7 @@ model User {
   accessibility        UserAccessibility?
   resetTokens          PasswordResetToken[]
   nucleos              UserNucleo[]
+  programasResponsavel Programa[]           @relation("ProgramaResponsavel")
   registrosResponsavel IndicadorRegistro[]  @relation("RegistroResponsavel")
   registrosAprovador   IndicadorRegistro[]  @relation("RegistroAprovador")
   registrosPublicador  IndicadorRegistro[]  @relation("RegistroPublicador")
@@ -252,17 +253,20 @@ model Programa {
   nome      String         @db.VarChar(150)
   descricao String?
   // nulo = programa institucional (IPÊ)
-  nucleoId  String?        @map("nucleo_id") @db.Uuid
-  status    StatusRegistro @default(ATIVO)
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  nucleoId      String?        @map("nucleo_id") @db.Uuid
+  responsavelId String?        @map("responsavel_id") @db.Uuid
+  status        StatusRegistro @default(ATIVO)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
   nucleo      Nucleo?     @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  responsavel User?       @relation("ProgramaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
   acoes       Acao[]
   indicadores Indicador[]
 
   @@index([nucleoId])
+  @@index([responsavelId])
   @@index([status])
   @@map("programas")
 }

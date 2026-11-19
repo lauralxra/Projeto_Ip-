@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Svg } from './config/assets';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, History, Trash2 } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -179,12 +180,14 @@ function Lista({
   setIndicVal,
   delIndic,
   aprovIndic,
+  abrirHistorico,
 }: {
   leList: Indicador[];
   editIndic: (arg0: Indicador) => void;
   setIndicVal: (indic: Indicador) => void;
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
+  abrirHistorico: (indic: Indicador) => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-start gap-[12px] w-full">
@@ -204,7 +207,23 @@ function Lista({
           >
             <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.nome}</p>
+                <p className="font-semibold">{indicador.nome}</p>
+                {indicador.registros && indicador.registros.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => abrirHistorico(indicador)}
+                    className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit mt-1 transition-colors"
+                    title="Ver todas as medições trimestrais cadastradas"
+                  >
+                    <History className="size-3" />
+                    <span>
+                      {indicador.registros.length}{' '}
+                      {indicador.registros.length === 1
+                        ? 'período'
+                        : 'períodos'}
+                    </span>
+                  </button>
+                )}
               </div>
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
                 <p>{indicador.ano ?? '-'}</p>
@@ -302,10 +321,19 @@ function Lista({
                   ''
                 )}
 
-                <a
-                  title="Ver nos Dashboards"
-                  className="size-[24px]"
-                  href="/dashboard"
+                <button
+                  type="button"
+                  title="Histórico de Medições (ver e adicionar novos anos/trimestres)"
+                  onClick={() => abrirHistorico(indicador)}
+                  className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
+                >
+                  <History className="size-full" />
+                </button>
+
+                <Link
+                  title={`Ver gráfico do indicador "${indicador.nome}" no Dashboard`}
+                  className="size-[24px] hover:opacity-75 transition-opacity cursor-pointer"
+                  to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
                 >
                   <div className="size-full">
                     <svg
@@ -316,7 +344,7 @@ function Lista({
                       <path d={Svg.p19cd0a80} fill="#3C3B3B" />
                     </svg>
                   </div>
-                </a>
+                </Link>
 
                 {UsuarioAtual.tipo == 'ADM' ? (
                   <button
@@ -421,6 +449,7 @@ export default function TelaIndicadores() {
 
         return {
           id: item.id,
+          registroId: registro?.id,
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
@@ -436,6 +465,17 @@ export default function TelaIndicadores() {
           programa: item.programa ?? undefined,
           status: item.status,
           aprovado: registro?.statusAprovacao === 'APROVADO',
+          registros: (item.registros ?? []).map((r: any) => ({
+            id: r.id,
+            ano: r.ano,
+            trimestre: r.trimestre,
+            valorRealizado:
+              r.valorRealizado != null ? String(r.valorRealizado) : null,
+            metaAplicada:
+              r.metaAplicada != null ? String(r.metaAplicada) : null,
+            statusAprovacao: r.statusAprovacao,
+            status: r.status,
+          })),
         };
       });
 
@@ -648,27 +688,13 @@ export default function TelaIndicadores() {
   const [formNucleoId, setFormNucleoId] = useState<string>('');
   const [formProgramId, setProgramId] = useState<string>('');
   const [formMeta, setMetaForm] = useState('');
+  const [temMetaForm, setTemMetaForm] = useState(true);
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
   const [formStatus, setStatusForm] = useState('');
   const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
-
-  function getUnitSimb() {
-    switch (formUnidade) {
-      case 'Porcentagem':
-        return '%';
-      case 'Toneladas':
-        return 't';
-      case 'Quilos':
-        return 'Kg';
-      case 'Reais':
-        return '$';
-      default:
-        return '';
-    }
-  }
 
   // Janelas popup
 
@@ -679,6 +705,8 @@ export default function TelaIndicadores() {
     setFormNucleoId('');
     setProgramId('');
     setValorForm('0');
+    setMetaForm('');
+    setTemMetaForm(false);
     setFormAno(String(new Date().getFullYear()));
     setFormTrimestre('Q4');
     setStatusForm('ativo');
@@ -744,21 +772,34 @@ export default function TelaIndicadores() {
     const trimestreInicial = formTrimestre;
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dadosIndicador),
-      });
+      // 1. Verifica se já existe um indicador com este mesmo nome no núcleo ou escopo institucional
+      const indicadorExistente = indicadores.find(
+        (ind) =>
+          ind.nome.trim().toLowerCase() === nome.toLowerCase() &&
+          (formNucleoId ? ind.nucleo?.id === formNucleoId : !ind.nucleo),
+      );
 
-      const resultado = await resposta.json();
+      let idIndicador = indicadorExistente?.id;
 
-      if (!resposta.ok) {
-        throw new Error(
-          resultado.message || 'Não foi possível cadastrar o indicador.',
-        );
+      if (!idIndicador) {
+        const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(dadosIndicador),
+        });
+
+        const resultado = await resposta.json();
+
+        if (!resposta.ok) {
+          throw new Error(
+            resultado.message || 'Não foi possível cadastrar o indicador.',
+          );
+        }
+
+        idIndicador = resultado.id;
       }
 
       const valorParaSalvar = Number.isFinite(valorInicial) ? valorInicial : 0;
@@ -769,7 +810,7 @@ export default function TelaIndicadores() {
         anoInicial >= 2000 &&
         anoInicial <= 2100
       ) {
-        await fetch(`${API_BASE_URL}/indicadores/${resultado.id}/registros`, {
+        await fetch(`${API_BASE_URL}/indicadores/${idIndicador}/registros`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -783,46 +824,45 @@ export default function TelaIndicadores() {
         });
       }
 
-      const novo: Indicador = {
-        id: resultado.id,
-        nome: resultado.nome,
-        unidade: resultado.unidadeMedida || 'Unidade',
-        simbolUni: getUnitSimb(),
-        ano: anoInicial,
-        trimestre: trimestreInicial,
-        nucleo: resultado.nucleo
-          ? {
-              id: resultado.nucleo.id,
-              nome: resultado.nucleo.nome,
-              sigla: resultado.nucleo.sigla,
-              descricao: resultado.nucleo.descricao || '',
-              corBg: 'bg-[#832b62]',
-              corIcone: 'text-white',
-            }
-          : undefined,
-        programa: resultado.programa
-          ? ({
-              ...programSelecionado,
-              id: resultado.programa.id,
-              nome: resultado.programa.nome,
-            } as Programa)
-          : undefined,
-        valAtual: String(valorParaSalvar),
-        status: resultado.status || 'ATIVO',
-        aprovado: false,
-      };
+      if (temMetaForm && formMeta.trim() !== '') {
+        const valMetaNum = Number(formMeta.trim().replace(',', '.'));
+        if (Number.isFinite(valMetaNum) && valMetaNum > 0) {
+          try {
+            await apiFetch('/metas', {
+              method: 'POST',
+              body: JSON.stringify({
+                indicadorId: idIndicador,
+                ano: anoInicial,
+                trimestre: trimestreInicial,
+                valorMeta: valMetaNum,
+              }),
+            });
+          } catch (e) {
+            console.warn('Erro ao salvar meta inicial do novo indicador:', e);
+          }
+        }
+      }
 
-      setIndicadores((prev) => [...prev, novo]);
+      await carregarIndicadores();
+
       setModalNovoAberto(false);
       setNomeForm('');
       setUnidadeForm('');
       setFormNucleoId('');
       setProgramId('');
       setValorForm('0');
+      setMetaForm('');
+      setTemMetaForm(false);
       setFormAno(String(new Date().getFullYear()));
       setFormTrimestre('Q4');
 
-      alert('Indicador cadastrado com sucesso!');
+      if (indicadorExistente) {
+        alert(
+          `O indicador "${indicadorExistente.nome}" já existe. A nova medição para ${anoInicial} (${trimestreInicial}) foi adicionada ao histórico com sucesso!`,
+        );
+      } else {
+        alert('Indicador cadastrado com sucesso!');
+      }
     } catch (erro) {
       console.error('Erro ao cadastrar indicador:', erro);
       alert(
@@ -874,17 +914,192 @@ export default function TelaIndicadores() {
         throw new Error(erro.message || 'Não foi possível salvar o valor.');
       }
 
-      setIndicadores(
-        indicadores.map((n) =>
-          n.id === indicSelecionado.id ? { ...n, valAtual: formValor } : n,
-        ),
-      );
-
+      await carregarIndicadores();
       inserindoValor(false);
-      alert('Valor salvo com sucesso!');
+      alert('Medição salva no histórico com sucesso!');
     } catch (erro) {
       console.error('Erro ao salvar valor:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao salvar o valor.');
+    }
+  };
+
+  // Histórico de medições (ver todas e adicionar novos períodos a um indicador existente)
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+  const [historicoAno, setHistoricoAno] = useState(
+    String(new Date().getFullYear()),
+  );
+  const [historicoTrimestre, setHistoricoTrimestre] = useState('Q1');
+  const [historicoValor, setHistoricoValor] = useState('');
+
+  const abrirHistoricoModal = (indicador: Indicador) => {
+    setIndicSelecionado(indicador);
+    setHistoricoAno(String(new Date().getFullYear()));
+    setHistoricoTrimestre('Q1');
+    setHistoricoValor('');
+    setModalHistoricoAberto(true);
+  };
+
+  const salvarMedicaoHistorico = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indicSelecionado) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    const valor = Number(historicoValor);
+    if (!Number.isFinite(valor) || valor < 0) {
+      alert('Informe um valor realizado válido.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}/registros`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ano: Number(historicoAno),
+            trimestre: historicoTrimestre,
+            valorRealizado: valor,
+          }),
+        },
+      );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível salvar a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : prev.valAtual,
+                  ano: atual.registros?.[0]?.ano ?? prev.ano,
+                  trimestre: atual.registros?.[0]?.trimestre ?? prev.trimestre,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      setHistoricoValor('');
+      alert(
+        `Medição para ${historicoAno} (${historicoTrimestre}) salva no histórico com sucesso!`,
+      );
+    } catch (erro) {
+      console.error('Erro ao salvar medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao salvar medição.');
+    }
+  };
+
+  const excluirMedicao = async (
+    registroId: string,
+    ano: number,
+    trimestre: string,
+  ) => {
+    if (!indicSelecionado) return;
+
+    const confirmou = window.confirm(
+      `Tem certeza que deseja excluir a medição de ${ano} (${trimestre}) do indicador "${indicSelecionado.nome}"?`,
+    );
+    if (!confirmou) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/registros/${registroId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível excluir a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : '0',
+                  ano: atual.registros?.[0]?.ano ?? undefined,
+                  trimestre: atual.registros?.[0]?.trimestre ?? undefined,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      alert(`Medição de ${ano} (${trimestre}) excluída com sucesso!`);
+    } catch (erro) {
+      console.error('Erro ao excluir medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao excluir medição.');
     }
   };
 
@@ -895,7 +1110,9 @@ export default function TelaIndicadores() {
     setUnidadeForm(indicador.unidade);
     setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
     setProgramId(indicador.programa ? indicador.programa.id : '');
-    setMetaForm(indicador.meta != null ? indicador.meta : '');
+    const metaValor = indicador.meta != null ? indicador.meta : '';
+    setMetaForm(metaValor);
+    setTemMetaForm(Boolean(metaValor && parseFloat(metaValor) > 0));
     setStatusForm(indicador.status);
     setEditAberto(true);
   };
@@ -903,16 +1120,45 @@ export default function TelaIndicadores() {
   // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
   // exibido no card. Devolve o id da meta resultante.
   const salvarMeta = async (indicador: Indicador, texto: string) => {
-    if (texto === '') {
+    const valorLimpo = texto.trim().replace(',', '.');
+    const valorMeta = Number(valorLimpo);
+    const ehSemMeta =
+      texto.trim() === '' || (!isNaN(valorMeta) && valorMeta <= 0);
+
+    if (ehSemMeta) {
       if (indicador.metaId) {
-        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        try {
+          await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.warn('Erro ao deletar meta por id:', e);
+        }
       }
+
+      // Garante exclusão de todas as metas ativas deste indicador
+      try {
+        const respMetas = await apiFetch<{ itens: Array<{ id: string }> }>(
+          `/metas?indicadorId=${indicador.id}&limite=100`,
+        );
+        if (respMetas?.itens?.length) {
+          for (const m of respMetas.itens) {
+            try {
+              await apiFetch(`/metas/${m.id}`, { method: 'DELETE' });
+            } catch (err) {
+              console.warn(`Erro ao excluir meta ${m.id}:`, err);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao listar metas do indicador:', e);
+      }
+
       return undefined;
     }
 
-    const valorMeta = Number(texto.replace(',', '.'));
     if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
-      throw new Error('Informe uma meta maior que zero.');
+      throw new Error(
+        'Informe uma meta maior que zero ou marque a opção "Não precisa de meta".',
+      );
     }
 
     if (indicador.metaId) {
@@ -924,12 +1170,14 @@ export default function TelaIndicadores() {
     }
 
     // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const anoMeta = indicador.ano ?? new Date().getFullYear();
+    const trimestreMeta = indicador.ano ? (indicador.trimestre ?? null) : null;
     const criada = await apiFetch<{ id: string }>('/metas', {
       method: 'POST',
       body: JSON.stringify({
         indicadorId: indicador.id,
-        ano: indicador.ano ?? new Date().getFullYear(),
-        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        ano: anoMeta,
+        trimestre: trimestreMeta,
         valorMeta,
       }),
     });
@@ -940,59 +1188,58 @@ export default function TelaIndicadores() {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    const textoMeta = formMeta.trim();
-    const metaMudou = textoMeta !== (indicSelecionado.meta ?? '');
-    let metaId = indicSelecionado.metaId;
-
-    if (metaMudou) {
-      try {
-        metaId = await salvarMeta(indicSelecionado, textoMeta);
-      } catch (erro) {
-        alert('Não foi possível salvar a meta: ' + mensagemDeErro(erro));
-        return;
-      }
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
     }
 
-    const outrosCamposMudaram =
-      formNome !== indicSelecionado.nome ||
-      formUnidade !== indicSelecionado.unidade ||
-      formNucleoId !== (indicSelecionado.nucleo?.id ?? '') ||
-      formProgramId !== (indicSelecionado.programa?.id ?? '') ||
-      formStatus !== indicSelecionado.status;
+    const valorLimpo = formMeta.trim().replace(',', '.');
+    const valorNum = Number(valorLimpo);
+    const querSemMeta =
+      !temMetaForm ||
+      formMeta.trim() === '' ||
+      (!isNaN(valorNum) && valorNum <= 0);
 
-    let unitSimbol = getUnitSimb();
-    const nucleoSelecionado = formNucleoId
-      ? NucleosDoUser.find((n) => n.id === formNucleoId)
-      : undefined;
-    const programSelecionado = formProgramId
-      ? programasDoBanco.find((n) => n.id === formProgramId)
-      : undefined;
+    try {
+      if (querSemMeta) {
+        await salvarMeta(indicSelecionado, '');
+      } else {
+        await salvarMeta(indicSelecionado, formMeta.trim());
+      }
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              nome: formNome,
-              unidade: formUnidade,
-              simbolUni: unitSimbol,
-              nucleo: nucleoSelecionado,
-              programa: programSelecionado,
-              meta: textoMeta || undefined,
-              metaId,
-              status: formStatus,
-            }
-          : n,
-      ),
-    );
-    setEditAberto(false);
-
-    // Não existe PATCH /indicadores/:id no backend; só a meta é salva
-    if (outrosCamposMudaram) {
-      alert(
-        'Nome, unidade, núcleo, programa e status ainda não podem ser editados pela API: essas alterações valem só até recarregar a página.' +
-          (metaMudou ? ' A meta foi salva.' : ''),
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: formNome.trim(),
+            unidadeMedida: formUnidade || undefined,
+            nucleoId: formNucleoId || null,
+            programaId: formProgramId || null,
+            ...(formStatus ? { status: formStatus.toUpperCase() } : {}),
+            semMeta: querSemMeta,
+          }),
+        },
       );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(
+          erro.message || 'Não foi possível salvar a edição do indicador.',
+        );
+      }
+
+      await carregarIndicadores();
+      setEditAberto(false);
+      alert('Indicador atualizado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao atualizar indicador:', erro);
+      alert('Erro ao atualizar indicador: ' + mensagemDeErro(erro));
     }
   };
 
@@ -1050,26 +1297,68 @@ export default function TelaIndicadores() {
     setModelAprov(true);
   };
 
-  const handleAprovacao = (e: React.FormEvent) => {
+  const handleAprovacao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    setIndicadores(
-      indicadores.map((n) =>
-        n.id === indicSelecionado.id
-          ? {
-              ...n,
-              aprovado: formAprovacao,
-            }
-          : n,
-      ),
-    );
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
 
-    formAprovacao
-      ? ''
-      : alert('Voce desaprovou por motivo: ' + formDesaprovMotivo);
+    if (!indicSelecionado.registroId) {
+      alert(
+        'Este indicador ainda não possui registro de medição para aprovar ou devolver.',
+      );
+      setModelAprov(false);
+      return;
+    }
 
-    setModelAprov(false);
+    try {
+      const rota = formAprovacao
+        ? `${API_BASE_URL}/registro/${indicSelecionado.registroId}/aprovar`
+        : `${API_BASE_URL}/registro/${indicSelecionado.registroId}/devolver`;
+
+      const opcoes: RequestInit = {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        ...(formAprovacao
+          ? {}
+          : {
+              body: JSON.stringify({
+                justificativa:
+                  formDesaprovMotivo.trim() || 'Devolvido para revisão.',
+              }),
+            }),
+      };
+
+      const resposta = await fetch(rota, opcoes);
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(
+          erro.message || 'Não foi possível alterar a aprovação do registro.',
+        );
+      }
+
+      await carregarIndicadores();
+      setModelAprov(false);
+      alert(
+        formAprovacao
+          ? 'Registro aprovado com sucesso!'
+          : 'Registro devolvido para correção!',
+      );
+    } catch (erro) {
+      console.error('Erro na aprovação/devolução:', erro);
+      alert(
+        erro instanceof Error
+          ? erro.message
+          : 'Erro ao processar fluxo de aprovação.',
+      );
+    }
   };
 
   const totalIndicadores = indicadoresFiltrados.length;
@@ -1167,29 +1456,29 @@ export default function TelaIndicadores() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEUDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 md:p-8 h-full overflow-y-auto">
-        <div className="flex flex-1 flex-col gap-[30px] items-center pt-[30px] w-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto">
+        <div className="flex flex-1 flex-col gap-6 items-center pt-2 sm:pt-4 md:pt-6 w-full">
           {/* Header */}
           <div
-            className="flex flex-col gap-[30px] items-center w-full"
+            className="flex flex-col gap-6 items-center w-full"
             data-name="Header"
           >
             <div
-              className="flex items-center justify-center px-[20px] w-full"
+              className="flex items-center justify-between px-2 sm:px-4 w-full"
               data-name="Titulo"
             >
-              <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <p className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
                 Indicadores
               </p>
             </div>
 
             {/* Resumos */}
             <div
-              className="flex gap-[30px] items-start justify-center px-[40px] w-full"
+              className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch justify-center px-2 sm:px-4 w-full"
               data-name="Resumos"
             >
               <TotalProgresso progresso={progressoGeral} />
@@ -1244,16 +1533,16 @@ export default function TelaIndicadores() {
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
 
                   {/* Botão importar */}
-                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between gap-2.5 relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-auto">
                     <BtnImportIco ico="block size-full" id="btnImportar" />
                     <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                      Importar CSV
+                      Importar CSV / Excel
                     </div>
                     <input
                       type="file"
                       accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                       className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
-                      title="Importar CSV"
+                      title="Importar CSV ou Excel (.xlsx, .xls)"
                       onChange={handleCSVImport}
                     />
                   </div>
@@ -1283,6 +1572,7 @@ export default function TelaIndicadores() {
                 setIndicVal={abrirValModal}
                 delIndic={abrirDeletarModal}
                 aprovIndic={abrirAprovacaoModal}
+                abrirHistorico={abrirHistoricoModal}
               />
             </div>
           </div>
@@ -1419,6 +1709,53 @@ export default function TelaIndicadores() {
                     )}
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Botões do Modal */}
@@ -1501,6 +1838,53 @@ export default function TelaIndicadores() {
                     <option value="Q4">4º trimestre (Q4)</option>
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 pt-4">
@@ -1518,6 +1902,40 @@ export default function TelaIndicadores() {
                   <span>Confirmar</span>
                 </button>
               </div>
+
+              {UsuarioAtual.tipo === 'ADM' && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!indicSelecionado) return;
+                      const regAlvo = indicSelecionado.registros?.find(
+                        (r) =>
+                          r.ano === Number(formAno) &&
+                          r.trimestre === formTrimestre,
+                      );
+                      const regIdParaExcluir =
+                        regAlvo?.id || indicSelecionado.registroId;
+                      if (!regIdParaExcluir) {
+                        alert(
+                          'Nenhuma medição encontrada para este ano e trimestre.',
+                        );
+                        return;
+                      }
+                      await excluirMedicao(
+                        regIdParaExcluir,
+                        Number(formAno),
+                        formTrimestre,
+                      );
+                      inserindoValor(false);
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="size-3" />
+                    <span>Excluir medição deste ano e trimestre</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -1601,16 +2019,66 @@ export default function TelaIndicadores() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Meta
+                    Status
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Defina uma meta..."
-                    value={formMeta}
-                    onChange={(e) => setMetaForm(e.target.value)}
-                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                  />
+                  <select
+                    value={formStatus ? formStatus.toUpperCase() : 'ATIVO'}
+                    onChange={(e) => setStatusForm(e.target.value)}
+                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                  >
+                    <option value="ATIVO">Ativo</option>
+                    <option value="INATIVO">Inativo</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta{' '}
+                      {indicSelecionado?.simbolUni
+                        ? `(${indicSelecionado.simbolUni})`
+                        : ''}
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador definido sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1727,6 +2195,227 @@ export default function TelaIndicadores() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Histórico de Medições do Indicador */}
+      {modalHistoricoAberto && indicSelecionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between mb-4 border-b border-slate-200 pb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <History className="size-5 text-[#832b62]" />
+                  Histórico de Medições
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Indicador:{' '}
+                  <span className="font-semibold text-slate-800">
+                    {indicSelecionado.nome}
+                  </span>
+                  {indicSelecionado.nucleo &&
+                    ` • Núcleo: ${indicSelecionado.nucleo.sigla}`}
+                  {` • Unidade: ${indicSelecionado.unidade}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Listagem do Histórico */}
+            <div className="flex-1 overflow-y-auto mb-6 pr-1">
+              <h3 className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                Medições Registradas ({indicSelecionado.registros?.length ?? 0})
+              </h3>
+
+              {!indicSelecionado.registros ||
+              indicSelecionado.registros.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">
+                  Nenhuma medição registrada para este indicador ainda.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">Ano</th>
+                        <th className="py-2.5 px-3">Trimestre</th>
+                        <th className="py-2.5 px-3">Realizado</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...indicSelecionado.registros]
+                        .sort((a, b) => {
+                          if (b.ano !== a.ano) return b.ano - a.ano;
+                          return b.trimestre.localeCompare(a.trimestre);
+                        })
+                        .map((reg) => (
+                          <tr
+                            key={reg.id}
+                            className="hover:bg-slate-50 transition-colors"
+                          >
+                            <td className="py-2.5 px-3 font-medium">
+                              {reg.ano}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded font-mono font-semibold">
+                                {reg.trimestre}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-[#832b62]">
+                              {reg.valorRealizado != null
+                                ? `${reg.valorRealizado}${
+                                    indicSelecionado.simbolUni
+                                      ? ' ' + indicSelecionado.simbolUni
+                                      : ''
+                                  }`
+                                : '-'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {reg.statusAprovacao === 'APROVADO' ||
+                              reg.statusAprovacao === 'PUBLICADO' ? (
+                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  Aprovado
+                                </span>
+                              ) : (
+                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  {reg.statusAprovacao ?? 'Pendente'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHistoricoAno(String(reg.ano));
+                                    setHistoricoTrimestre(reg.trimestre);
+                                    setHistoricoValor(
+                                      reg.valorRealizado != null
+                                        ? String(reg.valorRealizado)
+                                        : '',
+                                    );
+                                  }}
+                                  className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                                >
+                                  Carregar para editar
+                                </button>
+                                {UsuarioAtual.tipo === 'ADM' && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      excluirMedicao(
+                                        reg.id,
+                                        reg.ano,
+                                        reg.trimestre,
+                                      )
+                                    }
+                                    title={`Excluir medição de ${reg.ano} (${reg.trimestre})`}
+                                    className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Formulário para adicionar nova medição ou atualizar */}
+            {(UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+              <form
+                onSubmit={salvarMedicaoHistorico}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
+              >
+                <h4 className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-1.5">
+                  <span>+ Adicionar ou atualizar medição neste indicador</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Ano
+                    </label>
+                    <input
+                      type="number"
+                      min="2000"
+                      max="2100"
+                      value={historicoAno}
+                      onChange={(e) => setHistoricoAno(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Trimestre
+                    </label>
+                    <select
+                      value={historicoTrimestre}
+                      onChange={(e) => setHistoricoTrimestre(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    >
+                      <option value="Q1">1º trimestre (Q1)</option>
+                      <option value="Q2">2º trimestre (Q2)</option>
+                      <option value="Q3">3º trimestre (Q3)</option>
+                      <option value="Q4">4º trimestre (Q4)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Valor Realizado{' '}
+                      {indicSelecionado.simbolUni
+                        ? `(${indicSelecionado.simbolUni})`
+                        : ''}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 50"
+                      value={historicoValor}
+                      onChange={(e) => setHistoricoValor(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-3">
+                  <button
+                    type="submit"
+                    className="py-2 px-5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
+                  >
+                    Salvar Medição
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="flex justify-end pt-4">
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="py-2 px-6 rounded-full border border-slate-400 text-slate-700 font-medium text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

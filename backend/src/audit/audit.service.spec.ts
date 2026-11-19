@@ -13,7 +13,10 @@ describe('AuditService', () => {
   beforeEach(async () => {
     prisma = {
       loginLog: { create: jest.fn().mockResolvedValue({}) },
-      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      auditLog: {
+        create: jest.fn().mockResolvedValue({}),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [AuditService, { provide: PrismaService, useValue: prisma }],
@@ -61,6 +64,30 @@ describe('AuditService', () => {
         dadosNovos: { email: 'maria@exemplo.com' },
         ipOrigem: '203.0.113.7',
       },
+    });
+  });
+
+  it('lista ações de auditoria com filtros aplicados', async () => {
+    await service.findAll({
+      entidade: 'Indicador',
+      acao: AcaoAuditoria.ATUALIZAR,
+      dataInicio: '2026-01-01',
+      dataFim: '2026-12-31',
+      limite: 50,
+    });
+
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith({
+      where: {
+        entidade: { equals: 'Indicador', mode: 'insensitive' },
+        acao: AcaoAuditoria.ATUALIZAR,
+        createdAt: {
+          gte: new Date('2026-01-01'),
+          lte: new Date('2026-12-31'),
+        },
+      },
+      include: expect.any(Object),
+      orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   });
 });

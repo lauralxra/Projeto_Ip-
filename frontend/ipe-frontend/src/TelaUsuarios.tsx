@@ -330,7 +330,6 @@ export default function TelaUsuarios() {
     const avisos: string[] = [];
 
     if (dados.nome !== original.nome) {
-      // PATCH /users/:id só permite ao administrador alterar o próprio nome
       await apiFetch(`/users/${dados.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ name: dados.nome }),
@@ -338,6 +337,17 @@ export default function TelaUsuarios() {
       if (dados.id === UsuarioAtual.id) {
         UsuarioAtual.nome = dados.nome;
         atualizarUsuarioSessao({ nome: dados.nome });
+      }
+    }
+
+    if (dados.email !== original.email) {
+      await apiFetch(`/users/${dados.id}/email`, {
+        method: 'PATCH',
+        body: JSON.stringify({ email: dados.email }),
+      });
+      if (dados.id === UsuarioAtual.id) {
+        UsuarioAtual.email = dados.email;
+        atualizarUsuarioSessao({ email: dados.email });
       }
     }
 
@@ -353,9 +363,14 @@ export default function TelaUsuarios() {
       });
     }
 
-    if (dados.email !== original.email) avisos.push('e-mail');
+    if (dados.status !== original.status) {
+      await apiFetch(`/users/${dados.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ativo: dados.status === 1 }),
+      });
+    }
+
     if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
-    if (dados.status !== original.status) avisos.push('status');
     if ((dados.imagem || '') !== (original.imagem || '')) avisos.push('foto');
     if (avisos.length > 0) {
       alert(
@@ -401,13 +416,13 @@ export default function TelaUsuarios() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEUDO PRINCIPAL =================*/}
-      <main className="flex-1 px-6 h-full overflow-y-auto pt-[60px]">
+      <main className="flex-1 px-4 sm:px-6 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10 pb-16">
         <div
-          className="content-stretch flex flex-col gap-[30px] h-full items-center w-full pt-[30px] px-4"
+          className="content-stretch flex flex-col gap-6 h-full items-center w-full pt-2 sm:pt-4 px-2 sm:px-4"
           data-name="Conteudo"
         >
           {/* Up */}

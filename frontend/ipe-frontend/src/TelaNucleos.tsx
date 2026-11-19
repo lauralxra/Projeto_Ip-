@@ -188,14 +188,14 @@ export default function TelaNucleos() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc]">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       {/* Sidebar */}
-      <NavBar></NavBar>
+      <NavBar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 p-6 md:p-10 h-full overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 md:p-10 w-full h-full overflow-y-auto">
         {/* Cabeçalho */}
-        <header className="flex items-center justify-between gap-4 mb-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
               Núcleos
