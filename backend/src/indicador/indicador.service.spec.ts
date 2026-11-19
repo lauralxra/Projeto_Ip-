@@ -168,6 +168,90 @@ describe('IndicadorService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('retorna o indicador para o administrador', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        registros: [],
+      });
+
+      const resultado = await service.findOne('ind-uuid', admin);
+      expect(resultado).toBeDefined();
+      expect(resultado.id).toBe('ind-uuid');
+    });
+
+    it('retorna 404 quando o indicador não existe', async () => {
+      prisma.indicador.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('ind-uuid', admin)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('bloqueia consulta a indicador de outro núcleo para diretor de núcleo', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Núcleo',
+        escopo: EscopoIndicador.NUCLEO,
+        nucleoId: 'outro-nucleo',
+        registros: [],
+      });
+      prisma.userNucleo.findMany.mockResolvedValue([
+        { nucleoId: 'meu-nucleo' },
+      ]);
+
+      await expect(service.findOne('ind-uuid', diretor)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('inativar', () => {
+    it('inativa indicador ativo e registra auditoria DESATIVAR', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        status: StatusRegistro.ATIVO,
+      });
+      prisma.indicador.update.mockResolvedValue({
+        id: 'ind-uuid',
+        status: StatusRegistro.INATIVO,
+      });
+
+      const res = await service.inativar('ind-uuid', {
+        id: admin.id,
+        ip: '127.0.0.1',
+      });
+      expect(res.status).toBe(StatusRegistro.INATIVO);
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.DESATIVAR,
+          entidade: 'Indicador',
+          entidadeId: 'ind-uuid',
+        }),
+      );
+    });
+
+    it('retorna 404 quando indicador não existe', async () => {
+      prisma.indicador.findFirst.mockResolvedValue(null);
+      await expect(
+        service.inativar('ind-uuid', { id: admin.id }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lança ConflictException quando indicador já está inativo', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        status: StatusRegistro.INATIVO,
+      });
+      await expect(
+        service.inativar('ind-uuid', { id: admin.id }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
   describe('update', () => {
     it('atualiza indicador e remove metas ao passar semMeta: true', async () => {
       prisma.indicador.findFirst.mockResolvedValue({
