@@ -31,27 +31,27 @@ function infoStatusAprovacao(status?: string) {
     case 'PUBLICADO':
       return {
         rotulo: 'Aprovado',
-        classe: 'bg-emerald-100 text-emerald-800',
+        classe: 'bg-[#d5e4d1] text-[#24421e]',
       };
     case 'ENVIADO_REVISAO':
       return {
         rotulo: 'Em Análise',
-        classe: 'bg-sky-100 text-sky-800',
+        classe: 'bg-[#fbd3ee]/70 text-[#832b62]',
       };
     case 'NECESSITA_CORRECAO':
       return {
         rotulo: 'Devolvido para Correção',
-        classe: 'bg-rose-100 text-rose-800',
+        classe: 'bg-[#f8d7da] text-[#7a1f2b]',
       };
     case 'EM_PREENCHIMENTO':
       return {
         rotulo: 'Em Preenchimento',
-        classe: 'bg-amber-100 text-amber-800',
+        classe: 'bg-[#ffdfbf] text-[#5c3310]',
       };
     default:
       return {
         rotulo: 'Pendente',
-        classe: 'bg-slate-200 text-slate-700',
+        classe: 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]',
       };
   }
 }
@@ -278,7 +278,9 @@ function Lista({
           <div
             key={indicador.id}
             className={`rounded-xl px-[20px] py-[12px] flex items-center justify-between gap-[15px] shadow-xs hover:shadow-md transition-shadow w-full ${
-              ehAtivo ? 'bg-[#f2eff4]' : 'bg-slate-100 border border-slate-200'
+              ehAtivo
+                ? 'bg-[#f2eff4]'
+                : 'bg-[#f2eff4]/75 border border-[#832b62]/20'
             }`}
           >
             <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
@@ -289,8 +291,8 @@ function Lista({
                     <span
                       className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                         statusNormalizado === 'ARQUIVADO'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-200 text-slate-700'
+                          ? 'bg-[#ffdfbf] text-[#5c3310]'
+                          : 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]'
                       }`}
                     >
                       {statusNormalizado === 'ARQUIVADO'
@@ -330,7 +332,7 @@ function Lista({
                   )}
                 </div>
                 {ehDevolvido && indicador.justificativaDevolucao && (
-                  <p className="text-[11px] text-rose-700 mt-1 line-clamp-2">
+                  <p className="text-[11px] text-[#7a1f2b] mt-1 line-clamp-2">
                     <strong>Correção solicitada:</strong>{' '}
                     {indicador.justificativaDevolucao}
                   </p>
@@ -479,7 +481,7 @@ function Lista({
                       type="button"
                       title="Enviar para Análise da Administração"
                       onClick={() => enviarRevisaoIndic(indicador)}
-                      className="size-[24px] cursor-pointer text-sky-700 hover:text-sky-900 transition-colors"
+                      className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
                     >
                       <Send className="size-full" />
                     </button>
@@ -490,7 +492,7 @@ function Lista({
                     type="button"
                     title="Arquivar / Desativar Indicador"
                     onClick={() => arquivarIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-amber-700 transition-colors"
+                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
                   >
                     <Archive className="size-full" />
                   </button>
@@ -503,7 +505,7 @@ function Lista({
                     type="button"
                     title="Reativar Indicador"
                     onClick={() => reativarIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-emerald-700 transition-colors"
+                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
                   >
                     <RotateCcw className="size-full" />
                   </button>
@@ -535,14 +537,14 @@ function Lista({
                     type="button"
                     title="Revisar Indicador (Aprovar ou Devolver)"
                     onClick={() => aprovIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-sky-700 hover:text-[#832b62] transition-colors"
+                    className="size-[24px] cursor-pointer text-[#832b62] hover:text-[#3b142f] transition-colors"
                   >
                     <Clock className="size-full" />
                   </button>
                 ) : ehAprovado ? (
                   <div
                     title="Aprovado no ciclo (irreversível)"
-                    className="size-[24px] text-emerald-600"
+                    className="size-[24px] text-[#3b142f]"
                   >
                     <CheckCircle2 className="size-full" />
                   </div>
@@ -553,7 +555,7 @@ function Lista({
                         ? `Devolvido para correção: ${indicador.justificativaDevolucao}`
                         : 'Devolvido para correção'
                     }
-                    className="size-[24px] text-rose-600"
+                    className="size-[24px] text-[#832b62]"
                   >
                     <XCircle className="size-full" />
                   </div>
@@ -564,7 +566,7 @@ function Lista({
                         ? 'Em Análise pela Administração'
                         : 'Aguardando envio para análise'
                     }
-                    className="size-[24px] text-slate-300"
+                    className="size-[24px] text-[#3c3b3b]/35"
                   >
                     <Circle className="size-full" />
                   </div>
@@ -1887,6 +1889,47 @@ export default function TelaIndicadores() {
                 opcoes={listagemAprovacao}
               />
 
+              {/* UC041 Regra 3: filtro de status seguindo a geometria oficial do CustomDropdown */}
+              <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] rounded-[9px] shrink-0 w-[190px] relative cursor-pointer">
+                <div className="size-[20px] relative shrink-0 pointer-events-none text-[#3b142f]">
+                  <Archive className="size-full" />
+                </div>
+
+                <select
+                  id="filtro-status-indicador"
+                  aria-label="Filtrar indicadores por status"
+                  value={filtroStatus}
+                  onChange={(e) =>
+                    setFiltroStatus(
+                      e.target.value as 'ATIVO' | 'ARQUIVADO' | 'INATIVO',
+                    )
+                  }
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                >
+                  <option value="ATIVO">Ativos</option>
+                  <option value="ARQUIVADO">Arquivados</option>
+                  <option value="INATIVO">Inativos</option>
+                </select>
+
+                <p className="font-normal text-[#3d3d3d] text-[15px] whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none flex-1 ml-2">
+                  {filtroStatus === 'ATIVO'
+                    ? 'Ativos'
+                    : filtroStatus === 'ARQUIVADO'
+                      ? 'Arquivados'
+                      : 'Inativos'}
+                </p>
+
+                <div className="h-[8px] w-[12px] pointer-events-none shrink-0">
+                  <svg
+                    className="block size-full"
+                    fill="none"
+                    viewBox="0 0 16.2247 10.0188"
+                  >
+                    <path d={Svg.SetaBaixo} fill="#191919" />
+                  </svg>
+                </div>
+              </div>
+
               {UsuarioAtual.tipo === 'ADM' &&
                 filtroStatus === 'ATIVO' &&
                 qtdEmAnalise > 0 && (
@@ -1897,42 +1940,33 @@ export default function TelaIndicadores() {
                         filtroAprovacao === 'Em Análise' ? '' : 'Em Análise',
                       )
                     }
-                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold border transition-colors cursor-pointer ${
+                    className={`flex h-[48px] items-center gap-2.5 px-[16px] rounded-[9px] shrink-0 text-[15px] font-medium transition-colors cursor-pointer ${
                       filtroAprovacao === 'Em Análise'
-                        ? 'bg-sky-700 text-white border-sky-700'
-                        : 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100'
+                        ? 'bg-gradient-to-l from-[#a13680] to-[#3b142f] text-white border-2 border-transparent'
+                        : 'bg-transparent border-2 border-[#3b142f] text-[#3d3d3d] hover:bg-[#f2eff4]'
                     }`}
                     title="Filtrar indicadores aguardando aprovação ou devolução (UC038)"
                   >
-                    <Clock size={15} />
-                    <span>Em Análise ({qtdEmAnalise})</span>
+                    <Clock
+                      size={18}
+                      className={
+                        filtroAprovacao === 'Em Análise'
+                          ? 'text-white'
+                          : 'text-[#3b142f]'
+                      }
+                    />
+                    <span className="whitespace-nowrap">Em Análise</span>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        filtroAprovacao === 'Em Análise'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[#fbd3ee]/80 text-[#832b62]'
+                      }`}
+                    >
+                      {qtdEmAnalise}
+                    </span>
                   </button>
                 )}
-
-              {/* UC041 Regra 3: listagem padrão exibe apenas Ativos; Inativos/Arquivados só sob filtro explícito */}
-              <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-full px-4 py-2 text-sm text-slate-700">
-                <Archive size={16} className="text-[#832b62] shrink-0" />
-                <label
-                  htmlFor="filtro-status-indicador"
-                  className="text-xs font-semibold text-slate-500 whitespace-nowrap"
-                >
-                  Status:
-                </label>
-                <select
-                  id="filtro-status-indicador"
-                  value={filtroStatus}
-                  onChange={(e) =>
-                    setFiltroStatus(
-                      e.target.value as 'ATIVO' | 'ARQUIVADO' | 'INATIVO',
-                    )
-                  }
-                  className="bg-transparent border-0 outline-none font-semibold text-xs text-[#3b142f] cursor-pointer"
-                >
-                  <option value="ATIVO">Ativos</option>
-                  <option value="ARQUIVADO">Arquivados</option>
-                  <option value="INATIVO">Inativos</option>
-                </select>
-              </div>
 
               {UsuarioAtual.tipo == 'ADM' ? (
                 <>
@@ -2515,8 +2549,8 @@ export default function TelaIndicadores() {
       {modalArquivando && indicSelecionado && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="size-11 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="size-11 rounded-full bg-[#fbd3ee]/70 text-[#832b62] flex items-center justify-center shrink-0">
                 <Archive className="size-5" />
               </div>
               <div>
@@ -2529,7 +2563,7 @@ export default function TelaIndicadores() {
               </div>
             </div>
 
-            <p className="text-sm text-slate-700 mb-4">
+            <p className="text-sm text-slate-600 mb-4">
               Deseja encerrar o monitoramento do indicador{' '}
               <span className="font-bold text-slate-900">
                 "{indicSelecionado.nome}"
@@ -2537,14 +2571,14 @@ export default function TelaIndicadores() {
               ?
             </p>
 
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
               <button
                 type="button"
                 onClick={() => setAcaoArquivamento('ARQUIVADO')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
                   acaoArquivamento === 'ARQUIVADO'
-                    ? 'border-[#832b62] bg-[#832b62]/10 text-[#3b142f]'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-[#3a182d] text-white'
+                    : 'bg-[#f2eff4] text-[#3b142f] hover:bg-[#fbd3ee]/50'
                 }`}
               >
                 Arquivar
@@ -2552,17 +2586,17 @@ export default function TelaIndicadores() {
               <button
                 type="button"
                 onClick={() => setAcaoArquivamento('INATIVO')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
                   acaoArquivamento === 'INATIVO'
-                    ? 'border-[#832b62] bg-[#832b62]/10 text-[#3b142f]'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-[#3a182d] text-white'
+                    : 'bg-[#f2eff4] text-[#3b142f] hover:bg-[#fbd3ee]/50'
                 }`}
               >
                 Desativar (Inativo)
               </button>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1.5 mb-6">
+            <div className="bg-[#f2eff4] border border-[#832b62]/20 rounded-2xl p-4 text-xs text-[#3b142f] space-y-1.5 mb-6">
               <p>
                 • O indicador <strong>não poderá mais receber novos lançamentos, metas ou edições</strong>.
               </p>
@@ -2580,7 +2614,7 @@ export default function TelaIndicadores() {
                 type="button"
                 disabled={arquivandoEmAndamento}
                 onClick={() => setModalArquivando(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -2588,7 +2622,7 @@ export default function TelaIndicadores() {
                 type="button"
                 disabled={arquivandoEmAndamento}
                 onClick={confirmarArquivarIndic}
-                className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-semibold text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
               >
                 {arquivandoEmAndamento ? 'Processando...' : 'Confirmar'}
               </button>
@@ -2637,12 +2671,12 @@ export default function TelaIndicadores() {
       {modalAprovacao && indicSelecionado && registroEmRevisao && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-5">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-slate-900">
                   Revisão do Indicador
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-1">
                   Confira os dados enviados para análise e decida entre aprovar
                   ou devolver para correção.
                 </p>
@@ -2658,12 +2692,12 @@ export default function TelaIndicadores() {
             </div>
 
             {/* Resumo detalhado do indicador em análise */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-5 space-y-2 text-xs text-slate-700">
+            <div className="bg-[#f2eff4] rounded-2xl p-4 mb-5 space-y-2 text-xs text-[#3c3b3b]">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-slate-900 text-sm">
+                <span className="font-bold text-[#3b142f] text-sm">
                   {indicSelecionado.nome}
                 </span>
-                <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                <span className="bg-[#fbd3ee]/80 text-[#832b62] text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
                   Em Análise
                 </span>
               </div>
@@ -2706,20 +2740,20 @@ export default function TelaIndicadores() {
             </div>
 
             {modoRevisao === 'ESCOLHA' ? (
-              <div className="space-y-4">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900">
+              <div className="space-y-5">
+                <div className="bg-[#f2eff4]/70 border border-[#832b62]/20 rounded-2xl p-3.5 text-xs text-[#3b142f]">
                   Ao <strong>Aprovar</strong>, a aprovação é final e irreversível
                   para este ciclo. Ao <strong>Devolver</strong>, será solicitada
                   uma justificativa obrigatória e o indicador voltará a ficar
                   editável para o Diretor de Núcleo.
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
                     disabled={processandoRevisao}
                     onClick={() => setModelAprov(false)}
-                    className="py-2.5 px-4 rounded-full border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                    className="py-2.5 px-5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Cancelar
                   </button>
@@ -2730,15 +2764,15 @@ export default function TelaIndicadores() {
                       setModoRevisao('DEVOLVER');
                       setErroJustificativa('');
                     }}
-                    className="flex-1 py-2.5 rounded-full border border-rose-300 bg-rose-50 text-rose-700 font-semibold text-xs hover:bg-rose-100 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    Devolver para Correção
+                    Devolver
                   </button>
                   <button
                     type="button"
                     disabled={processandoRevisao}
                     onClick={executarAprovacao}
-                    className="flex-1 py-2.5 rounded-full bg-emerald-700 text-white font-semibold text-xs hover:bg-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {processandoRevisao ? 'Processando...' : 'Aprovar'}
                   </button>
@@ -2751,7 +2785,7 @@ export default function TelaIndicadores() {
                     htmlFor="justificativa-devolucao"
                     className="block text-xs font-bold text-slate-700 mb-1.5"
                   >
-                    Mensagem de Justificativa <span className="text-rose-600">*</span>
+                    Mensagem de Justificativa <span className="text-red-600">*</span>
                   </label>
                   <textarea
                     id="justificativa-devolucao"
@@ -2764,12 +2798,12 @@ export default function TelaIndicadores() {
                         setErroJustificativa('');
                       }
                     }}
-                    className={`w-full bg-slate-100 border rounded-2xl px-3.5 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none ${
-                      erroJustificativa ? 'border-rose-500' : 'border-slate-300'
+                    className={`w-full bg-slate-200/70 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none ${
+                      erroJustificativa ? 'border border-red-500' : 'border-0'
                     }`}
                   />
                   {erroJustificativa && (
-                    <p className="text-xs font-semibold text-rose-600 mt-1.5">
+                    <p className="text-xs font-semibold text-red-600 mt-1.5">
                       {erroJustificativa}
                     </p>
                   )}
@@ -2783,14 +2817,14 @@ export default function TelaIndicadores() {
                       setModoRevisao('ESCOLHA');
                       setErroJustificativa('');
                     }}
-                    className="flex-1 py-2.5 rounded-full border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Voltar
                   </button>
                   <button
                     type="submit"
                     disabled={processandoRevisao}
-                    className="flex-1 py-2.5 rounded-full bg-rose-700 text-white font-semibold text-xs hover:bg-rose-800 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {processandoRevisao
                       ? 'Devolvendo...'
@@ -2834,7 +2868,7 @@ export default function TelaIndicadores() {
 
             {/* Listagem do Histórico */}
             {(indicSelecionado.status ?? 'ATIVO').toUpperCase() !== 'ATIVO' && (
-              <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5 text-xs">
+              <div className="mb-4 bg-[#f2eff4] border border-[#832b62]/20 text-[#3b142f] rounded-xl px-4 py-2.5 text-xs">
                 Este indicador está{' '}
                 <strong>
                   {(indicSelecionado.status ?? '').toUpperCase() === 'ARQUIVADO'
@@ -2910,7 +2944,7 @@ export default function TelaIndicadores() {
                                     {reg.statusAprovacao ===
                                       'NECESSITA_CORRECAO' &&
                                       reg.justificativaDevolucao && (
-                                        <span className="text-[10px] text-rose-700">
+                                        <span className="text-[10px] text-[#7a1f2b]">
                                           Motivo: {reg.justificativaDevolucao}
                                         </span>
                                       )}
@@ -2924,7 +2958,7 @@ export default function TelaIndicadores() {
                                 <div className="flex items-center justify-end gap-3">
                                   {reg.statusAprovacao === 'APROVADO' ||
                                   reg.statusAprovacao === 'PUBLICADO' ? (
-                                    <span className="text-[11px] text-emerald-700 font-semibold">
+                                    <span className="text-[11px] text-[#24421e] font-semibold">
                                       Aprovado no ciclo
                                     </span>
                                   ) : reg.statusAprovacao ===
@@ -2946,12 +2980,12 @@ export default function TelaIndicadores() {
                                               reg.statusAprovacao,
                                           });
                                         }}
-                                        className="text-[11px] text-sky-700 hover:underline font-bold cursor-pointer"
+                                        className="text-[11px] text-[#832b62] hover:underline font-bold cursor-pointer"
                                       >
                                         Revisar (Aprovar / Devolver)
                                       </button>
                                     ) : (
-                                      <span className="text-[11px] text-sky-700 italic">
+                                      <span className="text-[11px] text-[#832b62] italic">
                                         Em análise
                                       </span>
                                     )
