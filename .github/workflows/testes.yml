@@ -1,0 +1,84 @@
+name: Testes
+
+# Roda os testes do backend em todo PR para a main (o caminho dev -> main).
+# Com a proteção da branch main exigindo estes jobs, o merge fica bloqueado
+# enquanto algum teste falhar.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: testes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  unitarios:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # O postinstall roda o `prisma generate`, que não precisa de banco
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Rodar testes unitários
+        run: npm test -- --ci
+
+  e2e:
+    name: Testes e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ipe
+          POSTGRES_PASSWORD: ipe
+          POSTGRES_DB: ipe_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ipe -d ipe_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Banco descartável do próprio job e segredo só de teste: nada de credenciais reais
+    env:
+      DATABASE_URL: postgresql://ipe:ipe@localhost:5432/ipe_test
+      JWT_SECRET: segredo-somente-para-testes-de-ci-0123456789
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Também garante que as migrations sobem do zero sem erro
+      - name: Aplicar migrations
+        run: npx prisma migrate deploy
+
+      - name: Rodar testes e2e
+        # --forceExit: o Prisma deixa conexões abertas e o Jest não encerraria sozinho
+        run: npm run test:e2e -- --ci --forceExit
