@@ -1456,29 +1456,29 @@ export default function TelaIndicadores() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEUDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 md:p-8 h-full overflow-y-auto">
-        <div className="flex flex-1 flex-col gap-[30px] items-center pt-[30px] w-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto">
+        <div className="flex flex-1 flex-col gap-6 items-center pt-2 sm:pt-4 md:pt-6 w-full">
           {/* Header */}
           <div
-            className="flex flex-col gap-[30px] items-center w-full"
+            className="flex flex-col gap-6 items-center w-full"
             data-name="Header"
           >
             <div
-              className="flex items-center justify-center px-[20px] w-full"
+              className="flex items-center justify-between px-2 sm:px-4 w-full"
               data-name="Titulo"
             >
-              <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <p className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
                 Indicadores
               </p>
             </div>
 
             {/* Resumos */}
             <div
-              className="flex gap-[30px] items-start justify-center px-[40px] w-full"
+              className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch justify-center px-2 sm:px-4 w-full"
               data-name="Resumos"
             >
               <TotalProgresso progresso={progressoGeral} />

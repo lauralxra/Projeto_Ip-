@@ -307,12 +307,12 @@ export default function TelaHistorico() {
   });
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEÚDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 h-full overflow-y-auto pt-[70px]">
-        <div className="flex flex-col gap-6 items-center pt-[10px] pb-[10px] w-full h-full mx-auto">
+      <main className="flex-1 p-4 sm:p-6 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10 pb-16">
+        <div className="flex flex-col gap-6 items-center pt-2 sm:pt-4 pb-4 w-full h-full mx-auto">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between w-full gap-4 px-2">
             {/* Top */}
             <div>

@@ -314,11 +314,11 @@ export default function TelaProgramas() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
       {/*================ CONTEÚDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 md:p-8 h-full pt-[60px] ">
-        <div className="flex flex-1 flex-col gap-[20px] items-center pt-[10px] pb-[100px] w-full h-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10">
+        <div className="flex flex-1 flex-col gap-5 items-center pt-2 sm:pt-4 pb-20 w-full h-full">
           <div className="flex items-center justify-between px-[10px] w-full shrink-0">
             <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
               Programas

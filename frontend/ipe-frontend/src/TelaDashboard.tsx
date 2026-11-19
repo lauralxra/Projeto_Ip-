@@ -882,14 +882,14 @@ export default function TelaDashboard() {
     });
 
   return (
-    <div className="flex h-screen bg-[#f8fafc]">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       {/* Sidebar Lateral */}
-      <NavBar></NavBar>
+      <NavBar />
 
       {/* Conteúdo Principal */}
       <main
         id="dashboard-export"
-        className="flex-1 px-[30px] w-full h-full overflow-y-auto pt-[60px] pb-[25px]"
+        className="flex-1 px-4 sm:px-6 md:px-8 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-8 pb-20"
       >
         {/* Container do Cabeçalho e Métricas (usado também para exportação em PDF) */}
         <div id="dashboard-pdf-header">

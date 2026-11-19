@@ -416,13 +416,13 @@ export default function TelaUsuarios() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEUDO PRINCIPAL =================*/}
-      <main className="flex-1 px-6 h-full overflow-y-auto pt-[60px]">
+      <main className="flex-1 px-4 sm:px-6 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10 pb-16">
         <div
-          className="content-stretch flex flex-col gap-[30px] h-full items-center w-full pt-[30px] px-4"
+          className="content-stretch flex flex-col gap-6 h-full items-center w-full pt-2 sm:pt-4 px-2 sm:px-4"
           data-name="Conteudo"
         >
           {/* Up */}
