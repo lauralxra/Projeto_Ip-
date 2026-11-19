@@ -163,8 +163,9 @@ function formatarDescricao(log: AuditLogItem) {
   if (nome && typeof nome === 'string') {
     return `${log.entidade}: "${nome}"`;
   }
-  if (dados.justificativa && typeof dados.justificativa === 'string') {
-    return `Justificativa: "${dados.justificativa}"`;
+  const justificativa = dados.justificativa || dados.justificativaDevolucao;
+  if (justificativa && typeof justificativa === 'string') {
+    return `Justificativa: "${justificativa}"`;
   }
   if (dados.valorRealizado !== undefined) {
     return `Valor Realizado: ${dados.valorRealizado}${

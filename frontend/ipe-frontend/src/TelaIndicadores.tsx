@@ -9,9 +9,12 @@ import {
   Archive,
   CheckCircle2,
   Circle,
+  Clock,
   History,
   RotateCcw,
+  Send,
   Trash2,
+  XCircle,
 } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
@@ -19,8 +22,39 @@ import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
 import { API_BASE_URL } from './config/api';
-import { apiFetch, mensagemDeErro } from './api/cliente';
+import { apiFetch, ErroApi, mensagemDeErro } from './api/cliente';
 import { buscarTodasMetas, metaDoPeriodo, type MetaApi } from './api/metas';
+
+function infoStatusAprovacao(status?: string) {
+  switch (status) {
+    case 'APROVADO':
+    case 'PUBLICADO':
+      return {
+        rotulo: 'Aprovado',
+        classe: 'bg-emerald-100 text-emerald-800',
+      };
+    case 'ENVIADO_REVISAO':
+      return {
+        rotulo: 'Em Análise',
+        classe: 'bg-sky-100 text-sky-800',
+      };
+    case 'NECESSITA_CORRECAO':
+      return {
+        rotulo: 'Devolvido para Correção',
+        classe: 'bg-rose-100 text-rose-800',
+      };
+    case 'EM_PREENCHIMENTO':
+      return {
+        rotulo: 'Em Preenchimento',
+        classe: 'bg-amber-100 text-amber-800',
+      };
+    default:
+      return {
+        rotulo: 'Pendente',
+        classe: 'bg-slate-200 text-slate-700',
+      };
+  }
+}
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -187,6 +221,7 @@ function Lista({
   setIndicVal,
   arquivarIndic,
   reativarIndic,
+  enviarRevisaoIndic,
   delIndic,
   aprovIndic,
   abrirHistorico,
@@ -196,6 +231,7 @@ function Lista({
   setIndicVal: (indic: Indicador) => void;
   arquivarIndic: (indic: Indicador) => void;
   reativarIndic: (indic: Indicador) => void;
+  enviarRevisaoIndic: (indic: Indicador) => void;
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
   abrirHistorico: (indic: Indicador) => void;
@@ -213,6 +249,23 @@ function Lista({
       {leList.map((indicador) => {
         const statusNormalizado = (indicador.status ?? 'ATIVO').toUpperCase();
         const ehAtivo = statusNormalizado === 'ATIVO';
+        const statusAprov = indicador.statusAprovacao;
+        const ehEmAnalise = statusAprov === 'ENVIADO_REVISAO';
+        const ehAprovado =
+          statusAprov === 'APROVADO' || statusAprov === 'PUBLICADO';
+        const ehDevolvido = statusAprov === 'NECESSITA_CORRECAO';
+        const podeEnviarAnalise =
+          ehAtivo &&
+          Boolean(indicador.registroId) &&
+          (statusAprov === 'EM_PREENCHIMENTO' ||
+            statusAprov === 'NECESSITA_CORRECAO');
+        // UC038 Regras 2 e 3: editável enquanto em preenchimento/devolvido; bloqueado em análise ou aprovado no ciclo
+        const podeEditarValor =
+          ehAtivo &&
+          !ehAprovado &&
+          !ehEmAnalise &&
+          (UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN');
+        const badgeRevisao = infoStatusAprovacao(statusAprov);
         const numRealizado = parseFloat(indicador.valAtual) || 0;
         const numMeta = parseFloat(indicador.meta || '0');
 
@@ -246,21 +299,41 @@ function Lista({
                     </span>
                   )}
                 </div>
-                {indicador.registros && indicador.registros.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => abrirHistorico(indicador)}
-                    className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit mt-1 transition-colors"
-                    title="Ver todas as medições trimestrais cadastradas"
-                  >
-                    <History className="size-3" />
-                    <span>
-                      {indicador.registros.length}{' '}
-                      {indicador.registros.length === 1
-                        ? 'período'
-                        : 'períodos'}
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  {indicador.registroId && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeRevisao.classe}`}
+                      title={
+                        ehDevolvido && indicador.justificativaDevolucao
+                          ? `Motivo da devolução: ${indicador.justificativaDevolucao}`
+                          : undefined
+                      }
+                    >
+                      {badgeRevisao.rotulo}
                     </span>
-                  </button>
+                  )}
+                  {indicador.registros && indicador.registros.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => abrirHistorico(indicador)}
+                      className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit transition-colors"
+                      title="Ver todas as medições trimestrais cadastradas"
+                    >
+                      <History className="size-3" />
+                      <span>
+                        {indicador.registros.length}{' '}
+                        {indicador.registros.length === 1
+                          ? 'período'
+                          : 'períodos'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                {ehDevolvido && indicador.justificativaDevolucao && (
+                  <p className="text-[11px] text-rose-700 mt-1 line-clamp-2">
+                    <strong>Correção solicitada:</strong>{' '}
+                    {indicador.justificativaDevolucao}
+                  </p>
                 )}
               </div>
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
@@ -282,12 +355,11 @@ function Lista({
                 </p>
               </div>
 
-              {ehAtivo &&
-              (UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN') ? (
+              {podeEditarValor ? (
                 <>
                   {/* Realizado */}
                   <button
-                    title="Definir Valor Atual"
+                    title="Definir / Corrigir Valor Atual"
                     onClick={() => setIndicVal(indicador)}
                     className="flex flex-1 gap-[16px] items-center cursor-pointer"
                   >
@@ -324,9 +396,13 @@ function Lista({
                   <div
                     className="flex flex-1 gap-[16px] items-center"
                     title={
-                      ehAtivo
-                        ? undefined
-                        : 'Indicador arquivado/inativo: somente consulta'
+                      !ehAtivo
+                        ? 'Indicador arquivado/inativo: somente consulta'
+                        : ehAprovado
+                          ? 'Aprovado no ciclo: edição bloqueada'
+                          : ehEmAnalise
+                            ? 'Em análise pela Administração: edição bloqueada'
+                            : undefined
                     }
                   >
                     <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
@@ -396,6 +472,19 @@ function Lista({
                   </div>
                 </Link>
 
+                {podeEnviarAnalise &&
+                  (UsuarioAtual.tipo == 'ADM' ||
+                    UsuarioAtual.tipo == 'DN') && (
+                    <button
+                      type="button"
+                      title="Enviar para Análise da Administração"
+                      onClick={() => enviarRevisaoIndic(indicador)}
+                      className="size-[24px] cursor-pointer text-sky-700 hover:text-sky-900 transition-colors"
+                    >
+                      <Send className="size-full" />
+                    </button>
+                  )}
+
                 {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
                   <button
                     type="button"
@@ -440,24 +529,44 @@ function Lista({
                   ''
                 )}
 
-                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
+                {/* UC038: somente Administradora revisa registros em status Em Análise */}
+                {UsuarioAtual.tipo == 'ADM' && ehAtivo && ehEmAnalise ? (
                   <button
-                    title="Definir Aprovação"
+                    type="button"
+                    title="Revisar Indicador (Aprovar ou Devolver)"
                     onClick={() => aprovIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
+                    className="size-[24px] cursor-pointer text-sky-700 hover:text-[#832b62] transition-colors"
                   >
-                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
+                    <Clock className="size-full" />
                   </button>
+                ) : ehAprovado ? (
+                  <div
+                    title="Aprovado no ciclo (irreversível)"
+                    className="size-[24px] text-emerald-600"
+                  >
+                    <CheckCircle2 className="size-full" />
+                  </div>
+                ) : ehDevolvido ? (
+                  <div
+                    title={
+                      indicador.justificativaDevolucao
+                        ? `Devolvido para correção: ${indicador.justificativaDevolucao}`
+                        : 'Devolvido para correção'
+                    }
+                    className="size-[24px] text-rose-600"
+                  >
+                    <XCircle className="size-full" />
+                  </div>
                 ) : (
                   <div
                     title={
-                      indicador.aprovado
-                        ? 'Aprovado para Publicação'
-                        : 'Não Aprovado para Publicação'
+                      ehEmAnalise
+                        ? 'Em Análise pela Administração'
+                        : 'Aguardando envio para análise'
                     }
-                    className="size-[24px]"
+                    className="size-[24px] text-slate-300"
                   >
-                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
+                    <Circle className="size-full" />
                   </div>
                 )}
               </div>
@@ -548,7 +657,11 @@ export default function TelaIndicadores() {
           nucleo: item.nucleo ?? undefined,
           programa: item.programa ?? undefined,
           status: item.status,
-          aprovado: registro?.statusAprovacao === 'APROVADO',
+          statusAprovacao: registro?.statusAprovacao,
+          justificativaDevolucao: registro?.justificativaDevolucao ?? null,
+          aprovado:
+            registro?.statusAprovacao === 'APROVADO' ||
+            registro?.statusAprovacao === 'PUBLICADO',
           registros: (item.registros ?? []).map((r: any) => ({
             id: r.id,
             ano: r.ano,
@@ -558,6 +671,7 @@ export default function TelaIndicadores() {
             metaAplicada:
               r.metaAplicada != null ? String(r.metaAplicada) : null,
             statusAprovacao: r.statusAprovacao,
+            justificativaDevolucao: r.justificativaDevolucao ?? null,
             status: r.status,
           })),
         };
@@ -697,7 +811,13 @@ export default function TelaIndicadores() {
     new Set(programasDoNucleo.map((i) => i.nome)),
   );
 
-  const listagemAprovacao = ['Aprovado', 'Desaprovado'];
+  const listagemAprovacao = [
+    'Em Análise',
+    'Aprovado',
+    'Devolvido para Correção',
+    'Em Preenchimento',
+    'Pendente',
+  ];
 
   // Filtragem
   const indicDoUser = indicadores.filter((n) => {
@@ -753,9 +873,18 @@ export default function TelaIndicadores() {
       const matchAprov =
         filtroAprovacao === ''
           ? true
-          : filtroAprovacao === 'Aprovado'
-            ? n.aprovado
-            : !n.aprovado;
+          : filtroAprovacao === 'Em Análise'
+            ? n.statusAprovacao === 'ENVIADO_REVISAO'
+            : filtroAprovacao === 'Aprovado'
+              ? n.statusAprovacao === 'APROVADO' ||
+                n.statusAprovacao === 'PUBLICADO'
+              : filtroAprovacao === 'Devolvido para Correção'
+                ? n.statusAprovacao === 'NECESSITA_CORRECAO'
+                : filtroAprovacao === 'Em Preenchimento'
+                  ? n.statusAprovacao === 'EM_PREENCHIMENTO'
+                  : filtroAprovacao === 'Pendente'
+                    ? !n.statusAprovacao || n.statusAprovacao === 'PENDENTE'
+                    : true;
 
       return matchNucleo && matchPrograma && matchAprov;
     })
@@ -776,7 +905,6 @@ export default function TelaIndicadores() {
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
-  const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
 
   // Janelas popup
@@ -957,8 +1085,8 @@ export default function TelaIndicadores() {
   const abrirValModal = (indicador: Indicador) => {
     setIndicSelecionado(indicador);
     setValorForm(indicador.valAtual);
-    setFormAno(String(new Date().getFullYear()));
-    setFormTrimestre('Q4');
+    setFormAno(String(indicador.ano ?? new Date().getFullYear()));
+    setFormTrimestre(indicador.trimestre ?? 'Q4');
     inserindoValor(true);
   };
 
@@ -1435,76 +1563,162 @@ export default function TelaIndicadores() {
   };
 
   const [modalAprovacao, setModelAprov] = useState(false);
-  const abrirAprovacaoModal = (indicador: Indicador) => {
-    setIndicSelecionado(indicador);
-    setAprovacaoForm(indicador.aprovado);
-    setMotivo('');
-    setModelAprov(true);
-  };
+  const [modoRevisao, setModoRevisao] = useState<'ESCOLHA' | 'DEVOLVER'>(
+    'ESCOLHA',
+  );
+  const [erroJustificativa, setErroJustificativa] = useState('');
+  const [processandoRevisao, setProcessandoRevisao] = useState(false);
+  const [registroEmRevisao, setRegistroEmRevisao] = useState<{
+    id: string;
+    ano?: number;
+    trimestre?: string;
+    valorRealizado?: string;
+  } | null>(null);
 
-  const handleAprovacao = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!indicSelecionado) return;
-
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      alert('Sua sessão expirou. Faça login novamente.');
+  const abrirAprovacaoModal = (
+    indicador: Indicador,
+    registroAlvo?: {
+      id: string;
+      ano?: number;
+      trimestre?: string;
+      valorRealizado?: string;
+      statusAprovacao?: string;
+    },
+  ) => {
+    if (UsuarioAtual.tipo !== 'ADM') {
+      alert('Apenas a Administração pode revisar, aprovar ou devolver indicadores.');
       return;
     }
 
-    if (!indicSelecionado.registroId) {
+    const statusAlvo =
+      registroAlvo?.statusAprovacao ?? indicador.statusAprovacao;
+    const idAlvo = registroAlvo?.id ?? indicador.registroId;
+
+    if (!idAlvo) {
       alert(
-        'Este indicador ainda não possui registro de medição para aprovar ou devolver.',
+        'Este indicador ainda não possui registro de medição para análise.',
       );
+      return;
+    }
+
+    if (statusAlvo !== 'ENVIADO_REVISAO') {
+      alert(
+        'Somente indicadores em status "Em Análise" podem ser aprovados ou devolvidos.',
+      );
+      return;
+    }
+
+    setIndicSelecionado(indicador);
+    setRegistroEmRevisao({
+      id: idAlvo,
+      ano: registroAlvo?.ano ?? indicador.ano,
+      trimestre: registroAlvo?.trimestre ?? indicador.trimestre,
+      valorRealizado: registroAlvo?.valorRealizado ?? indicador.valAtual,
+    });
+    setModoRevisao('ESCOLHA');
+    setMotivo('');
+    setErroJustificativa('');
+    setModelAprov(true);
+  };
+
+  // UC038 Caminho A: aprovar indicador em análise (irreversível no ciclo)
+  const executarAprovacao = async () => {
+    if (!registroEmRevisao || processandoRevisao) return;
+
+    setProcessandoRevisao(true);
+    try {
+      await apiFetch(`/registros/${registroEmRevisao.id}/aprovar`, {
+        method: 'PATCH',
+      });
+
       setModelAprov(false);
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador aprovado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao aprovar indicador:', erro);
+      if (erro instanceof ErroApi && erro.status === 409) {
+        setModelAprov(false);
+        await carregarIndicadores(filtroStatus);
+        alert(
+          'Este indicador já foi processado por outra operação. A listagem foi atualizada.',
+        );
+      } else {
+        alert('Não foi possível aprovar o indicador: ' + mensagemDeErro(erro));
+      }
+    } finally {
+      setProcessandoRevisao(false);
+    }
+  };
+
+  // UC038 Caminho B: devolver indicador para correção com justificativa obrigatória
+  const executarDevolucao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registroEmRevisao || processandoRevisao) return;
+
+    const justificativa = formDesaprovMotivo.trim();
+    if (!justificativa) {
+      setErroJustificativa(
+        'A mensagem de justificativa é obrigatória para devolver o indicador para correção.',
+      );
+      return;
+    }
+
+    setErroJustificativa('');
+    setProcessandoRevisao(true);
+    try {
+      await apiFetch(`/registros/${registroEmRevisao.id}/devolver`, {
+        method: 'PATCH',
+        body: JSON.stringify({ justificativa }),
+      });
+
+      setModelAprov(false);
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador devolvido para correção!');
+    } catch (erro) {
+      console.error('Erro ao devolver indicador:', erro);
+      if (erro instanceof ErroApi && erro.status === 409) {
+        setModelAprov(false);
+        await carregarIndicadores(filtroStatus);
+        alert(
+          'Este indicador já foi processado por outra operação. A listagem foi atualizada.',
+        );
+      } else {
+        alert('Não foi possível devolver o indicador: ' + mensagemDeErro(erro));
+      }
+    } finally {
+      setProcessandoRevisao(false);
+    }
+  };
+
+  // UC037 -> UC038: envia medição preenchida ou corrigida para a fila "Em Análise"
+  const enviarParaRevisao = async (indicador: Indicador) => {
+    if (!indicador.registroId) return;
+    if (
+      !window.confirm(
+        `Enviar a medição (${indicador.trimestre}/${indicador.ano}) de "${indicador.nome}" para análise da Administração?`,
+      )
+    ) {
       return;
     }
 
     try {
-      const rota = formAprovacao
-        ? `${API_BASE_URL}/registro/${indicSelecionado.registroId}/aprovar`
-        : `${API_BASE_URL}/registro/${indicSelecionado.registroId}/devolver`;
-
-      const opcoes: RequestInit = {
+      await apiFetch(`/registros/${indicador.registroId}/enviar-revisao`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        ...(formAprovacao
-          ? {}
-          : {
-              body: JSON.stringify({
-                justificativa:
-                  formDesaprovMotivo.trim() || 'Devolvido para revisão.',
-              }),
-            }),
-      };
-
-      const resposta = await fetch(rota, opcoes);
-      if (!resposta.ok) {
-        const erro = await resposta.json().catch(() => ({}));
-        throw new Error(
-          erro.message || 'Não foi possível alterar a aprovação do registro.',
-        );
-      }
-
-      await carregarIndicadores();
-      setModelAprov(false);
-      alert(
-        formAprovacao
-          ? 'Registro aprovado com sucesso!'
-          : 'Registro devolvido para correção!',
-      );
+      });
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador enviado para análise com sucesso!');
     } catch (erro) {
-      console.error('Erro na aprovação/devolução:', erro);
+      console.error('Erro ao enviar para análise:', erro);
       alert(
-        erro instanceof Error
-          ? erro.message
-          : 'Erro ao processar fluxo de aprovação.',
+        'Não foi possível enviar o indicador para análise: ' +
+          mensagemDeErro(erro),
       );
     }
   };
+
+  const qtdEmAnalise = indicDoUser.filter(
+    (n) => n.statusAprovacao === 'ENVIADO_REVISAO',
+  ).length;
 
   const totalIndicadores = indicadoresFiltrados.length;
 
@@ -1673,6 +1887,28 @@ export default function TelaIndicadores() {
                 opcoes={listagemAprovacao}
               />
 
+              {UsuarioAtual.tipo === 'ADM' &&
+                filtroStatus === 'ATIVO' &&
+                qtdEmAnalise > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFiltroAprovacao(
+                        filtroAprovacao === 'Em Análise' ? '' : 'Em Análise',
+                      )
+                    }
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold border transition-colors cursor-pointer ${
+                      filtroAprovacao === 'Em Análise'
+                        ? 'bg-sky-700 text-white border-sky-700'
+                        : 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100'
+                    }`}
+                    title="Filtrar indicadores aguardando aprovação ou devolução (UC038)"
+                  >
+                    <Clock size={15} />
+                    <span>Em Análise ({qtdEmAnalise})</span>
+                  </button>
+                )}
+
               {/* UC041 Regra 3: listagem padrão exibe apenas Ativos; Inativos/Arquivados só sob filtro explícito */}
               <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-full px-4 py-2 text-sm text-slate-700">
                 <Archive size={16} className="text-[#832b62] shrink-0" />
@@ -1742,6 +1978,7 @@ export default function TelaIndicadores() {
                 setIndicVal={abrirValModal}
                 arquivarIndic={abrirArquivarModal}
                 reativarIndic={reativarIndic}
+                enviarRevisaoIndic={enviarParaRevisao}
                 delIndic={abrirDeletarModal}
                 aprovIndic={abrirAprovacaoModal}
                 abrirHistorico={abrirHistoricoModal}
@@ -2396,63 +2633,172 @@ export default function TelaIndicadores() {
         </div>
       )}
 
-      {/* aprovacao */}
-      {modalAprovacao && (
+      {/* Revisão e Aprovação / Devolução de Indicador (UC038) */}
+      {modalAprovacao && indicSelecionado && registroEmRevisao && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">
-              Definir aprovação
-            </h2>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Revisão do Indicador
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Confira os dados enviados para análise e decida entre aprovar
+                  ou devolver para correção.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={processandoRevisao}
+                onClick={() => setModelAprov(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleAprovacao} className="space-y-4">
-              <div className="flex flex-col gap-9">
+            {/* Resumo detalhado do indicador em análise */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-5 space-y-2 text-xs text-slate-700">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-900 text-sm">
+                  {indicSelecionado.nome}
+                </span>
+                <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                  Em Análise
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="flex gap-5 block text-lg-20 font-bold">
-                    Definir como aprovado para publicação
-                    <input
-                      type="checkbox"
-                      checked={formAprovacao}
-                      onChange={(e) => setAprovacaoForm(e.target.checked)}
-                      className="w-auto border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-0 focus:outline-none"
-                    />
-                  </label>
+                  <span className="text-slate-500">Núcleo:</span>{' '}
+                  <strong className="text-slate-800">
+                    {indicSelecionado.nucleo?.sigla ?? 'Institucional'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Período:</span>{' '}
+                  <strong className="text-slate-800">
+                    {registroEmRevisao.trimestre ?? '-'}/
+                    {registroEmRevisao.ano ?? '-'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Valor Realizado:</span>{' '}
+                  <strong className="text-[#832b62]">
+                    {registroEmRevisao.valorRealizado ?? '-'}
+                    {indicSelecionado.simbolUni
+                      ? ` ${indicSelecionado.simbolUni}`
+                      : ''}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Meta:</span>{' '}
+                  <strong className="text-slate-800">
+                    {indicSelecionado.meta != null
+                      ? `${indicSelecionado.meta}${
+                          indicSelecionado.simbolUni
+                            ? ` ${indicSelecionado.simbolUni}`
+                            : ''
+                        }`
+                      : 'Sem meta'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {modoRevisao === 'ESCOLHA' ? (
+              <div className="space-y-4">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900">
+                  Ao <strong>Aprovar</strong>, a aprovação é final e irreversível
+                  para este ciclo. Ao <strong>Devolver</strong>, será solicitada
+                  uma justificativa obrigatória e o indicador voltará a ficar
+                  editável para o Diretor de Núcleo.
                 </div>
 
-                {!formAprovacao ? (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Motivo de disaprovação
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Insira um valor..."
-                      required
-                      value={formDesaprovMotivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                    />
-                  </div>
-                ) : (
-                  ''
-                )}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => setModelAprov(false)}
+                    className="py-2.5 px-4 rounded-full border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => {
+                      setModoRevisao('DEVOLVER');
+                      setErroJustificativa('');
+                    }}
+                    className="flex-1 py-2.5 rounded-full border border-rose-300 bg-rose-50 text-rose-700 font-semibold text-xs hover:bg-rose-100 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Devolver para Correção
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={executarAprovacao}
+                    className="flex-1 py-2.5 rounded-full bg-emerald-700 text-white font-semibold text-xs hover:bg-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {processandoRevisao ? 'Processando...' : 'Aprovar'}
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={executarDevolucao} className="space-y-4" noValidate>
+                <div>
+                  <label
+                    htmlFor="justificativa-devolucao"
+                    className="block text-xs font-bold text-slate-700 mb-1.5"
+                  >
+                    Mensagem de Justificativa <span className="text-rose-600">*</span>
+                  </label>
+                  <textarea
+                    id="justificativa-devolucao"
+                    rows={4}
+                    placeholder="Descreva claramente o motivo da devolução (ex.: Faltou anexar o comprovante da meta X)..."
+                    value={formDesaprovMotivo}
+                    onChange={(e) => {
+                      setMotivo(e.target.value);
+                      if (erroJustificativa && e.target.value.trim()) {
+                        setErroJustificativa('');
+                      }
+                    }}
+                    className={`w-full bg-slate-100 border rounded-2xl px-3.5 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none ${
+                      erroJustificativa ? 'border-rose-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {erroJustificativa && (
+                    <p className="text-xs font-semibold text-rose-600 mt-1.5">
+                      {erroJustificativa}
+                    </p>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setModelAprov(false)}
-                  className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <span>Confirmar</span>
-                </button>
-              </div>
-            </form>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => {
+                      setModoRevisao('ESCOLHA');
+                      setErroJustificativa('');
+                    }}
+                    className="flex-1 py-2.5 rounded-full border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processandoRevisao}
+                    className="flex-1 py-2.5 rounded-full bg-rose-700 text-white font-semibold text-xs hover:bg-rose-800 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {processandoRevisao
+                      ? 'Devolvendo...'
+                      : 'Confirmar Devolução'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -2550,36 +2896,82 @@ export default function TelaIndicadores() {
                                 : '-'}
                             </td>
                             <td className="py-2.5 px-3">
-                              {reg.statusAprovacao === 'APROVADO' ||
-                              reg.statusAprovacao === 'PUBLICADO' ? (
-                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                  Aprovado
-                                </span>
-                              ) : (
-                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                  {reg.statusAprovacao ?? 'Pendente'}
-                                </span>
-                              )}
+                              {(() => {
+                                const info = infoStatusAprovacao(
+                                  reg.statusAprovacao,
+                                );
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${info.classe}`}
+                                    >
+                                      {info.rotulo}
+                                    </span>
+                                    {reg.statusAprovacao ===
+                                      'NECESSITA_CORRECAO' &&
+                                      reg.justificativaDevolucao && (
+                                        <span className="text-[10px] text-rose-700">
+                                          Motivo: {reg.justificativaDevolucao}
+                                        </span>
+                                      )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="py-2.5 px-3 text-right">
                               {(indicSelecionado.status ?? 'ATIVO').toUpperCase() ===
                               'ATIVO' ? (
                                 <div className="flex items-center justify-end gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setHistoricoAno(String(reg.ano));
-                                      setHistoricoTrimestre(reg.trimestre);
-                                      setHistoricoValor(
-                                        reg.valorRealizado != null
-                                          ? String(reg.valorRealizado)
-                                          : '',
-                                      );
-                                    }}
-                                    className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
-                                  >
-                                    Carregar para editar
-                                  </button>
+                                  {reg.statusAprovacao === 'APROVADO' ||
+                                  reg.statusAprovacao === 'PUBLICADO' ? (
+                                    <span className="text-[11px] text-emerald-700 font-semibold">
+                                      Aprovado no ciclo
+                                    </span>
+                                  ) : reg.statusAprovacao ===
+                                    'ENVIADO_REVISAO' ? (
+                                    UsuarioAtual.tipo === 'ADM' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setModalHistoricoAberto(false);
+                                          abrirAprovacaoModal(indicSelecionado, {
+                                            id: reg.id,
+                                            ano: reg.ano,
+                                            trimestre: reg.trimestre,
+                                            valorRealizado:
+                                              reg.valorRealizado != null
+                                                ? String(reg.valorRealizado)
+                                                : undefined,
+                                            statusAprovacao:
+                                              reg.statusAprovacao,
+                                          });
+                                        }}
+                                        className="text-[11px] text-sky-700 hover:underline font-bold cursor-pointer"
+                                      >
+                                        Revisar (Aprovar / Devolver)
+                                      </button>
+                                    ) : (
+                                      <span className="text-[11px] text-sky-700 italic">
+                                        Em análise
+                                      </span>
+                                    )
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setHistoricoAno(String(reg.ano));
+                                        setHistoricoTrimestre(reg.trimestre);
+                                        setHistoricoValor(
+                                          reg.valorRealizado != null
+                                            ? String(reg.valorRealizado)
+                                            : '',
+                                        );
+                                      }}
+                                      className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Carregar para editar
+                                    </button>
+                                  )}
                                   {UsuarioAtual.tipo === 'ADM' && (
                                     <button
                                       type="button"

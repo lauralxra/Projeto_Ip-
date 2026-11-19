@@ -8,6 +8,7 @@ export interface RegistroIndicador {
   valorRealizado: string | number | null;
   metaAplicada?: string | number | null;
   statusAprovacao?: string;
+  justificativaDevolucao?: string | null;
   status?: string;
 }
 
@@ -26,6 +27,8 @@ export interface Indicador {
   nucleo?: Nucleo;
   programa?: Programa;
   status: string;
+  statusAprovacao?: string;
+  justificativaDevolucao?: string | null;
   aprovado: boolean;
   registros?: RegistroIndicador[];
 }
