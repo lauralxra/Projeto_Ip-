@@ -1533,16 +1533,16 @@ export default function TelaIndicadores() {
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
 
                   {/* Botão importar */}
-                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between gap-2.5 relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-auto">
                     <BtnImportIco ico="block size-full" id="btnImportar" />
                     <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                      Importar CSV
+                      Importar CSV / Excel
                     </div>
                     <input
                       type="file"
                       accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                       className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
-                      title="Importar CSV"
+                      title="Importar CSV ou Excel (.xlsx, .xls)"
                       onChange={handleCSVImport}
                     />
                   </div>
