@@ -3,6 +3,7 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { Imagens } from './config/assets';
 import {
+  Archive,
   Plus,
   Trash2,
   Edit3,
@@ -12,7 +13,7 @@ import {
   Activity,
   Layers,
 } from 'lucide-react';
-import { apiFetch } from './api/cliente';
+import { apiFetch, urlDoArquivo } from './api/cliente';
 import { carregarNucleosDoUsuario } from './api/usuarioAtual';
 
 interface AuditLogUser {
@@ -68,10 +69,20 @@ function IconeAcao({ acao }: { acao: string }) {
       break;
     case 'EXCLUIR_LOGICO':
     case 'EXCLUIR':
-    case 'DESATIVAR':
       IconComponent = Trash2;
       bgCor = 'bg-rose-100';
       textCor = 'text-rose-700';
+      break;
+    case 'ARQUIVAR':
+    case 'DESATIVAR':
+      IconComponent = Archive;
+      bgCor = 'bg-amber-100';
+      textCor = 'text-amber-700';
+      break;
+    case 'RESTAURAR':
+      IconComponent = RotateCcw;
+      bgCor = 'bg-emerald-100';
+      textCor = 'text-emerald-700';
       break;
     case 'APROVAR':
     case 'PUBLICAR':
@@ -123,6 +134,12 @@ function formatarTituloAcao(acao: string, entidade: string) {
     case 'EXCLUIR_LOGICO':
     case 'EXCLUIR':
       return `Exclusão de ${nomeEntidade}`;
+    case 'ARQUIVAR':
+      return `Arquivamento de ${nomeEntidade}`;
+    case 'DESATIVAR':
+      return `Desativação de ${nomeEntidade}`;
+    case 'RESTAURAR':
+      return `Reativação de ${nomeEntidade}`;
     case 'APROVAR':
       return `Aprovação de ${nomeEntidade}`;
     case 'DEVOLVER':
@@ -184,7 +201,11 @@ function LinhaLog({ log }: { log: AuditLogItem }) {
           <img
             alt={nomeUsuario}
             className="size-full object-cover"
-            src={log.user?.fotoUrl ? log.user.fotoUrl : Imagens.DefaultPFP}
+            src={
+              log.user?.fotoUrl
+                ? urlDoArquivo(log.user.fotoUrl)
+                : Imagens.DefaultPFP
+            }
           />
         </div>
 

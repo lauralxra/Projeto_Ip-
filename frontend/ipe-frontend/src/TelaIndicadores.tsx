@@ -5,7 +5,14 @@ import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle, History, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  CheckCircle2,
+  Circle,
+  History,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
@@ -178,6 +185,8 @@ function Lista({
   leList,
   editIndic,
   setIndicVal,
+  arquivarIndic,
+  reativarIndic,
   delIndic,
   aprovIndic,
   abrirHistorico,
@@ -185,13 +194,25 @@ function Lista({
   leList: Indicador[];
   editIndic: (arg0: Indicador) => void;
   setIndicVal: (indic: Indicador) => void;
+  arquivarIndic: (indic: Indicador) => void;
+  reativarIndic: (indic: Indicador) => void;
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
   abrirHistorico: (indic: Indicador) => void;
 }) {
+  if (leList.length === 0) {
+    return (
+      <div className="bg-[#f2eff4] rounded-xl px-[20px] py-[28px] text-center text-sm text-slate-500 w-full">
+        Nenhum indicador encontrado para os filtros selecionados.
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-start gap-[12px] w-full">
       {leList.map((indicador) => {
+        const statusNormalizado = (indicador.status ?? 'ATIVO').toUpperCase();
+        const ehAtivo = statusNormalizado === 'ATIVO';
         const numRealizado = parseFloat(indicador.valAtual) || 0;
         const numMeta = parseFloat(indicador.meta || '0');
 
@@ -203,11 +224,28 @@ function Lista({
         return (
           <div
             key={indicador.id}
-            className="bg-[#f2eff4] rounded-xl px-[20px] py-[12px] flex items-center justify-between gap-[15px] shadow-xs hover:shadow-md transition-shadow w-full"
+            className={`rounded-xl px-[20px] py-[12px] flex items-center justify-between gap-[15px] shadow-xs hover:shadow-md transition-shadow w-full ${
+              ehAtivo ? 'bg-[#f2eff4]' : 'bg-slate-100 border border-slate-200'
+            }`}
           >
             <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
               <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p className="font-semibold">{indicador.nome}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold">{indicador.nome}</p>
+                  {!ehAtivo && (
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        statusNormalizado === 'ARQUIVADO'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {statusNormalizado === 'ARQUIVADO'
+                        ? 'Arquivado'
+                        : 'Inativo'}
+                    </span>
+                  )}
+                </div>
                 {indicador.registros && indicador.registros.length > 0 && (
                   <button
                     type="button"
@@ -244,7 +282,8 @@ function Lista({
                 </p>
               </div>
 
-              {UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN' ? (
+              {ehAtivo &&
+              (UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN') ? (
                 <>
                   {/* Realizado */}
                   <button
@@ -282,7 +321,14 @@ function Lista({
                 </>
               ) : (
                 <>
-                  <div className="flex flex-1 gap-[16px] items-center cursor-pointer">
+                  <div
+                    className="flex flex-1 gap-[16px] items-center"
+                    title={
+                      ehAtivo
+                        ? undefined
+                        : 'Indicador arquivado/inativo: somente consulta'
+                    }
+                  >
                     <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
                       {indicador.valAtual +
                         (indicador.simbolUni ? indicador.simbolUni : '')}
@@ -303,7 +349,7 @@ function Lista({
 
               {/* Ações */}
               <div className="flex flex-1 gap-[12px] items-center">
-                {UsuarioAtual.tipo == 'ADM' ? (
+                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
                   <button
                     title="Editar Indicador"
                     onClick={() => editIndic(indicador)}
@@ -323,7 +369,11 @@ function Lista({
 
                 <button
                   type="button"
-                  title="Histórico de Medições (ver e adicionar novos anos/trimestres)"
+                  title={
+                    ehAtivo
+                      ? 'Histórico de Medições (ver e adicionar novos anos/trimestres)'
+                      : 'Consultar Histórico de Medições (somente leitura)'
+                  }
                   onClick={() => abrirHistorico(indicador)}
                   className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
                 >
@@ -346,6 +396,32 @@ function Lista({
                   </div>
                 </Link>
 
+                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
+                  <button
+                    type="button"
+                    title="Arquivar / Desativar Indicador"
+                    onClick={() => arquivarIndic(indicador)}
+                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-amber-700 transition-colors"
+                  >
+                    <Archive className="size-full" />
+                  </button>
+                ) : (
+                  ''
+                )}
+
+                {UsuarioAtual.tipo == 'ADM' && !ehAtivo ? (
+                  <button
+                    type="button"
+                    title="Reativar Indicador"
+                    onClick={() => reativarIndic(indicador)}
+                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-emerald-700 transition-colors"
+                  >
+                    <RotateCcw className="size-full" />
+                  </button>
+                ) : (
+                  ''
+                )}
+
                 {UsuarioAtual.tipo == 'ADM' ? (
                   <button
                     title="Excluir Indicador"
@@ -364,7 +440,7 @@ function Lista({
                   ''
                 )}
 
-                {UsuarioAtual.tipo == 'ADM' ? (
+                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
                   <button
                     title="Definir Aprovação"
                     onClick={() => aprovIndic(indicador)}
@@ -397,18 +473,26 @@ export default function TelaIndicadores() {
   const [indicadores, setIndicadores] = useState<Indicador[]>([]);
   const [nucleosDoBanco, setNucleosDoBanco] = useState<Nucleo[]>([]);
   const [programasDoBanco, setProgramasDoBanco] = useState<Programa[]>([]);
+  const [filtroStatus, setFiltroStatus] = useState<
+    'ATIVO' | 'ARQUIVADO' | 'INATIVO'
+  >('ATIVO');
 
-  const carregarIndicadores = async () => {
+  const carregarIndicadores = async (
+    statusAlvo: 'ATIVO' | 'ARQUIVADO' | 'INATIVO' = filtroStatus,
+  ) => {
     const token = localStorage.getItem('access_token');
 
     if (!token) return;
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores?status=${statusAlvo}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (!resposta.ok) {
         throw new Error(`Erro ao carregar indicadores: ${resposta.status}`);
@@ -487,8 +571,8 @@ export default function TelaIndicadores() {
   };
 
   useEffect(() => {
-    carregarIndicadores();
-  }, []);
+    carregarIndicadores(filtroStatus);
+  }, [filtroStatus]);
 
   useEffect(() => {
     const carregarNucleos = async () => {
@@ -692,7 +776,6 @@ export default function TelaIndicadores() {
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
-  const [formStatus, setStatusForm] = useState('');
   const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
 
@@ -709,7 +792,6 @@ export default function TelaIndicadores() {
     setTemMetaForm(false);
     setFormAno(String(new Date().getFullYear()));
     setFormTrimestre('Q4');
-    setStatusForm('ativo');
     setModalNovoAberto(true);
   };
 
@@ -1113,7 +1195,6 @@ export default function TelaIndicadores() {
     const metaValor = indicador.meta != null ? indicador.meta : '';
     setMetaForm(metaValor);
     setTemMetaForm(Boolean(metaValor && parseFloat(metaValor) > 0));
-    setStatusForm(indicador.status);
     setEditAberto(true);
   };
 
@@ -1221,7 +1302,6 @@ export default function TelaIndicadores() {
             unidadeMedida: formUnidade || undefined,
             nucleoId: formNucleoId || null,
             programaId: formProgramId || null,
-            ...(formStatus ? { status: formStatus.toUpperCase() } : {}),
             semMeta: querSemMeta,
           }),
         },
@@ -1240,6 +1320,71 @@ export default function TelaIndicadores() {
     } catch (erro) {
       console.error('Erro ao atualizar indicador:', erro);
       alert('Erro ao atualizar indicador: ' + mensagemDeErro(erro));
+    }
+  };
+
+  const [modalArquivando, setModalArquivando] = useState(false);
+  const [acaoArquivamento, setAcaoArquivamento] = useState<
+    'ARQUIVADO' | 'INATIVO'
+  >('ARQUIVADO');
+  const [arquivandoEmAndamento, setArquivandoEmAndamento] = useState(false);
+
+  const abrirArquivarModal = (indicador: Indicador) => {
+    setIndicSelecionado(indicador);
+    setAcaoArquivamento('ARQUIVADO');
+    setModalArquivando(true);
+  };
+
+  // UC041: arquiva ou desativa um indicador ativo sem apagar histórico nem metas
+  const confirmarArquivarIndic = async () => {
+    if (!indicSelecionado || arquivandoEmAndamento) return;
+
+    const rota = acaoArquivamento === 'ARQUIVADO' ? 'arquivar' : 'desativar';
+    setArquivandoEmAndamento(true);
+    try {
+      const resposta = await apiFetch<{ message: string }>(
+        `/indicadores/${indicSelecionado.id}/${rota}`,
+        { method: 'PATCH' },
+      );
+
+      setModalArquivando(false);
+      await carregarIndicadores(filtroStatus);
+      alert(
+        resposta?.message ||
+          (acaoArquivamento === 'ARQUIVADO'
+            ? 'Indicador arquivado com sucesso!'
+            : 'Indicador desativado com sucesso!'),
+      );
+    } catch (erro) {
+      console.error('Erro ao arquivar/desativar indicador:', erro);
+      alert(
+        'Não foi possível arquivar/desativar o indicador: ' +
+          mensagemDeErro(erro),
+      );
+    } finally {
+      setArquivandoEmAndamento(false);
+    }
+  };
+
+  const reativarIndic = async (indicador: Indicador) => {
+    if (
+      !window.confirm(
+        `Deseja reativar o indicador "${indicador.nome}" para voltar a receber medições e metas?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const resposta = await apiFetch<{ message: string }>(
+        `/indicadores/${indicador.id}/reativar`,
+        { method: 'PATCH' },
+      );
+      await carregarIndicadores(filtroStatus);
+      alert(resposta?.message || 'Indicador reativado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao reativar indicador:', erro);
+      alert('Não foi possível reativar o indicador: ' + mensagemDeErro(erro));
     }
   };
 
@@ -1528,6 +1673,31 @@ export default function TelaIndicadores() {
                 opcoes={listagemAprovacao}
               />
 
+              {/* UC041 Regra 3: listagem padrão exibe apenas Ativos; Inativos/Arquivados só sob filtro explícito */}
+              <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-full px-4 py-2 text-sm text-slate-700">
+                <Archive size={16} className="text-[#832b62] shrink-0" />
+                <label
+                  htmlFor="filtro-status-indicador"
+                  className="text-xs font-semibold text-slate-500 whitespace-nowrap"
+                >
+                  Status:
+                </label>
+                <select
+                  id="filtro-status-indicador"
+                  value={filtroStatus}
+                  onChange={(e) =>
+                    setFiltroStatus(
+                      e.target.value as 'ATIVO' | 'ARQUIVADO' | 'INATIVO',
+                    )
+                  }
+                  className="bg-transparent border-0 outline-none font-semibold text-xs text-[#3b142f] cursor-pointer"
+                >
+                  <option value="ATIVO">Ativos</option>
+                  <option value="ARQUIVADO">Arquivados</option>
+                  <option value="INATIVO">Inativos</option>
+                </select>
+              </div>
+
               {UsuarioAtual.tipo == 'ADM' ? (
                 <>
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
@@ -1570,6 +1740,8 @@ export default function TelaIndicadores() {
                 leList={indicadoresFiltrados}
                 editIndic={abrirEditarModal}
                 setIndicVal={abrirValModal}
+                arquivarIndic={abrirArquivarModal}
+                reativarIndic={reativarIndic}
                 delIndic={abrirDeletarModal}
                 aprovIndic={abrirAprovacaoModal}
                 abrirHistorico={abrirHistoricoModal}
@@ -2021,14 +2193,14 @@ export default function TelaIndicadores() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Status
                   </label>
-                  <select
-                    value={formStatus ? formStatus.toUpperCase() : 'ATIVO'}
-                    onChange={(e) => setStatusForm(e.target.value)}
-                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                  >
-                    <option value="ATIVO">Ativo</option>
-                    <option value="INATIVO">Inativo</option>
-                  </select>
+                  <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-600 flex items-center justify-between">
+                    <span className="font-semibold text-emerald-700">
+                      Ativo
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Para arquivar ou desativar, use o botão na listagem
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -2098,6 +2270,92 @@ export default function TelaIndicadores() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* arquivamento / desativação (UC041) */}
+      {modalArquivando && indicSelecionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="size-11 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Archive className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Arquivar / Desativar Indicador
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Confirmação de encerramento operacional
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-700 mb-4">
+              Deseja encerrar o monitoramento do indicador{' '}
+              <span className="font-bold text-slate-900">
+                "{indicSelecionado.nome}"
+              </span>
+              ?
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setAcaoArquivamento('ARQUIVADO')}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                  acaoArquivamento === 'ARQUIVADO'
+                    ? 'border-[#832b62] bg-[#832b62]/10 text-[#3b142f]'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Arquivar
+              </button>
+              <button
+                type="button"
+                onClick={() => setAcaoArquivamento('INATIVO')}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                  acaoArquivamento === 'INATIVO'
+                    ? 'border-[#832b62] bg-[#832b62]/10 text-[#3b142f]'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Desativar (Inativo)
+              </button>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1.5 mb-6">
+              <p>
+                • O indicador <strong>não poderá mais receber novos lançamentos, metas ou edições</strong>.
+              </p>
+              <p>
+                • Ele sairá da listagem operacional padrão (visível apenas filtrando por{' '}
+                <strong>Arquivados</strong> ou <strong>Inativos</strong>).
+              </p>
+              <p>
+                • <strong>Todo o histórico de medições e relatórios passados será preservado</strong> para consulta.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={arquivandoEmAndamento}
+                onClick={() => setModalArquivando(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={arquivandoEmAndamento}
+                onClick={confirmarArquivarIndic}
+                className="flex-1 py-2.5 rounded-xl bg-[#3a182d] text-white font-semibold text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {arquivandoEmAndamento ? 'Processando...' : 'Confirmar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2229,6 +2487,18 @@ export default function TelaIndicadores() {
             </div>
 
             {/* Listagem do Histórico */}
+            {(indicSelecionado.status ?? 'ATIVO').toUpperCase() !== 'ATIVO' && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5 text-xs">
+                Este indicador está{' '}
+                <strong>
+                  {(indicSelecionado.status ?? '').toUpperCase() === 'ARQUIVADO'
+                    ? 'arquivado'
+                    : 'inativo'}
+                </strong>
+                . Os dados históricos permanecem preservados apenas para
+                consulta (novos lançamentos e edições estão bloqueados).
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto mb-6 pr-1">
               <h3 className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
                 Medições Registradas ({indicSelecionado.registros?.length ?? 0})
@@ -2292,39 +2562,46 @@ export default function TelaIndicadores() {
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setHistoricoAno(String(reg.ano));
-                                    setHistoricoTrimestre(reg.trimestre);
-                                    setHistoricoValor(
-                                      reg.valorRealizado != null
-                                        ? String(reg.valorRealizado)
-                                        : '',
-                                    );
-                                  }}
-                                  className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
-                                >
-                                  Carregar para editar
-                                </button>
-                                {UsuarioAtual.tipo === 'ADM' && (
+                              {(indicSelecionado.status ?? 'ATIVO').toUpperCase() ===
+                              'ATIVO' ? (
+                                <div className="flex items-center justify-end gap-3">
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      excluirMedicao(
-                                        reg.id,
-                                        reg.ano,
-                                        reg.trimestre,
-                                      )
-                                    }
-                                    title={`Excluir medição de ${reg.ano} (${reg.trimestre})`}
-                                    className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                      setHistoricoAno(String(reg.ano));
+                                      setHistoricoTrimestre(reg.trimestre);
+                                      setHistoricoValor(
+                                        reg.valorRealizado != null
+                                          ? String(reg.valorRealizado)
+                                          : '',
+                                      );
+                                    }}
+                                    className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
                                   >
-                                    <Trash2 className="size-3.5" />
+                                    Carregar para editar
                                   </button>
-                                )}
-                              </div>
+                                  {UsuarioAtual.tipo === 'ADM' && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        excluirMedicao(
+                                          reg.id,
+                                          reg.ano,
+                                          reg.trimestre,
+                                        )
+                                      }
+                                      title={`Excluir medição de ${reg.ano} (${reg.trimestre})`}
+                                      className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">
+                                  Somente consulta
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -2334,8 +2611,9 @@ export default function TelaIndicadores() {
               )}
             </div>
 
-            {/* Formulário para adicionar nova medição ou atualizar */}
-            {(UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+            {/* Formulário para adicionar nova medição ou atualizar (bloqueado para inativos/arquivados — UC041) */}
+            {(indicSelecionado.status ?? 'ATIVO').toUpperCase() === 'ATIVO' &&
+              (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
               <form
                 onSubmit={salvarMedicaoHistorico}
                 className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
