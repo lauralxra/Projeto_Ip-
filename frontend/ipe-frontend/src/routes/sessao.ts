@@ -8,6 +8,7 @@ export interface UsuarioSessao {
   id: string;
   nome: string;
   email: string;
+  fotoUrl?: string | null;
   perfil: string;
   ativo?: boolean;
 }

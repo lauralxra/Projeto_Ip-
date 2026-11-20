@@ -356,6 +356,23 @@ describe('MetaService', () => {
         BadRequestException,
       );
     });
+
+    it('bloqueia alteração de meta quando o indicador está arquivado ou inativo (UC041)', async () => {
+      prisma.meta.findFirst.mockResolvedValue({
+        valorMeta: new Prisma.Decimal(100),
+        descricao: null,
+        indicador: {
+          tipoDado: TipoDadoIndicador.NUMERICO,
+          status: StatusRegistro.ARQUIVADO,
+        },
+      });
+
+      await expect(
+        service.update(META_ID, { valorMeta: 150 }, autor),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.meta.updateMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {

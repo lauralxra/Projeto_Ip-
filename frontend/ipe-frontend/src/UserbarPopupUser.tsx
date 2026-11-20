@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
-import { apiFetch, mensagemDeErro } from './api/cliente';
+import { apiFetch, mensagemDeErro, urlDoArquivo } from './api/cliente';
 import { SENHA_OCULTA } from './api/mapeadores';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
@@ -45,11 +45,7 @@ function Pic() {
         <img
           alt=""
           className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-          src={
-            UsuarioAtual.imagem
-              ? '/src/assets/' + UsuarioAtual.imagem
-              : Imagens.DefaultPFP
-          }
+          src={UsuarioAtual.imagem || Imagens.DefaultPFP}
         />
       </div>
     </div>
@@ -281,9 +277,11 @@ function OptExtras({
 export function UserbarPopupUser({
   onClose,
   isClosing,
+  onUsuarioAtualizado,
 }: {
   onClose: () => void;
   isClosing: boolean;
+  onUsuarioAtualizado?: () => void;
 }) {
   const [SeuUsuario, setUsuario] = useState<Usuario>(UsuarioAtual);
   const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
@@ -294,7 +292,10 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
-  const handleSalvarUsuario = async (dadosUsuario: Usuario) => {
+  const handleSalvarUsuario = async (
+    dadosUsuario: Usuario,
+    arquivoImagem?: File | null,
+  ) => {
     try {
       if (dadosUsuario.nome !== UsuarioAtual.nome) {
         // PATCH /users/:id: hoje só o administrador pode alterar o próprio nome
@@ -306,10 +307,23 @@ export function UserbarPopupUser({
         atualizarUsuarioSessao({ nome: dadosUsuario.nome });
       }
 
+      if (arquivoImagem) {
+        const formulario = new FormData();
+        formulario.append('photo', arquivoImagem);
+        const resposta = await apiFetch<{ message: string; fotoUrl: string }>(
+          '/users/profile/photo',
+          {
+            method: 'PATCH',
+            body: formulario,
+          },
+        );
+        UsuarioAtual.imagem = urlDoArquivo(resposta.fotoUrl);
+        atualizarUsuarioSessao({ fotoUrl: resposta.fotoUrl });
+      }
+
       const semEndpoint = [
         dadosUsuario.email !== UsuarioAtual.email && 'e-mail',
         dadosUsuario.senha !== SENHA_OCULTA && 'senha',
-        (dadosUsuario.imagem || '') !== (UsuarioAtual.imagem || '') && 'foto',
       ].filter(Boolean);
       if (semEndpoint.length > 0) {
         alert(
@@ -318,6 +332,8 @@ export function UserbarPopupUser({
       }
 
       setUsuario({ ...UsuarioAtual });
+      onUsuarioAtualizado?.();
+      window.dispatchEvent(new Event('usuario-atualizado'));
       setModalEdicao(false);
     } catch (erro) {
       alert('Não foi possível salvar o perfil: ' + mensagemDeErro(erro));

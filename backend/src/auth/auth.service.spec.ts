@@ -79,6 +79,7 @@ describe('AuthService', () => {
         id: 'uuid',
         nome: 'Maria',
         email: dto.email,
+        fotoUrl: '/uploads/photos/maria.png',
         senhaHash,
         perfil: 'ADMINISTRADOR',
         ativo: true,
@@ -101,6 +102,7 @@ describe('AuthService', () => {
         userAgent: meta.userAgent,
       });
       expect(result.user).not.toHaveProperty('senhaHash');
+      expect(result.user.fotoUrl).toBe('/uploads/photos/maria.png');
     });
 
     it('recusa senha errada com 401', async () => {

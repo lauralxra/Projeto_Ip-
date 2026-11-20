@@ -4,7 +4,7 @@ import {
   lerUsuarioSessao,
   salvarNucleosSessao,
 } from '../routes/sessao';
-import { apiFetch } from './cliente';
+import { apiFetch, urlDoArquivo } from './cliente';
 import {
   nucleoDaApi,
   SENHA_OCULTA,
@@ -23,7 +23,7 @@ export function aplicarSessaoAoUsuarioAtual() {
     nome: usuario.nome,
     email: usuario.email,
     senha: SENHA_OCULTA,
-    imagem: undefined,
+    imagem: usuario.fotoUrl ? urlDoArquivo(usuario.fotoUrl) : undefined,
     tipo: tipoDoPerfil(usuario.perfil),
     nucleos: lerNucleosSessao<NucleoApi>().map(nucleoDaApi),
     status: usuario.ativo === false ? 0 : 1,
