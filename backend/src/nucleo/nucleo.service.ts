@@ -202,20 +202,12 @@ export class NucleoService {
       data.descricao = updateNucleoDto.descricao;
     if (updateNucleoDto.corHex !== undefined)
       data.corHex = updateNucleoDto.corHex;
-    if (updateNucleoDto.status !== undefined)
-      data.status = updateNucleoDto.status;
 
     const atualizado = await this.nucleoRepository.update(id, data);
 
-    const acaoAuditoria =
-      updateNucleoDto.status === StatusRegistro.ATIVO &&
-      nucleo.status !== StatusRegistro.ATIVO
-        ? AcaoAuditoria.RESTAURAR
-        : AcaoAuditoria.ATUALIZAR;
-
     await this.audit.registrarAcao({
       userId: autor.id,
-      acao: acaoAuditoria,
+      acao: AcaoAuditoria.ATUALIZAR,
       entidade: 'Nucleo',
       entidadeId: id,
       dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },

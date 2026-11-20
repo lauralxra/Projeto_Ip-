@@ -53,7 +53,6 @@ type MudancaStatus = {
   status: StatusRegistro;
   acao: AcaoAuditoria;
   mensagem: string;
-  desvincularIndicadores?: boolean;
 };
 
 const DESATIVAR: MudancaStatus = {
@@ -65,7 +64,6 @@ const ARQUIVAR: MudancaStatus = {
   status: StatusRegistro.ARQUIVADO,
   acao: AcaoAuditoria.ARQUIVAR,
   mensagem: 'Programa arquivado com sucesso.',
-  desvincularIndicadores: true,
 };
 const REATIVAR: MudancaStatus = {
   status: StatusRegistro.ATIVO,
@@ -386,41 +384,20 @@ export class ProgramaService {
       );
     }
 
-    let indicadoresDesvinculados: number | undefined;
-
-    if (mudanca.desvincularIndicadores) {
-      // UC031 (CT-031.01 / CT-031.05): arquivar move o programa para ARQUIVADO
-      // e desfaz o vínculo dos indicadores associados, preservando os indicadores no sistema
-      indicadoresDesvinculados = await this.prisma.$transaction(async (tx) => {
-        const { count } = await tx.programa.updateMany({
-          where: { id, deletedAt: null, status: atual.status },
-          data: { status: mudanca.status },
-        });
-        if (count === 0) {
-          throw new ConflictException(
-            'O programa foi alterado por outra operação. Tente novamente.',
-          );
-        }
-
-        const { count: desvinculados } = await tx.indicador.updateMany({
-          where: { programaId: id, deletedAt: null },
-          data: { programaId: null },
-        });
-
-        return desvinculados;
-      });
-    } else {
-      // Só altera se o status ainda for o lido acima: evita auditar duas vezes
-      // em requisições concorrentes
-      const { count } = await this.prisma.programa.updateMany({
-        where: { id, deletedAt: null, status: atual.status },
-        data: { status: mudanca.status },
-      });
-      if (count === 0) {
-        throw new ConflictException(
-          'O programa foi alterado por outra operação. Tente novamente.',
-        );
-      }
+    // UC031: arquivar só muda o status. O vínculo dos indicadores é mantido para
+    // preservar o histórico (filtro por programa no Dashboard) e permitir que a
+    // reativação volte ao estado anterior; programas não ATIVOS já são recusados
+    // em novos vínculos de indicadores e na importação.
+    // Só altera se o status ainda for o lido acima: evita auditar duas vezes
+    // em requisições concorrentes
+    const { count } = await this.prisma.programa.updateMany({
+      where: { id, deletedAt: null, status: atual.status },
+      data: { status: mudanca.status },
+    });
+    if (count === 0) {
+      throw new ConflictException(
+        'O programa foi alterado por outra operação. Tente novamente.',
+      );
     }
 
     await this.audit.registrarAcao({
@@ -429,16 +406,9 @@ export class ProgramaService {
       entidade: 'Programa',
       entidadeId: id,
       dadosAntigos: { status: atual.status },
-      dadosNovos:
-        indicadoresDesvinculados === undefined
-          ? { status: mudanca.status }
-          : { status: mudanca.status, indicadoresDesvinculados },
+      dadosNovos: { status: mudanca.status },
       ip: autor.ip,
     });
-
-    if (indicadoresDesvinculados !== undefined) {
-      return { message: mudanca.mensagem, indicadoresDesvinculados };
-    }
 
     return { message: mudanca.mensagem };
   }

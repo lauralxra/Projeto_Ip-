@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { LockKeyhole } from 'lucide-react';
+import { LockKeyhole, Eye, EyeOff, Check, X } from 'lucide-react';
 
 export default function TelaRedefinirSenha() {
   const [searchParams] = useSearchParams();
@@ -8,20 +8,36 @@ export default function TelaRedefinirSenha() {
 
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
+
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState<'erro' | 'sucesso' | ''>('');
+
+  // Requisitos da senha
+  const requisitos = {
+    tamanho: novaSenha.length >= 8,
+    numero: /\d/.test(novaSenha),
+    maiuscula: /[A-Z]/.test(novaSenha),
+    minuscula: /[a-z]/.test(novaSenha),
+    especial: /[^A-Za-z0-9]/.test(novaSenha),
+  };
+
+  const senhaValida = Object.values(requisitos).every(Boolean);
+
+  const senhasCoincidem =
+    confirmarSenha.length > 0 && novaSenha === confirmarSenha;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Verifica o tamanho mínimo da senha
-    if (novaSenha.length < 6) {
-      setMensagem('A senha precisa ter pelo menos 6 caracteres.');
+    if (!senhaValida) {
+      setMensagem('Sua senha não atende a todos os requisitos de segurança.');
       setTipoMensagem('erro');
       return;
     }
 
-    // Verifica se as senhas coincidem
     if (novaSenha !== confirmarSenha) {
       setMensagem('As senhas não coincidem. Verifique os campos.');
       setTipoMensagem('erro');
@@ -38,11 +54,40 @@ export default function TelaRedefinirSenha() {
     setConfirmarSenha('');
   };
 
-  // Limpa a mensagem quando os campos são alterados
+  // Limpa mensagens quando os campos são alterados
   const limparMensagem = () => {
     setMensagem('');
     setTipoMensagem('');
   };
+
+  // Componente visual dos requisitos da senha
+  const Requisito = ({
+    atendido,
+    texto,
+  }: {
+    atendido: boolean;
+    texto: string;
+  }) => (
+    <div
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+        atendido ? 'bg-[#f4e5ef] text-[#9d3878]' : 'bg-[#f1f2f5] text-slate-500'
+      }`}
+    >
+      <span
+        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
+          atendido ? 'bg-[#9d3878]' : 'bg-slate-400'
+        }`}
+      >
+        {atendido ? (
+          <Check size={9} strokeWidth={3} className="text-white" />
+        ) : (
+          <X size={9} strokeWidth={3} className="text-white" />
+        )}
+      </span>
+
+      {texto}
+    </div>
+  );
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6">
@@ -65,8 +110,8 @@ export default function TelaRedefinirSenha() {
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-500 mt-2 mb-7 leading-relaxed">
-            Crie uma nova senha para sua conta e confirme-a para concluir a
-            redefinição.
+            Crie uma nova senha segura para sua conta e confirme-a para concluir
+            a redefinição.
           </p>
         </div>
 
@@ -78,22 +123,59 @@ export default function TelaRedefinirSenha() {
               Nova senha
             </label>
 
-            <input
-              type="password"
-              value={novaSenha}
-              onChange={(e) => {
-                setNovaSenha(e.target.value);
-                limparMensagem();
-              }}
-              placeholder="Digite sua nova senha..."
-              minLength={6}
-              required
-              className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all"
-            />
+            <div className="relative">
+              <input
+                type={mostrarSenha ? 'text' : 'password'}
+                value={novaSenha}
+                onChange={(e) => {
+                  setNovaSenha(e.target.value);
+                  limparMensagem();
+                }}
+                placeholder="Digite sua nova senha..."
+                required
+                className="w-full px-4 py-3 pr-12 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all"
+              />
 
-            <p className="text-xs text-slate-500 mt-2">
-              A senha precisa ter pelo menos 6 caracteres.
-            </p>
+              {/* Mostrar / ocultar senha */}
+              <button
+                type="button"
+                onClick={() => setMostrarSenha(!mostrarSenha)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#9d3878] transition-colors"
+                aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+              >
+                {mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            {/* Requisitos da senha */}
+            <div className="mt-3">
+              <p className="text-[11px] text-slate-500 mb-2">
+                Sua senha deve conter:
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Requisito
+                  atendido={requisitos.tamanho}
+                  texto="8+ caracteres"
+                />
+
+                <Requisito atendido={requisitos.numero} texto="Número" />
+
+                <Requisito
+                  atendido={requisitos.maiuscula}
+                  texto="Letra maiúscula"
+                />
+
+                <Requisito
+                  atendido={requisitos.minuscula}
+                  texto="Letra minúscula"
+                />
+                <Requisito
+                  atendido={requisitos.especial}
+                  texto="Caractere especial"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Confirmar senha */}
@@ -102,18 +184,52 @@ export default function TelaRedefinirSenha() {
               Confirmar senha
             </label>
 
-            <input
-              type="password"
-              value={confirmarSenha}
-              onChange={(e) => {
-                setConfirmarSenha(e.target.value);
-                limparMensagem();
-              }}
-              placeholder="Confirme sua nova senha..."
-              minLength={6}
-              required
-              className="w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all"
-            />
+            <div className="relative">
+              <input
+                type={mostrarConfirmacao ? 'text' : 'password'}
+                value={confirmarSenha}
+                onChange={(e) => {
+                  setConfirmarSenha(e.target.value);
+                  limparMensagem();
+                }}
+                placeholder="Confirme sua nova senha..."
+                required
+                className={`w-full px-4 py-3 pr-12 bg-[#eef1f5] border rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white transition-all ${
+                  confirmarSenha.length > 0
+                    ? senhasCoincidem
+                      ? 'border-green-400 focus:border-green-400'
+                      : 'border-red-300 focus:border-red-400'
+                    : 'border-transparent focus:border-[#9d3878]'
+                }`}
+              />
+
+              {/* Mostrar / ocultar confirmação */}
+              <button
+                type="button"
+                onClick={() => setMostrarConfirmacao(!mostrarConfirmacao)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#9d3878] transition-colors"
+                aria-label={
+                  mostrarConfirmacao
+                    ? 'Ocultar confirmação da senha'
+                    : 'Mostrar confirmação da senha'
+                }
+              >
+                {mostrarConfirmacao ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            {/* Feedback de confirmação */}
+            {confirmarSenha.length > 0 && (
+              <p
+                className={`text-[11px] mt-2 ${
+                  senhasCoincidem ? 'text-green-600' : 'text-red-500'
+                }`}
+              >
+                {senhasCoincidem
+                  ? 'As senhas coincidem!'
+                  : 'As senhas ainda não coincidem.'}
+              </p>
+            )}
           </div>
 
           {/* Mensagem de erro ou sucesso */}
@@ -131,7 +247,12 @@ export default function TelaRedefinirSenha() {
           {/* Botão */}
           <button
             type="submit"
-            className="w-full py-3.5 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer"
+            disabled={!senhaValida || novaSenha !== confirmarSenha}
+            className={`w-full py-3.5 px-4 text-white font-medium rounded-full text-sm shadow-md transition-all ${
+              senhaValida && novaSenha === confirmarSenha
+                ? 'bg-[#9d3878] hover:bg-[#832b62] cursor-pointer'
+                : 'bg-[#c9a5ba] cursor-not-allowed opacity-70'
+            }`}
           >
             Redefinir senha
           </button>
