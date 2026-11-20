@@ -1,3 +1,10 @@
+# [1.1.0-dev.22](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.21...v1.1.0-dev.22) (2026-11-20)
+
+
+### Bug Fixes
+
+* **prisma:** tornar migration de responsavel do programa idempotente ([5da07ba](https://github.com/lauralxra/Projeto_Ip-/commit/5da07ba860ae8020c5ae23b0ca476a25616eec8a))
+
 # [1.1.0-dev.21](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.20...v1.1.0-dev.21) (2026-11-20)
 
 
