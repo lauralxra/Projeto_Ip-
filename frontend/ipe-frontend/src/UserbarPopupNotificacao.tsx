@@ -339,7 +339,9 @@ export function UserbarPopupNotificacao({
       } else {
         setNotificacoes((prev) => prev.filter((n) => n.notificacao.id !== id));
         if (isAdm) {
-          apiFetch<{ itens: NotificacaoAdmin[] }>('/notificacoes/admin?limite=50')
+          apiFetch<{ itens: NotificacaoAdmin[] }>(
+            '/notificacoes/admin?limite=50',
+          )
             .then((resAdmin) => setNotificacoesEnviadas(resAdmin.itens || []))
             .catch(() => undefined);
         }
@@ -1011,7 +1013,7 @@ export function UserbarPopupNotificacao({
                 <button
                   type="button"
                   disabled={excluindo}
-                  onClick={confirmarExclusao}
+                  onClick={() => void confirmarExclusao()}
                   className="flex-1 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {excluindo ? 'Excluindo...' : 'Excluir'}

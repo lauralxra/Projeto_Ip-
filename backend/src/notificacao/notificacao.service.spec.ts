@@ -493,7 +493,7 @@ describe('NotificacaoService', () => {
       );
     });
 
-    it('permite ao administrador excluir via DELETE /:id mesmo não sendo destinatário', async () => {
+    it('não apaga globalmente quando o administrador usa DELETE /:id numa notificação fora da própria caixa', async () => {
       prisma.notificacao.findUnique.mockResolvedValue(notificacaoExistente);
       prisma.notificacaoUsuario.findUnique.mockResolvedValue(null);
 
@@ -503,11 +503,11 @@ describe('NotificacaoService', () => {
           { id: ADMIN_ID, role: Role.ADMINISTRADOR },
           '127.0.0.1',
         ),
-      ).resolves.toEqual({ message: 'Notificação excluída com sucesso.' });
+      ).rejects.toThrow(ForbiddenException);
 
-      expect(prisma.notificacao.deleteMany).toHaveBeenCalledWith({
-        where: { id: NOTIF_ID },
-      });
+      expect(prisma.notificacao.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.notificacaoUsuario.deleteMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 });

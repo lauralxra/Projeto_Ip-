@@ -447,14 +447,12 @@ export class NotificacaoService {
   }
 
   // UC014: remove a notificação da caixa do usuário autenticado.
-  // Se a notificação existir mas não pertencer ao usuário:
-  // - perfis não administradores recebem 403 Forbidden;
-  // - o administrador pode removê-la globalmente.
-  async excluir(
-    notificacaoId: string,
-    usuario: AuthenticatedUser,
-    ip: string,
-  ) {
+  // Se a notificação existir mas não estiver na caixa do usuário, responde 403
+  // para todos os perfis, inclusive o administrador: a exclusão global só
+  // acontece pela rota explícita DELETE /notificacoes/admin/:id. Assim, um
+  // clique repetido ou uma lista desatualizada na aba Recebidas nunca apaga a
+  // notificação dos outros destinatários.
+  async excluir(notificacaoId: string, usuario: AuthenticatedUser, ip: string) {
     const notificacao = await this.prisma.notificacao.findUnique({
       where: { id: notificacaoId },
       select: { id: true, titulo: true, tipo: true, nucleoId: true },
@@ -473,9 +471,6 @@ export class NotificacaoService {
     });
 
     if (!vinculo) {
-      if (usuario.role === Role.ADMINISTRADOR) {
-        return this.excluirComoAdmin(notificacaoId, usuario.id, ip);
-      }
       throw new ForbiddenException(
         'Você não tem permissão para excluir esta notificação.',
       );
@@ -513,11 +508,7 @@ export class NotificacaoService {
   }
 
   // UC014 (Administração): remove a notificação definitivamente para todos os destinatários
-  async excluirComoAdmin(
-    notificacaoId: string,
-    adminId: string,
-    ip: string,
-  ) {
+  async excluirComoAdmin(notificacaoId: string, adminId: string, ip: string) {
     const notificacao = await this.prisma.notificacao.findUnique({
       where: { id: notificacaoId },
       select: {
