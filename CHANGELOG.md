@@ -1,3 +1,48 @@
+# [1.1.0-dev.21](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.20...v1.1.0-dev.21) (2026-11-20)
+
+
+### Bug Fixes
+
+* **backend:** corrigir duplicidades em auth e propriedade imagemUrl em nucleo ([64329ce](https://github.com/lauralxra/Projeto_Ip-/commit/64329cec7bca32779edc7d333960ffd6f8d56b24))
+* **backend:** definir porta padrao 3001 no bootstrap da aplicacao ([665b62d](https://github.com/lauralxra/Projeto_Ip-/commit/665b62d1be4825af6ffc9057021b397dec74d0ed))
+* **config:** ajustar porta do backend para 3001 no docker e frontend ([8cdb58b](https://github.com/lauralxra/Projeto_Ip-/commit/8cdb58b0cff68c98803ef89eedb28f7052fd073e))
+* **frontend:** corrigir carregamento de fontes Google Sans e overflow do menu de acoes ([1c51c55](https://github.com/lauralxra/Projeto_Ip-/commit/1c51c55e646b6172f6728beabae1b2ca091898c3))
+* **indicadores:** aceitar campo status no DTO de atualizacao do indicador ([0de7703](https://github.com/lauralxra/Projeto_Ip-/commit/0de77033dc38c0d788848b07af423eb5e23abe0b))
+* **indicadores:** corrigir fluxo uc038 de revisao aprovacao e devolucao ([6f902ad](https://github.com/lauralxra/Projeto_Ip-/commit/6f902ad61bd798085fe8ff5e84872b312598b95c))
+* **perfil:** integrar alteracao e exibicao da foto de perfil ([1e38bcb](https://github.com/lauralxra/Projeto_Ip-/commit/1e38bcba3a363a4f9864d016f103b12530e7eada))
+* **prisma:** alinhar fk de responsavel do programa ao schema com on delete restrict ([b2a5874](https://github.com/lauralxra/Projeto_Ip-/commit/b2a5874721b1e6d1047f22edfd0e18a15b1af621))
+
+
+### Features
+
+* **auth:** adicionar link para tela de cadastro na tela de login ([699e799](https://github.com/lauralxra/Projeto_Ip-/commit/699e7999baad2f1bf963eb82feb682ad59bbdde6))
+* **dashboard:** adicionar barra de pesquisa e filtro de programas do banco de dados ([c360b52](https://github.com/lauralxra/Projeto_Ip-/commit/c360b5269765e6dc2d28efed9aa15e0657969a2d))
+* **dashboard:** adicionar seletor de cores para os graficos ([41c5742](https://github.com/lauralxra/Projeto_Ip-/commit/41c57426c65c2dc0d1af97723288d8106f155d45))
+* **dashboard:** corrigir paginacao de pdf e adicionar exportacao de grafico em png ([195a00d](https://github.com/lauralxra/Projeto_Ip-/commit/195a00dc2108d4d1f3e376a05d45e26e24cef631))
+* **dashboard:** migrar tela para consumir API agregada do backend com meta vs realizado e RBAC ([5f1a42a](https://github.com/lauralxra/Projeto_Ip-/commit/5f1a42acebcce78971089667539ffde16041ede2))
+* **frontend:** aprimorar responsividade geral, tipografia Google Sans e acoes de indicadores ([e8c0b2d](https://github.com/lauralxra/Projeto_Ip-/commit/e8c0b2d592ac8ecf20c22a23e1405872b502b173)), closes [#fbd7f0](https://github.com/lauralxra/Projeto_Ip-/issues/fbd7f0) [#a13680](https://github.com/lauralxra/Projeto_Ip-/issues/a13680)
+* **historico:** criar endpoint de auditoria e conectar tela de historico a api real ([96e02b3](https://github.com/lauralxra/Projeto_Ip-/commit/96e02b355c43bef177328706a8900f6f5cf699ef))
+* **indicadores:** add GET/:id, PATCH/:id and inativar endpoints RF02-RF04 ([d22864f](https://github.com/lauralxra/Projeto_Ip-/commit/d22864f66308d6de8e99bba9a6d768a4b458d8ab))
+* **indicadores:** adicionar botao e acao para excluir medicao de ano e trimestre especificos ([66bf013](https://github.com/lauralxra/Projeto_Ip-/commit/66bf0135e7e11b61392331f0538ec5c0c22e6c05))
+* **indicadores:** atualizar rotulo para importar CSV e Excel ([3f31438](https://github.com/lauralxra/Projeto_Ip-/commit/3f31438a705a31c2f9878c65150130e7ae20313a))
+* **indicadores:** corrigir duplicacao na importacao, integrar patch de indicador e cruds no frontend ([f7365d1](https://github.com/lauralxra/Projeto_Ip-/commit/f7365d1c63f5796a7033d1d342eb8c17f7568ac3))
+* **indicadores:** filtrar dashboard automaticamente ao clicar no icone do indicador ([1250e6d](https://github.com/lauralxra/Projeto_Ip-/commit/1250e6dc5e16805fa38830ad43834d0be190a80f))
+* **indicadores:** implementar uc041 arquivar e desativar indicador ([dc234ec](https://github.com/lauralxra/Projeto_Ip-/commit/dc234ec343ce5f59b0028eb54ec22a8a54948de0))
+* **indicadores:** permitir atualizar indicador sem meta e remover metas existentes ([29809ff](https://github.com/lauralxra/Projeto_Ip-/commit/29809ffd1b5f615f89cfd72791092850ec2befd0))
+* **indicadores:** vincular novos periodos ao indicador existente e adicionar modal de historico de medicoes ([8a058ca](https://github.com/lauralxra/Projeto_Ip-/commit/8a058caff94b5b97a52f5e880a61a8746ae33bc6))
+* **layout:** adicionar navbar responsiva com menu retratil e suporte mobile ([8f42354](https://github.com/lauralxra/Projeto_Ip-/commit/8f42354986a7938fd8d4e1af11c9427601855a81))
+* **notificacoes:** conectar painel de notificacoes a api do backend ([74add59](https://github.com/lauralxra/Projeto_Ip-/commit/74add59a11cbc42c95a964342b29a1b8c704b87c))
+* **nucleo:** implementar atualizacao de nucleo com validacao e auditoria ([e0a2096](https://github.com/lauralxra/Projeto_Ip-/commit/e0a20961020565c294a1bf81e7e01ca4f3a85acd))
+* **programas:** vincular responsavel real ao programa no backend e frontend ([43a5a29](https://github.com/lauralxra/Projeto_Ip-/commit/43a5a29cbbec421ca16585bc1fbfda4f630cb457))
+* **users:** adicionar endpoints para alterar status e email do usuario ([d297344](https://github.com/lauralxra/Projeto_Ip-/commit/d297344dd62bd29b12595c5ad0c623d68e121084))
+
+# [1.1.0-dev.20](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.19...v1.1.0-dev.20) (2026-11-20)
+
+
+### Features
+
+* implementa tela de notificações ([f6f9f73](https://github.com/lauralxra/Projeto_Ip-/commit/f6f9f739d09ddd741f8301e3f812bda22802f7cd))
+
 # [1.1.0-dev.19](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.18...v1.1.0-dev.19) (2026-11-20)
 
 

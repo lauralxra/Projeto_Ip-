@@ -143,6 +143,14 @@ export class NucleoController {
     });
   }
 
+  @Get(':id/pendencias')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @ApiBearerAuth('JWT-auth')
+  verificarPendencias(@Param('id', ParseUUIDPipe) id: string) {
+    return this.nucleoService.verificarPendencias(id);
+  }
+
   @Patch(':id/desativar')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -154,5 +162,17 @@ export class NucleoController {
     @Ip() ip: string,
   ) {
     return this.nucleoService.deactivate(id, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/reativar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @ApiBearerAuth('JWT-auth')
+  reactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.nucleoService.reactivate(id, { id: req.user.id, ip });
   }
 }

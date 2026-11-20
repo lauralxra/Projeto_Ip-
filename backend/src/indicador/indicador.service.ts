@@ -515,11 +515,21 @@ export class IndicadorService {
         deletedAt: null,
         status: StatusRegistro.ATIVO,
       },
-      select: { id: true, nucleoId: true },
+      select: {
+        id: true,
+        nucleoId: true,
+        nucleo: { select: { status: true } },
+      },
     });
 
     if (!indicador) {
       throw new NotFoundException('Indicador não encontrado ou inativo.');
+    }
+
+    if (indicador.nucleo && indicador.nucleo.status !== StatusRegistro.ATIVO) {
+      throw new ConflictException(
+        'Não é possível registrar valores em indicadores de um núcleo inativo ou arquivado.',
+      );
     }
 
     const ehAdministrador = usuario.role === Role.ADMINISTRADOR;

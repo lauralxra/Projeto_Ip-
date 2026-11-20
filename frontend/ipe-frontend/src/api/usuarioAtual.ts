@@ -36,10 +36,10 @@ export function definirNucleosDoUsuario(nucleos: NucleoApi[]) {
   UsuarioAtual.nucleos = nucleos.map(nucleoDaApi);
 }
 
-// GET /nucleos devolve todos para ADM/EC e só os vinculados para DN/EG (RN02)
+// GET /nucleos?status=ATIVO devolve apenas núcleos ativos para seletores e cadastros (RN02 / UC026)
 export async function carregarNucleosDoUsuario() {
   const { itens } = await apiFetch<{ itens: NucleoApi[] }>(
-    '/nucleos?limite=100',
+    '/nucleos?status=ATIVO&limite=100',
   );
   definirNucleosDoUsuario(itens);
   return itens;
