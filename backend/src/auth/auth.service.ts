@@ -38,6 +38,11 @@ const DUMMY_HASH = bcrypt.hashSync('senha-ficticia', BCRYPT_ROUNDS);
 // UC02 - recuperação de senha
 const RECUPERACAO_VALIDADE_MINUTOS = 15;
 const RECUPERACAO_MAX_TENTATIVAS = 5;
+// Limite de códigos por conta: cada código novo traz 5 tentativas, então sem este
+// limite bastaria pedir códigos em sequência para chutar todos os 1.000.000.
+// Com ele: no máximo 3 códigos x 5 tentativas = 15 chutes por hora por conta.
+const RECUPERACAO_INTERVALO_MINIMO_MS = 60 * 1000;
+const RECUPERACAO_MAX_CODIGOS_POR_HORA = 3;
 const RECUPERACAO_MENSAGEM =
   'Se o e-mail estiver cadastrado, você receberá o código.';
 // Mesma resposta para e-mail inexistente, sem código, código errado ou expirado
@@ -197,6 +202,12 @@ export class AuthService {
       return { message: RECUPERACAO_MENSAGEM };
     }
 
+    // Acima do limite responde igual, sem gerar código nem enviar e-mail:
+    // não denuncia a conta e não serve para lotar a caixa de entrada de ninguém
+    if (await this.limiteDeCodigosAtingido(user.id)) {
+      return { message: RECUPERACAO_MENSAGEM };
+    }
+
     const expiraEm = new Date(
       Date.now() + RECUPERACAO_VALIDADE_MINUTOS * 60 * 1000,
     );
@@ -284,6 +295,21 @@ export class AuthService {
       });
 
     return { message: 'Senha redefinida com sucesso.' };
+  }
+
+  private async limiteDeCodigosAtingido(userId: string): Promise<boolean> {
+    const agora = Date.now();
+    const recentes = await this.prisma.passwordResetToken.findMany({
+      where: { userId, createdAt: { gte: new Date(agora - 60 * 60 * 1000) } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    if (recentes.length >= RECUPERACAO_MAX_CODIGOS_POR_HORA) return true;
+    return (
+      recentes.length > 0 &&
+      agora - recentes[0].createdAt.getTime() < RECUPERACAO_INTERVALO_MINIMO_MS
+    );
   }
 
   // Confere o código do token mais recente não usado. A tentativa é reservada antes
