@@ -52,12 +52,12 @@ function ProgramaObj({
 
   return (
     <div
-      className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-[16px] items-start min-h-[120px] px-[18px] py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
+      className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-3.5 sm:gap-4 items-start min-h-[110px] px-3.5 sm:px-[18px] py-3 sm:py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
       data-name="Programa"
     >
       {/* Logo do Programa */}
       <div
-        className={`h-[75px] w-[75px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
+        className={`size-[55px] sm:size-[70px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
         data-name="Img"
       >
         {nucleo.icone ? (
@@ -69,13 +69,13 @@ function ProgramaObj({
             />
           </div>
         ) : (
-          <span className="font-bold text-[12px] tracking-wider">
+          <span className="font-bold text-[11px] sm:text-[12px] tracking-wider">
             {nucleo.logoTexto}
           </span>
         )}
       </div>
 
-      <div className="content-stretch flex flex-1 flex-col gap-[6px] relative pr-6">
+      <div className="content-stretch flex flex-1 flex-col gap-[6px] relative pr-7 sm:pr-8 min-w-0">
         {UsuarioAtual.tipo == 'ADM' ? (
           <>
             {/* edicao */}
@@ -89,7 +89,7 @@ function ProgramaObj({
 
             {/* deletamento */}
             <button
-              className="absolute right-0 size-[20px] top-8 cursor-pointer"
+              className="absolute right-0 size-[20px] top-7 cursor-pointer"
               data-name="akar-icons:more-vertical-fill"
               onClick={() => delFunc(programaEmSi)}
             >
@@ -101,7 +101,7 @@ function ProgramaObj({
         )}
 
         {/* nome */}
-        <p className="font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold text-[#040404] text-[16px] leading-tight">
+        <p className="font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold text-[#040404] text-[15px] sm:text-[16px] leading-tight break-words">
           {programaEmSi.nome}
         </p>
 
@@ -111,11 +111,11 @@ function ProgramaObj({
         </p>
 
         {/* desceição */}
-        <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#4a4a4a] text-[13px] leading-snug line-clamp-2">
+        <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#4a4a4a] text-[12px] sm:text-[13px] leading-snug line-clamp-2 break-words">
           {programaEmSi.descricao}
         </p>
 
-        <div className="flex gap-[20px] items-center pt-1 text-[12px] text-[#555]">
+        <div className="flex flex-wrap gap-x-4 sm:gap-x-5 gap-y-1.5 items-center pt-1 text-[12px] text-[#555]">
           {/* data de criação */}
           <div className="flex gap-[6px] items-center">
             <div className="size-[16px] shrink-0">
@@ -395,8 +395,8 @@ export default function TelaProgramas() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between px-[10px] py-[5px] shrink-0 w-full gap-4">
-            <div className="relative w-full sm:w-96">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-2 sm:px-[10px] py-[5px] shrink-0 w-full gap-3 sm:gap-4">
+            <div className="relative w-full sm:w-80 md:w-96">
               <input
                 type="text"
                 placeholder="Pesquisar..."
@@ -411,7 +411,7 @@ export default function TelaProgramas() {
             </div>
 
             {/* Botoes */}
-            <div className="flex flex-row items-center gap-[15px]">
+            <div className="flex flex-wrap items-center gap-3">
               <CustomDropdown
                 icon={Svg.UsersMais}
                 label="Núcleos"
@@ -446,7 +446,7 @@ export default function TelaProgramas() {
       </main>
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">

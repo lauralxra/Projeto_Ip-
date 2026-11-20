@@ -101,16 +101,16 @@ function CardMetrica({
       break;
   }
 
-  let varUsers = valVariacao;
+  const varUsers = valVariacao;
 
   return (
     <div
       className={
         corBg +
-        ' w-full h-full p-5 rounded-2xl border border-[#f5e1ed] shadow-sm flex items-center gap-4'
+        ' w-full min-h-[110px] p-4 sm:p-5 rounded-2xl border border-[#f5e1ed] shadow-xs flex items-center gap-3.5 sm:gap-4'
       }
     >
-      <div className="w-12 h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0">
+      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#832b62] text-white flex items-center justify-center shrink-0 shadow-xs">
         {TipoMetrica === 'programas' ? (
           <FolderKanban size={22} />
         ) : TipoMetrica === 'indicadores' ? (
@@ -119,20 +119,33 @@ function CardMetrica({
           <Users size={22} />
         )}
       </div>
-      <div>
-        <span className="text-2xl font-bold text-slate-800">{valAtual}</span>
-        <p className="text-xs text-slate-500 font-medium">{leTitulo}</p>
-        <span
-          className={`text-[11px] font-semibold flex items-center gap-1 mt-1 ${varUsers >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
-        >
-          {varUsers >= 0 ? (
-            <TrendingUp size={12} />
-          ) : (
-            <TrendingDown size={12} />
-          )}
-          {varUsers >= 0 ? `+${varUsers}%` : `${varUsers}%`} em relação ao
-          período anterior
+      <div className="min-w-0 flex-1">
+        <span className="text-2xl sm:text-3xl font-bold text-slate-800 leading-tight block">
+          {valAtual}
         </span>
+        <p
+          className="text-xs text-slate-500 font-medium truncate mt-0.5"
+          title={leTitulo}
+        >
+          {leTitulo}
+        </p>
+        <div
+          className={`text-[11px] font-semibold flex items-center gap-1.5 mt-1 leading-snug flex-wrap ${
+            varUsers >= 0 ? 'text-emerald-600' : 'text-rose-600'
+          }`}
+        >
+          <span className="flex items-center gap-1 shrink-0">
+            {varUsers >= 0 ? (
+              <TrendingUp size={12} />
+            ) : (
+              <TrendingDown size={12} />
+            )}
+            {varUsers >= 0 ? `+${varUsers}%` : `${varUsers}%`}
+          </span>
+          <span className="text-slate-500 font-normal">
+            em relação ao período anterior
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -894,32 +907,32 @@ export default function TelaDashboard() {
         {/* Container do Cabeçalho e Métricas (usado também para exportação em PDF) */}
         <div id="dashboard-pdf-header">
           {/* Cabeçalho do Dashboard */}
-          <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+          <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#a13680]">
                 Dashboard
               </h1>
-              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
+              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light text-xs sm:text-sm text-slate-500 mt-1">
                 Acompanhe os resultados dos núcleos, programas e indicadores
                 institucionais
               </p>
               {/* Badges dos filtros ativos (úteis para PDF e visualização rápida) */}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-md font-medium">
                   Núcleo: {nucleoFiltro}
                 </span>
-                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-md font-medium">
                   Programa: {programaFiltro}
                 </span>
-                <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                <span className="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-md font-medium">
                   Período: {periodoFiltro}
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 no-export">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 no-export w-full xl:w-auto">
               {/* Barra de Pesquisa Rápida */}
-              <div className="relative min-w-[200px] md:min-w-[240px]">
+              <div className="relative w-full sm:w-auto flex-1 sm:flex-initial min-w-[200px] sm:min-w-[240px]">
                 <Search
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -929,7 +942,7 @@ export default function TelaDashboard() {
                   placeholder="Buscar indicador ou programa..."
                   value={pesquisaTexto}
                   onChange={(e) => setPesquisaTexto(e.target.value)}
-                  className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-7 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#832b62] shadow-xs"
+                  className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-7 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-[#832b62] shadow-xs"
                 />
                 {pesquisaTexto && (
                   <button
@@ -948,7 +961,7 @@ export default function TelaDashboard() {
                 <select
                   value={nucleoFiltro}
                   onChange={(e) => setNucleoFiltro(e.target.value)}
-                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-3.5 py-2 sm:py-2.5 pr-7 rounded-lg cursor-pointer focus:outline-none max-w-[160px] truncate"
                 >
                   <option>Todos os Núcleos</option>
                   {UsuarioAtual.nucleos.map((n) => (
@@ -958,8 +971,8 @@ export default function TelaDashboard() {
                   ))}
                 </select>
                 <ChevronDown
-                  size={14}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                  size={13}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none"
                 />
               </div>
 
@@ -968,7 +981,7 @@ export default function TelaDashboard() {
                 <select
                   value={programaFiltro}
                   onChange={(e) => setProgramaFiltro(e.target.value)}
-                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none max-w-[220px] truncate"
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-3.5 py-2 sm:py-2.5 pr-7 rounded-lg cursor-pointer focus:outline-none max-w-[170px] truncate"
                 >
                   <option>Todos os Programas</option>
                   {programasDoBanco
@@ -989,8 +1002,8 @@ export default function TelaDashboard() {
                     ))}
                 </select>
                 <ChevronDown
-                  size={14}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                  size={13}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none"
                 />
               </div>
 
@@ -999,7 +1012,7 @@ export default function TelaDashboard() {
                 <select
                   value={periodoFiltro}
                   onChange={(e) => setPeriodoFiltro(e.target.value)}
-                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-4 py-2.5 pr-8 rounded-lg cursor-pointer focus:outline-none"
+                  className="appearance-none bg-[#832b62] text-white text-xs font-medium px-3.5 py-2 sm:py-2.5 pr-7 rounded-lg cursor-pointer focus:outline-none max-w-[150px] truncate"
                 >
                   <option>Todos os períodos</option>
                   <option>Ano de 2026</option>
@@ -1009,8 +1022,8 @@ export default function TelaDashboard() {
                   <option>Últimos 6 meses</option>
                 </select>
                 <ChevronDown
-                  size={14}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+                  size={13}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none"
                 />
               </div>
 
@@ -1019,7 +1032,7 @@ export default function TelaDashboard() {
                 className="relative flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-xs"
                 title="Cor padrão para todos os gráficos"
               >
-                <Palette size={13} className="text-slate-500" />
+                <Palette size={13} className="text-slate-500 shrink-0" />
                 <span className="text-xs text-slate-600 font-medium hidden sm:inline">
                   Cor:
                 </span>
@@ -1064,9 +1077,9 @@ export default function TelaDashboard() {
                   type="button"
                   disabled={exportando !== null}
                   onClick={() => setMenuExportacaoAberto(!menuExportacaoAberto)}
-                  className="flex items-center gap-2 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+                  className="flex items-center gap-1.5 bg-[#4a1836] hover:bg-[#3a182d] text-white text-xs font-medium px-3.5 py-2 sm:py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 shadow-xs"
                 >
-                  <Download size={14} />
+                  <Download size={13} />
                   <span>
                     {exportando === 'pdf'
                       ? 'Gerando PDF...'
@@ -1150,7 +1163,7 @@ export default function TelaDashboard() {
           </header>
 
           {/* Grade de Cards Métricas */}
-          <div className="content-stretch flex w-full gap-8 mb-6 h-30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
             <CardMetrica
               TipoMetrica="usuario"
               valAtual={totalUsuarios}
@@ -1292,10 +1305,10 @@ export default function TelaDashboard() {
               <div
                 key={indicador.id}
                 id={`card-grafico-${indicador.id}`}
-                className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
+                className="card-grafico-item bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px] flex flex-col justify-between"
               >
                 <div className="flex items-start justify-between gap-3 mb-1">
-                  <h3 className="text-base font-bold text-slate-800">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800 break-words flex-1">
                     {indicador.nome}
                   </h3>
                   <button
@@ -1311,11 +1324,12 @@ export default function TelaDashboard() {
                     title="Baixar imagem deste gráfico em PNG (com informações do indicador)"
                   >
                     <Camera size={13} />
-                    <span className="font-medium">
+                    <span className="font-medium hidden sm:inline">
                       {exportando === `card-grafico-${indicador.id}`
                         ? 'Salvando...'
                         : 'Salvar PNG'}
                     </span>
+                    <span className="font-medium sm:hidden">PNG</span>
                   </button>
                 </div>
                 <div className="mb-2 text-[11px] text-slate-500 space-y-0.5">
@@ -1552,11 +1566,11 @@ export default function TelaDashboard() {
             return (
               <div
                 id="card-grafico-programas"
-                className="card-grafico-item bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px]"
+                className="card-grafico-item bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[350px] flex flex-col justify-between"
               >
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <div>
-                    <h3 className="text-base font-bold text-slate-800">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-800">
                       Programas em Execução por Núcleo
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -1576,11 +1590,12 @@ export default function TelaDashboard() {
                     title="Baixar imagem deste gráfico em PNG"
                   >
                     <Camera size={13} />
-                    <span className="font-medium">
+                    <span className="font-medium hidden sm:inline">
                       {exportando === 'card-grafico-programas'
                         ? 'Salvando...'
                         : 'Salvar PNG'}
                     </span>
+                    <span className="font-medium sm:hidden">PNG</span>
                   </button>
                 </div>
 
@@ -1689,7 +1704,7 @@ export default function TelaDashboard() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">

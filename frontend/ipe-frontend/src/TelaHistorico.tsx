@@ -6,12 +6,14 @@ import {
   Archive,
   Plus,
   Trash2,
-  Edit3,
   CheckCircle,
   RotateCcw,
   FileUp,
   Activity,
   Layers,
+  UserPlus,
+  Pencil,
+  MessagesSquare,
 } from 'lucide-react';
 import { apiFetch, urlDoArquivo } from './api/cliente';
 import { carregarNucleosDoUsuario } from './api/usuarioAtual';
@@ -50,55 +52,37 @@ interface NucleoItem {
   sigla: string;
 }
 
-// Retorna o ícone dinâmico conforme a ação gravada
-function IconeAcao({ acao }: { acao: string }) {
+// Retorna o ícone dinâmico conforme a ação gravada seguindo o padrão oficial IPÊ
+function IconeAcao({ acao, entidade }: { acao: string; entidade?: string }) {
   let IconComponent = Activity;
-  let bgCor = 'bg-[#fbd3ee]/80';
-  let textCor = 'text-[#a13680]';
 
   switch (acao) {
     case 'CRIAR':
-      IconComponent = Plus;
-      bgCor = 'bg-emerald-100';
-      textCor = 'text-emerald-700';
+      IconComponent = entidade === 'User' ? UserPlus : Plus;
       break;
     case 'ATUALIZAR':
-      IconComponent = Edit3;
-      bgCor = 'bg-sky-100';
-      textCor = 'text-sky-700';
+      IconComponent = Pencil;
       break;
     case 'EXCLUIR_LOGICO':
     case 'EXCLUIR':
       IconComponent = Trash2;
-      bgCor = 'bg-rose-100';
-      textCor = 'text-rose-700';
       break;
     case 'ARQUIVAR':
     case 'DESATIVAR':
       IconComponent = Archive;
-      bgCor = 'bg-amber-100';
-      textCor = 'text-amber-700';
       break;
     case 'RESTAURAR':
       IconComponent = RotateCcw;
-      bgCor = 'bg-emerald-100';
-      textCor = 'text-emerald-700';
       break;
     case 'APROVAR':
     case 'PUBLICAR':
       IconComponent = CheckCircle;
-      bgCor = 'bg-emerald-100';
-      textCor = 'text-emerald-700';
       break;
     case 'DEVOLVER':
-      IconComponent = RotateCcw;
-      bgCor = 'bg-amber-100';
-      textCor = 'text-amber-700';
+      IconComponent = MessagesSquare;
       break;
     case 'IMPORTAR':
       IconComponent = FileUp;
-      bgCor = 'bg-purple-100';
-      textCor = 'text-purple-700';
       break;
     default:
       IconComponent = Activity;
@@ -106,10 +90,8 @@ function IconeAcao({ acao }: { acao: string }) {
   }
 
   return (
-    <div
-      className={`size-[42px] ${bgCor} rounded-full flex items-center justify-center shrink-0`}
-    >
-      <IconComponent size={20} className={textCor} />
+    <div className="size-[42px] bg-[#fbd7f0] rounded-full flex items-center justify-center shrink-0">
+      <IconComponent size={20} className="text-[#a13680]" />
     </div>
   );
 }
@@ -179,12 +161,13 @@ function LinhaLog({ log }: { log: AuditLogItem }) {
   const nomeUsuario = log.user?.nome ?? 'Sistema / Ação Automática';
   const perfilUsuario = log.user?.perfil ?? 'SISTEMA';
   const siglaNucleo = log.user?.nucleos?.[0]?.nucleo?.sigla;
+  const ehSistema = !log.user || perfilUsuario === 'SISTEMA';
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs hover:shadow-md transition-shadow w-full">
       {/* Detalhes da Ação */}
       <div className="flex items-center gap-4 flex-1 min-w-0">
-        <IconeAcao acao={log.acao} />
+        <IconeAcao acao={log.acao} entidade={log.entidade} />
 
         <div className="flex flex-col min-w-0">
           <p className="font-semibold text-[14px] text-[#a13680] truncate">
@@ -198,16 +181,30 @@ function LinhaLog({ log }: { log: AuditLogItem }) {
 
       {/* Indivíduo / Autor */}
       <div className="flex items-center gap-3 flex-1 min-w-0 md:max-w-[340px]">
-        <div className="size-[36px] relative rounded-full overflow-hidden border border-slate-200 shrink-0">
-          <img
-            alt={nomeUsuario}
-            className="size-full object-cover"
-            src={
-              log.user?.fotoUrl
-                ? urlDoArquivo(log.user.fotoUrl)
-                : Imagens.DefaultPFP
-            }
-          />
+        <div
+          className={`size-[36px] relative rounded-full overflow-hidden shrink-0 flex items-center justify-center ${
+            ehSistema
+              ? 'bg-[#fbd7f0] border border-[#fbd7f0] p-1.5'
+              : 'border border-slate-200'
+          }`}
+        >
+          {log.user ? (
+            <img
+              alt={nomeUsuario}
+              className="size-full object-cover rounded-full"
+              src={
+                log.user.fotoUrl
+                  ? urlDoArquivo(log.user.fotoUrl)
+                  : Imagens.DefaultPFP
+              }
+            />
+          ) : (
+            <img
+              alt="Sistema IPÊ"
+              className="size-full object-contain"
+              src={Imagens.LogoIPE}
+            />
+          )}
         </div>
 
         <div className="flex flex-col min-w-0">
@@ -215,7 +212,13 @@ function LinhaLog({ log }: { log: AuditLogItem }) {
             {nomeUsuario}
           </p>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-block bg-slate-100 text-slate-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+            <span
+              className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                ehSistema
+                  ? 'bg-[#fbd7f0] text-[#a13680]'
+                  : 'bg-slate-100 text-slate-700'
+              }`}
+            >
               {perfilUsuario}
             </span>
             {siglaNucleo && (
@@ -338,17 +341,17 @@ export default function TelaHistorico() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between w-full gap-4 px-2">
             {/* Top */}
             <div>
-              <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <h1 className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
                 Histórico
               </h1>
-              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
+              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-xs sm:text-sm text-slate-500 mt-1">
                 Acompanhe o registro oficial e imutável de todas as ações,
                 edições e movimentações do sistema.
               </p>
             </div>
 
             {/* Controles de Filtro */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
               {/* Entidade */}
               <div className="relative">
                 <select
@@ -459,7 +462,7 @@ export default function TelaHistorico() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">

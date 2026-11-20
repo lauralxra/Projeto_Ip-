@@ -7,14 +7,15 @@ import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
 import {
   Archive,
-  CheckCircle2,
-  Circle,
+  BarChart3,
   Clock,
   History,
+  MoreVertical,
+  Pencil,
   RotateCcw,
   Send,
   Trash2,
-  XCircle,
+  TrendingUp,
 } from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
@@ -69,25 +70,20 @@ function TotalProgresso({ progresso }: { progresso: number }) {
 
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[12px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px]"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[12px] items-center justify-center min-h-[170px] sm:h-[200px] w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] shadow-xs"
       data-name="TotalProgresso"
     >
-      <p className="font-semibold text-[#3c3b3b] text-[18px] text-center w-full">
+      <p className="font-semibold text-[#3c3b3b] text-[16px] sm:text-[18px] text-center w-full">
         Progresso geral
       </p>
 
       <div
-        className="inline-grid leading-[0] size-[130px] place-items-start relative shrink-0"
+        className="size-[120px] sm:size-[130px] relative shrink-0 flex items-center justify-center"
         data-name="Barra"
       >
         {/* Circulo SVG Dinâmico */}
-        <div className="col-1 size-[130px] row-1">
-          <svg
-            className="absolute block inset-0 size-full -rotate-90"
-            height="130"
-            viewBox="0 0 182 182"
-            width="130"
-          >
+        <div className="absolute inset-0 size-full">
+          <svg className="block size-full -rotate-90" viewBox="0 0 182 182">
             <g id="Group 69">
               {/* Círculo de fundo cinza */}
               <circle
@@ -132,7 +128,7 @@ function TotalProgresso({ progresso }: { progresso: number }) {
         </div>
 
         {/* Porcentagem */}
-        <p className="col-1 font-normal ml-[42px] mt-[52px] absolute align-center justify-center row-1 text-[#3c3b3b] text-[18px]">
+        <p className="relative font-semibold text-[#3c3b3b] text-[16px] sm:text-[18px]">
           {progressoSeguro}%
         </p>
       </div>
@@ -143,12 +139,14 @@ function TotalProgresso({ progresso }: { progresso: number }) {
 function TotalIndicadores({ valor }: { valor: number }) {
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] h-[200px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px] text-[#3c3b3b] text-center"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] min-h-[170px] sm:h-[200px] items-center justify-center w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] text-[#3c3b3b] text-center shadow-xs"
       data-name="TotalIndicadores"
     >
-      <p className="font-semibold text-[18px] w-full">Total de indicadores</p>
-      <div className="flex flex-col font-normal justify-center text-[36px] w-full">
-        <p className="leading-[normal]">{valor}</p>
+      <p className="font-semibold text-[16px] sm:text-[18px] w-full">
+        Total de indicadores
+      </p>
+      <div className="flex flex-col font-normal justify-center text-[32px] sm:text-[36px] w-full">
+        <p className="leading-[normal] font-bold sm:font-normal">{valor}</p>
       </div>
     </div>
   );
@@ -157,12 +155,14 @@ function TotalIndicadores({ valor }: { valor: number }) {
 function TotalParticipantes() {
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] h-[200px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px] text-[#3c3b3b] text-center"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] min-h-[170px] sm:h-[200px] items-center justify-center w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] text-[#3c3b3b] text-center shadow-xs"
       data-name="TotalParticipantes"
     >
-      <p className="font-semibold text-[18px] w-full">Participantes ativos</p>
-      <div className="flex flex-col font-normal justify-center text-[36px] w-full">
-        <p className="leading-[normal]">13</p>
+      <p className="font-semibold text-[16px] sm:text-[18px] w-full">
+        Participantes ativos
+      </p>
+      <div className="flex flex-col font-normal justify-center text-[32px] sm:text-[36px] w-full">
+        <p className="leading-[normal] font-bold sm:font-normal">13</p>
       </div>
     </div>
   );
@@ -184,33 +184,213 @@ function BtnImportIco({ ico, id }: { ico: string; id: string }) {
   );
 }
 
+function MenuAcoesIndicador({
+  indicador,
+  ehAtivo,
+  ehEmAnalise,
+  podeEditarValor,
+  podeEnviarAnalise,
+  editIndic,
+  setIndicVal,
+  arquivarIndic,
+  reativarIndic,
+  enviarRevisaoIndic,
+  delIndic,
+  aprovIndic,
+  abrirHistorico,
+}: {
+  indicador: Indicador;
+  ehAtivo: boolean;
+  ehEmAnalise: boolean;
+  podeEditarValor: boolean;
+  podeEnviarAnalise: boolean;
+  editIndic: (arg0: Indicador) => void;
+  setIndicVal: (indic: Indicador) => void;
+  arquivarIndic: (indic: Indicador) => void;
+  reativarIndic: (indic: Indicador) => void;
+  enviarRevisaoIndic: (indic: Indicador) => void;
+  delIndic: (indic: Indicador) => void;
+  aprovIndic: (indic: Indicador) => void;
+  abrirHistorico: (indic: Indicador) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickFora(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setAberto(false);
+      }
+    }
+    if (aberto) {
+      document.addEventListener('mousedown', handleClickFora);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickFora);
+    };
+  }, [aberto]);
+
+  return (
+    <div className="relative inline-block text-left" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setAberto(!aberto)}
+        className="p-1.5 rounded-lg text-slate-600 hover:text-[#832b62] hover:bg-slate-200/60 transition-colors cursor-pointer"
+        title="Ações do indicador"
+        aria-label="Opções do indicador"
+      >
+        <MoreVertical size={18} />
+      </button>
+
+      {aberto && (
+        <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          {/* Ver no Dashboard */}
+          <Link
+            to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
+            onClick={() => setAberto(false)}
+            className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors"
+          >
+            <BarChart3 size={15} className="text-[#832b62]" />
+            <span>Ver no Dashboard</span>
+          </Link>
+
+          {/* Histórico de Medições */}
+          <button
+            type="button"
+            onClick={() => {
+              setAberto(false);
+              abrirHistorico(indicador);
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+          >
+            <History size={15} className="text-[#832b62]" />
+            <span>Histórico de Medições</span>
+          </button>
+
+          {/* Lançar / Corrigir Valor Realizado */}
+          {podeEditarValor && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                setIndicVal(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+            >
+              <TrendingUp size={15} className="text-emerald-600" />
+              <span>Lançar / Corrigir Valor</span>
+            </button>
+          )}
+
+          {/* Enviar para Revisão */}
+          {podeEnviarAnalise &&
+            (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAberto(false);
+                  enviarRevisaoIndic(indicador);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+              >
+                <Send size={15} className="text-sky-600" />
+                <span>Enviar para Análise</span>
+              </button>
+            )}
+
+          {/* Revisar Indicador (Administradora - UC038) */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && ehEmAnalise && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                aprovIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#832b62] hover:bg-[#fcf2f7] transition-colors cursor-pointer text-left"
+            >
+              <Clock size={15} className="text-[#832b62]" />
+              <span>Revisar (Aprovar/Devolver)</span>
+            </button>
+          )}
+
+          {/* Editar Indicador */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                editIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+            >
+              <Pencil size={15} className="text-slate-600" />
+              <span>Editar Indicador</span>
+            </button>
+          )}
+
+          <div className="my-1 border-t border-slate-100" />
+
+          {/* Arquivar / Inativar */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                arquivarIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer text-left"
+            >
+              <Archive size={15} className="text-amber-600" />
+              <span>Arquivar / Inativar</span>
+            </button>
+          )}
+
+          {/* Reativar */}
+          {UsuarioAtual.tipo === 'ADM' && !ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                reativarIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+            >
+              <RotateCcw size={15} className="text-emerald-600" />
+              <span>Reativar Indicador</span>
+            </button>
+          )}
+
+          {/* Excluir */}
+          {UsuarioAtual.tipo === 'ADM' && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                delIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
+            >
+              <Trash2 size={15} className="text-rose-600" />
+              <span>Excluir Indicador</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Top() {
   return (
-    <div className="bg-[#3b142f] flex items-center justify-between min-h-[48px] px-[20px] py-[8px] rounded-t-[24px] w-full">
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Indicador</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Ano</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Trimestre</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Unidade</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Meta</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Realizado</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Progresso</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Ações</p>
-      </div>
+    <div className="bg-[#3b142f] grid grid-cols-[minmax(240px,2.5fr)_70px_85px_95px_105px_115px_125px_75px] items-center gap-3 min-h-[48px] px-5 py-2.5 rounded-t-[20px] w-full text-white text-[14px] font-semibold drop-shadow-xs">
+      <div className="text-left">Indicador</div>
+      <div className="text-center">Ano</div>
+      <div className="text-center">Trimestre</div>
+      <div className="text-center">Unidade</div>
+      <div className="text-center">Meta</div>
+      <div className="text-center">Realizado</div>
+      <div className="text-center">Progresso</div>
+      <div className="text-center">Ações</div>
     </div>
   );
 }
@@ -238,14 +418,14 @@ function Lista({
 }) {
   if (leList.length === 0) {
     return (
-      <div className="bg-[#f2eff4] rounded-xl px-[20px] py-[28px] text-center text-sm text-slate-500 w-full">
+      <div className="bg-[#f2eff4] rounded-xl px-5 py-8 text-center text-sm text-slate-500 w-full">
         Nenhum indicador encontrado para os filtros selecionados.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-start gap-[12px] w-full">
+    <div className="flex flex-col items-center justify-start gap-2.5 w-full">
       {leList.map((indicador) => {
         const statusNormalizado = (indicador.status ?? 'ATIVO').toUpperCase();
         const ehAtivo = statusNormalizado === 'ATIVO';
@@ -259,12 +439,11 @@ function Lista({
           Boolean(indicador.registroId) &&
           (statusAprov === 'EM_PREENCHIMENTO' ||
             statusAprov === 'NECESSITA_CORRECAO');
-        // UC038 Regras 2 e 3: editável enquanto em preenchimento/devolvido; bloqueado em análise ou aprovado no ciclo
         const podeEditarValor =
           ehAtivo &&
           !ehAprovado &&
           !ehEmAnalise &&
-          (UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN');
+          (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN');
         const badgeRevisao = infoStatusAprovacao(statusAprov);
         const numRealizado = parseFloat(indicador.valAtual) || 0;
         const numMeta = parseFloat(indicador.meta || '0');
@@ -277,300 +456,159 @@ function Lista({
         return (
           <div
             key={indicador.id}
-            className={`rounded-xl px-[20px] py-[12px] flex items-center justify-between gap-[15px] shadow-xs hover:shadow-md transition-shadow w-full ${
+            className={`rounded-xl px-5 py-3 grid grid-cols-[minmax(240px,2.5fr)_70px_85px_95px_105px_115px_125px_75px] items-center gap-3 shadow-xs hover:shadow-md transition-shadow w-full text-sm ${
               ehAtivo
                 ? 'bg-[#f2eff4]'
                 : 'bg-[#f2eff4]/75 border border-[#832b62]/20'
             }`}
           >
-            <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold">{indicador.nome}</p>
-                  {!ehAtivo && (
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        statusNormalizado === 'ARQUIVADO'
-                          ? 'bg-[#ffdfbf] text-[#5c3310]'
-                          : 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]'
-                      }`}
-                    >
-                      {statusNormalizado === 'ARQUIVADO'
-                        ? 'Arquivado'
-                        : 'Inativo'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                  {indicador.registroId && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeRevisao.classe}`}
-                      title={
-                        ehDevolvido && indicador.justificativaDevolucao
-                          ? `Motivo da devolução: ${indicador.justificativaDevolucao}`
-                          : undefined
-                      }
-                    >
-                      {badgeRevisao.rotulo}
-                    </span>
-                  )}
-                  {indicador.registros && indicador.registros.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => abrirHistorico(indicador)}
-                      className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit transition-colors"
-                      title="Ver todas as medições trimestrais cadastradas"
-                    >
-                      <History className="size-3" />
-                      <span>
-                        {indicador.registros.length}{' '}
-                        {indicador.registros.length === 1
-                          ? 'período'
-                          : 'períodos'}
-                      </span>
-                    </button>
-                  )}
-                </div>
-                {ehDevolvido && indicador.justificativaDevolucao && (
-                  <p className="text-[11px] text-[#7a1f2b] mt-1 line-clamp-2">
-                    <strong>Correção solicitada:</strong>{' '}
-                    {indicador.justificativaDevolucao}
-                  </p>
+            {/* 1. Indicador */}
+            <div className="flex flex-col justify-center min-w-0 pr-2 text-left">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-slate-900 break-words leading-tight">
+                  {indicador.nome}
+                </p>
+                {!ehAtivo && (
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      statusNormalizado === 'ARQUIVADO'
+                        ? 'bg-[#ffdfbf] text-[#5c3310]'
+                        : 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]'
+                    }`}
+                  >
+                    {statusNormalizado === 'ARQUIVADO'
+                      ? 'Arquivado'
+                      : 'Inativo'}
+                  </span>
                 )}
               </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.ano ?? '-'}</p>
-              </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.trimestre ?? '-'}</p>
-              </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.unidade}</p>
-              </div>
-
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>
-                  {indicador.meta != null
-                    ? indicador.meta +
-                      (indicador.simbolUni ? indicador.simbolUni : '')
-                    : 'Sem meta'}
-                </p>
-              </div>
-
-              {podeEditarValor ? (
-                <>
-                  {/* Realizado */}
-                  <button
-                    title="Definir / Corrigir Valor Atual"
-                    onClick={() => setIndicVal(indicador)}
-                    className="flex flex-1 gap-[16px] items-center cursor-pointer"
-                  >
-                    <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
-                      {indicador.valAtual +
-                        (indicador.simbolUni ? indicador.simbolUni : '')}
-                    </p>
-
-                    {/* Botao Editar */}
-                    <div className="flex items-center p-[2px] size-[14px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 14.6791 14.6795"
-                      >
-                        <path
-                          d={Svg.p1dac9e00}
-                          stroke="#3B142F"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d={Svg.pa46f980}
-                          stroke="#3B142F"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    </div>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div
-                    className="flex flex-1 gap-[16px] items-center"
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                {indicador.registroId && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeRevisao.classe}`}
                     title={
-                      !ehAtivo
-                        ? 'Indicador arquivado/inativo: somente consulta'
-                        : ehAprovado
-                          ? 'Aprovado no ciclo: edição bloqueada'
-                          : ehEmAnalise
-                            ? 'Em análise pela Administração: edição bloqueada'
-                            : undefined
+                      ehDevolvido && indicador.justificativaDevolucao
+                        ? `Motivo da devolução: ${indicador.justificativaDevolucao}`
+                        : undefined
                     }
                   >
-                    <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
-                      {indicador.valAtual +
-                        (indicador.simbolUni ? indicador.simbolUni : '')}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {/* Container barra */}
-              <div className="flex items-center flex-1">
-                <div className="bg-[#c2c2c2] flex flex-col h-[8px] items-start rounded-[100px] w-[90px] overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-[#3b142f] to-[#77275e] h-full rounded-[100px] w-[60%]"
-                    style={{ width: `${progressoPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Ações */}
-              <div className="flex flex-1 gap-[12px] items-center">
-                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
-                  <button
-                    title="Editar Indicador"
-                    onClick={() => editIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
-                  >
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 39 39"
-                    >
-                      <path d={Svg.p36224900} fill="#3C3B3B" />
-                    </svg>
-                  </button>
-                ) : (
-                  ''
+                    {badgeRevisao.rotulo}
+                  </span>
                 )}
+                {indicador.registros && indicador.registros.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => abrirHistorico(indicador)}
+                    className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit transition-colors"
+                    title="Ver todas as medições trimestrais cadastradas"
+                  >
+                    <History className="size-3" />
+                    <span>
+                      {indicador.registros.length}{' '}
+                      {indicador.registros.length === 1
+                        ? 'período'
+                        : 'períodos'}
+                    </span>
+                  </button>
+                )}
+              </div>
+              {ehDevolvido && indicador.justificativaDevolucao && (
+                <p className="text-[11px] text-[#7a1f2b] mt-1 line-clamp-2">
+                  <strong>Correção solicitada:</strong>{' '}
+                  {indicador.justificativaDevolucao}
+                </p>
+              )}
+            </div>
 
+            {/* 2. Ano */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.ano ?? '-'}
+            </div>
+
+            {/* 3. Trimestre */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.trimestre ?? '-'}
+            </div>
+
+            {/* 4. Unidade */}
+            <div
+              className="text-center font-medium text-slate-700 truncate"
+              title={indicador.unidade}
+            >
+              {indicador.unidade || '-'}
+            </div>
+
+            {/* 5. Meta */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.meta != null
+                ? `${indicador.meta}${indicador.simbolUni ?? ''}`
+                : 'Sem meta'}
+            </div>
+
+            {/* 6. Realizado */}
+            <div className="text-center">
+              {podeEditarValor ? (
                 <button
                   type="button"
-                  title={
-                    ehAtivo
-                      ? 'Histórico de Medições (ver e adicionar novos anos/trimestres)'
-                      : 'Consultar Histórico de Medições (somente leitura)'
-                  }
-                  onClick={() => abrirHistorico(indicador)}
-                  className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
+                  title="Clique para lançar ou corrigir o valor realizado"
+                  onClick={() => setIndicVal(indicador)}
+                  className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-slate-800 hover:text-[#832b62] hover:bg-slate-200/60 font-semibold cursor-pointer transition-colors"
                 >
-                  <History className="size-full" />
+                  <span>
+                    {indicador.valAtual}
+                    {indicador.simbolUni ?? ''}
+                  </span>
+                  <Pencil size={12} className="text-[#832b62]" />
                 </button>
-
-                <Link
-                  title={`Ver gráfico do indicador "${indicador.nome}" no Dashboard`}
-                  className="size-[24px] hover:opacity-75 transition-opacity cursor-pointer"
-                  to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
+              ) : (
+                <span
+                  className="font-medium text-slate-700"
+                  title={
+                    !ehAtivo
+                      ? 'Indicador arquivado/inativo: somente consulta'
+                      : ehAprovado
+                        ? 'Aprovado no ciclo: edição bloqueada'
+                        : ehEmAnalise
+                          ? 'Em análise pela Administração: edição bloqueada'
+                          : undefined
+                  }
                 >
-                  <div className="size-full">
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 32.5 32.5001"
-                    >
-                      <path d={Svg.p19cd0a80} fill="#3C3B3B" />
-                    </svg>
-                  </div>
-                </Link>
+                  {indicador.valAtual}
+                  {indicador.simbolUni ?? ''}
+                </span>
+              )}
+            </div>
 
-                {podeEnviarAnalise &&
-                  (UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN') && (
-                    <button
-                      type="button"
-                      title="Enviar para Análise da Administração"
-                      onClick={() => enviarRevisaoIndic(indicador)}
-                      className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
-                    >
-                      <Send className="size-full" />
-                    </button>
-                  )}
-
-                {UsuarioAtual.tipo == 'ADM' && ehAtivo ? (
-                  <button
-                    type="button"
-                    title="Arquivar / Desativar Indicador"
-                    onClick={() => arquivarIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
-                  >
-                    <Archive className="size-full" />
-                  </button>
-                ) : (
-                  ''
-                )}
-
-                {UsuarioAtual.tipo == 'ADM' && !ehAtivo ? (
-                  <button
-                    type="button"
-                    title="Reativar Indicador"
-                    onClick={() => reativarIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-[#3c3b3b] hover:text-[#832b62] transition-colors"
-                  >
-                    <RotateCcw className="size-full" />
-                  </button>
-                ) : (
-                  ''
-                )}
-
-                {UsuarioAtual.tipo == 'ADM' ? (
-                  <button
-                    title="Excluir Indicador"
-                    onClick={() => delIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
-                  >
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 31.6875 36.5625"
-                    >
-                      <path d={Svg.p38953980} fill="#3C3B3B" />
-                    </svg>
-                  </button>
-                ) : (
-                  ''
-                )}
-
-                {/* UC038: somente Administradora revisa registros em status Em Análise */}
-                {UsuarioAtual.tipo == 'ADM' && ehAtivo && ehEmAnalise ? (
-                  <button
-                    type="button"
-                    title="Revisar Indicador (Aprovar ou Devolver)"
-                    onClick={() => aprovIndic(indicador)}
-                    className="size-[24px] cursor-pointer text-[#832b62] hover:text-[#3b142f] transition-colors"
-                  >
-                    <Clock className="size-full" />
-                  </button>
-                ) : ehAprovado ? (
-                  <div
-                    title="Aprovado no ciclo (irreversível)"
-                    className="size-[24px] text-[#3b142f]"
-                  >
-                    <CheckCircle2 className="size-full" />
-                  </div>
-                ) : ehDevolvido ? (
-                  <div
-                    title={
-                      indicador.justificativaDevolucao
-                        ? `Devolvido para correção: ${indicador.justificativaDevolucao}`
-                        : 'Devolvido para correção'
-                    }
-                    className="size-[24px] text-[#832b62]"
-                  >
-                    <XCircle className="size-full" />
-                  </div>
-                ) : (
-                  <div
-                    title={
-                      ehEmAnalise
-                        ? 'Em Análise pela Administração'
-                        : 'Aguardando envio para análise'
-                    }
-                    className="size-[24px] text-[#3c3b3b]/35"
-                  >
-                    <Circle className="size-full" />
-                  </div>
-                )}
+            {/* 7. Progresso */}
+            <div className="flex flex-col items-center justify-center w-full gap-1">
+              <div className="bg-slate-200 h-2 rounded-full w-full max-w-[85px] overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-[#3b142f] to-[#a13680] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressoPercent}%` }}
+                />
               </div>
+              <span className="text-[11px] font-semibold text-slate-600">
+                {Math.round(progressoPercent)}%
+              </span>
+            </div>
+
+            {/* 8. Ações (3 pontos) */}
+            <div className="flex items-center justify-center">
+              <MenuAcoesIndicador
+                indicador={indicador}
+                ehAtivo={ehAtivo}
+                ehEmAnalise={ehEmAnalise}
+                podeEditarValor={podeEditarValor}
+                podeEnviarAnalise={podeEnviarAnalise}
+                editIndic={editIndic}
+                setIndicVal={setIndicVal}
+                arquivarIndic={arquivarIndic}
+                reativarIndic={reativarIndic}
+                enviarRevisaoIndic={enviarRevisaoIndic}
+                delIndic={delIndic}
+                aprovIndic={aprovIndic}
+                abrirHistorico={abrirHistorico}
+              />
             </div>
           </div>
         );
@@ -1840,7 +1878,7 @@ export default function TelaIndicadores() {
 
             {/* Resumos */}
             <div
-              className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch justify-center px-2 sm:px-4 w-full"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 w-full px-2 sm:px-4"
               data-name="Resumos"
             >
               <TotalProgresso progresso={progressoGeral} />
@@ -2005,19 +2043,21 @@ export default function TelaIndicadores() {
             </div>
 
             {/*ListaIndicadores*/}
-            <div className="flex flex-col gap-[8px] items-center px-[10px] py-[10px] w-full">
-              <Top />
-              <Lista
-                leList={indicadoresFiltrados}
-                editIndic={abrirEditarModal}
-                setIndicVal={abrirValModal}
-                arquivarIndic={abrirArquivarModal}
-                reativarIndic={reativarIndic}
-                enviarRevisaoIndic={enviarParaRevisao}
-                delIndic={abrirDeletarModal}
-                aprovIndic={abrirAprovacaoModal}
-                abrirHistorico={abrirHistoricoModal}
-              />
+            <div className="w-full overflow-x-auto pb-4">
+              <div className="min-w-[960px] flex flex-col gap-[8px] items-center px-1 py-1 w-full">
+                <Top />
+                <Lista
+                  leList={indicadoresFiltrados}
+                  editIndic={abrirEditarModal}
+                  setIndicVal={abrirValModal}
+                  arquivarIndic={abrirArquivarModal}
+                  reativarIndic={reativarIndic}
+                  enviarRevisaoIndic={enviarParaRevisao}
+                  delIndic={abrirDeletarModal}
+                  aprovIndic={abrirAprovacaoModal}
+                  abrirHistorico={abrirHistoricoModal}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -2025,7 +2065,7 @@ export default function TelaIndicadores() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">

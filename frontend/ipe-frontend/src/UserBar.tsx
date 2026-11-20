@@ -71,11 +71,11 @@ export function User() {
 
         {/* nome */}
         <p
-          className="[word-break:break-word] flex-[1_0_0] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] min-w-px not-italic relative text-[#a13680] text-[14px]"
+          className="truncate max-w-[150px] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] not-italic relative text-[#a13680] text-[14px]"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+          title={UsuarioAtual.nome}
         >
-          {UsuarioAtual.nome}{' '}
-          {/*fulanilson da silva francisco de santa moreira perez carvalho*/}
+          {UsuarioAtual.nome}
         </p>
       </button>
 

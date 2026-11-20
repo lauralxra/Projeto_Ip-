@@ -155,7 +155,7 @@ function LinhaUsuarioCadastrado({
       {/* id */}
       <div className="flex flex-row items-center w-auto">
         <div className="content-stretch flex h-full items-center max-w-[80px] overflow-clip px-[15px] relative shrink-0 w-[100px]">
-          <p className="[word-break:break-word] font-['Inter:Regular',sans-serif] font-normal leading-[normal] not-italic relative shrink-0 text-[14px] text-black whitespace-nowrap">
+          <p className="[word-break:break-word] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] not-italic relative shrink-0 text-[14px] text-black whitespace-nowrap">
             {usuario.id}
           </p>
         </div>
@@ -180,7 +180,7 @@ function LinhaUsuarioCadastrado({
           </div>
 
           <div className="content-stretch flex flex-col items-start justify-start w-full relative shrink-0 py-1">
-            <p className="font-['Inter:Regular',sans-serif] font-normal leading-tight text-[14px] text-black whitespace-normal break-words w-full">
+            <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-tight text-[14px] text-black whitespace-normal break-words w-full">
               {usuario.nome}
             </p>
           </div>
@@ -449,16 +449,13 @@ export default function TelaUsuarios() {
         >
           {/* Up */}
           <div
-            className="content-stretch flex items-center justify-between px-[20px] relative shrink-0 w-full"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2 sm:px-4 w-full"
             data-name="Up"
           >
-            <div
-              className="flex items-center justify-center px-[20px] w-full"
-              data-name="Titulo"
-            >
-              <p className="flex-1 font-semibold text-[#3b142f] text-[32px]">
+            <div>
+              <h1 className="font-semibold text-[#3b142f] text-2xl sm:text-3xl">
                 Usuários Cadastrados
-              </p>
+              </h1>
             </div>
 
             {UsuarioAtual.tipo == 'ADM' ? (
@@ -470,28 +467,33 @@ export default function TelaUsuarios() {
 
           {/* Lista */}
           <div
-            className="content-stretch flex flex-col gap-[8px] items-center justify-center px-[10px] py-[10px] relative shrink-0 w-full"
-            data-name="Lista"
+            className="w-full overflow-x-auto pb-4"
+            data-name="ListaContainer"
           >
-            <Labels />
-
-            {/* Usuarios */}
             <div
-              className="content-stretch flex flex-col gap-[12px] isolate items-center relative shrink-0 w-full"
-              data-name="Usuarios"
+              className="min-w-[760px] flex flex-col gap-[8px] items-center justify-center px-1 py-2 w-full"
+              data-name="Lista"
             >
-              {usuarios.map((usuario) => {
-                return (
-                  <LinhaUsuarioCadastrado
-                    key={usuario.id}
-                    usuario={usuario}
-                    onUpdateTipo={handleUpdateTipo}
-                    onUpdateStatus={handleUpdateStatus}
-                    editFunction={abrirEditModal}
-                    deleteFunction={abrirDeletarModal}
-                  />
-                );
-              })}
+              <Labels />
+
+              {/* Usuarios */}
+              <div
+                className="content-stretch flex flex-col gap-[12px] isolate items-center relative shrink-0 w-full"
+                data-name="Usuarios"
+              >
+                {usuarios.map((usuario) => {
+                  return (
+                    <LinhaUsuarioCadastrado
+                      key={usuario.id}
+                      usuario={usuario}
+                      onUpdateTipo={handleUpdateTipo}
+                      onUpdateStatus={handleUpdateStatus}
+                      editFunction={abrirEditModal}
+                      deleteFunction={abrirDeletarModal}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -499,7 +501,7 @@ export default function TelaUsuarios() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
