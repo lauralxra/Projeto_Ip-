@@ -785,7 +785,8 @@ export default function TelaIndicadores() {
       if (!token) return;
 
       try {
-        const resposta = await fetch(`${API_BASE_URL}/programas`, {
+        // UC031 (CT-031.03): exibe apenas programas ATIVOS para vinculação a indicadores
+        const resposta = await fetch(`${API_BASE_URL}/programas?status=ATIVO`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -797,25 +798,27 @@ export default function TelaIndicadores() {
 
         const dados = await resposta.json();
 
-        const programasReais: Programa[] = dados.map((item: any) => ({
-          id: item.id,
-          nome: item.nome,
-          descricao: item.descricao ?? '',
-          nucleo: item.nucleo
-            ? {
-                id: item.nucleo.id,
-                nome: item.nucleo.nome,
-                sigla: item.nucleo.sigla,
-                descricao: '',
-                corBg: 'bg-[#832b62]',
-                corIcone: 'text-white',
-              }
-            : undefined,
-          dataDeInicio: '',
-          status: 'ATIVO',
-          acoes: [],
-          indicadores: [],
-        }));
+        const programasReais: Programa[] = dados
+          .filter((item: any) => (item.status ?? 'ATIVO') === 'ATIVO')
+          .map((item: any) => ({
+            id: item.id,
+            nome: item.nome,
+            descricao: item.descricao ?? '',
+            nucleo: item.nucleo
+              ? {
+                  id: item.nucleo.id,
+                  nome: item.nucleo.nome,
+                  sigla: item.nucleo.sigla,
+                  descricao: '',
+                  corBg: 'bg-[#832b62]',
+                  corIcone: 'text-white',
+                }
+              : undefined,
+            dataDeInicio: '',
+            status: 'ATIVO',
+            acoes: [],
+            indicadores: [],
+          }));
 
         setProgramasDoBanco(programasReais);
       } catch (erro) {

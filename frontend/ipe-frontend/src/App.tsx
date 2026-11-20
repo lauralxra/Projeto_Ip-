@@ -26,6 +26,10 @@ export default function App() {
         <Route path="/dashboard" element={<TelaDashboard />} />
         <Route path="/nucleos" element={<TelaNucleos />} />
         <Route path="/programas" element={<TelaProgramas />} />
+        <Route
+          path="/programas/arquivados"
+          element={<TelaProgramas modoInicial="ARQUIVADO" />}
+        />
         <Route path="/indicadores" element={<TelaIndicadores />} />
         <Route path="/historico" element={<TelaHistorico />} />
         <Route path="/usuarios" element={<TelaUsuarios />} />
