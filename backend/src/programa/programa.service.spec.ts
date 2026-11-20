@@ -205,7 +205,11 @@ describe('ProgramaService', () => {
       });
 
       await service.create(
-        { nome: 'Institucional IPÊ', nucleoId: NUCLEO_ID, responsavelId: USER_A },
+        {
+          nome: 'Institucional IPÊ',
+          nucleoId: NUCLEO_ID,
+          responsavelId: USER_A,
+        },
         autor,
       );
 

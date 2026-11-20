@@ -963,11 +963,9 @@ function filtrarResponsaveisPorNucleo(
   const institucional = ehNucleoInstitucional(nucleo);
 
   return usuariosAtivos.filter((u) => {
-    const vinculadoAoNucleo = u.nucleos.some(
-      (n) =>
-        n.id === nucleo.id ||
-        n.sigla.trim().toUpperCase() === nucleo.sigla.trim().toUpperCase(),
-    );
+    // Compara só pelo id, como o backend: comparar pela sigla aceitaria um
+    // núcleo excluído com a mesma sigla, e o backend recusaria o responsável
+    const vinculadoAoNucleo = u.nucleos.some((n) => n.id === nucleo.id);
 
     if (institucional) {
       return vinculadoAoNucleo || u.tipo === 'ADM' || u.tipo === 'EC';
