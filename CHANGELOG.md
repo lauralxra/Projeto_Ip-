@@ -1,3 +1,10 @@
+# [1.1.0-dev.23](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.22...v1.1.0-dev.23) (2026-11-20)
+
+
+### Bug Fixes
+
+* **usuarios:** abrir menu de acoes fora da lista, centralizar colunas e remover id ([d0ba6f3](https://github.com/lauralxra/Projeto_Ip-/commit/d0ba6f31048d6b43fcf8d5b614afb9e6f8c25a19))
+
 # [1.1.0-dev.22](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.21...v1.1.0-dev.22) (2026-11-20)
 
 
