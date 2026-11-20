@@ -1,4 +1,13 @@
 import { API_BASE_URL } from '../config/api';
+import { encerrarSessaoLocal } from '../routes/sessao';
+
+// Respostas 401 do JwtAuthGuard: o token deixou de valer (expirou, ou as sessões
+// foram encerradas, ex.: senha recuperada em outro aparelho). Outros 401, como
+// "Senha atual incorreta", não derrubam a sessão.
+const MENSAGENS_SESSAO_INVALIDA = [
+  'Sessão encerrada. Faça login novamente.',
+  'Token de acesso inválido ou expirado.',
+];
 
 export class ErroApi extends Error {
   readonly status: number;
@@ -41,6 +50,17 @@ export async function apiFetch<T>(
 
   if (!resposta.ok) {
     const mensagem = (dados as { message?: string | string[] } | null)?.message;
+
+    if (
+      resposta.status === 401 &&
+      token &&
+      typeof mensagem === 'string' &&
+      MENSAGENS_SESSAO_INVALIDA.includes(mensagem)
+    ) {
+      encerrarSessaoLocal();
+      window.location.assign('/login');
+    }
+
     throw new ErroApi(
       Array.isArray(mensagem)
         ? mensagem.join(' ')
