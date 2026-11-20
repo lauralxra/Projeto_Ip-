@@ -17,18 +17,28 @@ const CODIGO_INVALIDO = ApiBadRequestResponse({
 
 const TENTATIVAS_EXCEDIDAS = ApiTooManyRequestsResponse({
   description:
-    'Limite de 5 tentativas excedido para o código atual. É preciso solicitar um novo código.',
+    'Limite de 5 tentativas excedido para o código atual (é preciso solicitar um novo código), ou mais de 20 requisições de recuperação pelo mesmo IP em 15 minutos.',
 });
+
+const LIMITE_POR_IP = ApiTooManyRequestsResponse({
+  description:
+    'Mais de 20 requisições de recuperação de senha pelo mesmo IP em 15 minutos.',
+});
+
+const LIMITE_POR_CONTA =
+  ' Por conta, gera no máximo 3 códigos por hora, com intervalo mínimo de 60 segundos; acima disso responde igual, sem gerar código nem enviar e-mail.';
 
 export function RecoveryRequestSwagger() {
   return applyDecorators(
     ApiOperation({
       summary: 'Solicitar código de recuperação de senha (UC02)',
       description:
-        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa e invalida códigos anteriores. A resposta é sempre a mesma, exista ou não a conta.',
+        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa e invalida códigos anteriores. A resposta é sempre a mesma, exista ou não a conta.' +
+        LIMITE_POR_CONTA,
     }),
     ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    LIMITE_POR_IP,
   );
 }
 
@@ -37,10 +47,12 @@ export function RecoveryResendSwagger() {
     ApiOperation({
       summary: 'Reenviar código de recuperação de senha (UC02, RN07)',
       description:
-        'Gera um novo código e invalida o anterior. A resposta é sempre a mesma, exista ou não a conta.',
+        'Gera um novo código e invalida o anterior. A resposta é sempre a mesma, exista ou não a conta.' +
+        LIMITE_POR_CONTA,
     }),
     ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    LIMITE_POR_IP,
   );
 }
 

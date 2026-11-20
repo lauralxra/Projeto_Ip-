@@ -18,6 +18,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterSwagger } from './swagger/register.swagger';
 import { LoginSwagger } from './swagger/login.swagger';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { LimiteRecuperacaoGuard } from './limite-recuperacao.guard';
 import { Public } from './public.decorator';
 import type { AuthenticatedRequest } from './interface/request.interface';
 import { LogoutSwagger } from './swagger/logout.swagger';
@@ -77,6 +78,7 @@ export class AuthController {
   // UC02 - Recuperação de senha (rotas públicas)
 
   @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
   @Post('recovery/request')
   @HttpCode(HttpStatus.OK)
   @RecoveryRequestSwagger()
@@ -85,6 +87,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
   @Post('recovery/validate')
   @HttpCode(HttpStatus.OK)
   @RecoveryValidateSwagger()
@@ -94,6 +97,7 @@ export class AuthController {
 
   // RN07: gera um novo código e invalida o anterior
   @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
   @Post('recovery/resend')
   @HttpCode(HttpStatus.OK)
   @RecoveryResendSwagger()
@@ -102,6 +106,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
   @Post('recovery/reset')
   @HttpCode(HttpStatus.OK)
   @RecoveryResetSwagger()
