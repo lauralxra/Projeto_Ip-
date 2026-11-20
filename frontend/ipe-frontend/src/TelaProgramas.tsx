@@ -387,13 +387,21 @@ export default function TelaProgramas({
       return;
     }
 
+    // O ADM também vê os INATIVOS na listagem principal: eles não são arquivados
+    // e, sem isso, um programa desativado sumiria das duas abas sem como reativar
+    const statusBuscados: StatusApi[] =
+      statusAlvo === 'ATIVO' && ehAdm ? ['ATIVO', 'INATIVO'] : [statusAlvo];
+
     setCarregando(true);
     try {
-      const lista = await apiFetch<ProgramaApi[]>(
-        `/programas?status=${statusAlvo}`,
+      const listas = await Promise.all(
+        statusBuscados.map((s) =>
+          apiFetch<ProgramaApi[]>(`/programas?status=${s}`),
+        ),
       );
       setProgramas(
-        lista
+        listas
+          .flat()
           .map(programaDaApi)
           .sort((a, b) => a.nome.localeCompare(b.nome)),
       );
@@ -661,10 +669,7 @@ export default function TelaProgramas({
                 className="mx-[10px] w-[calc(100%-20px)] bg-[#f2eff4] border border-[#832b62]/30 text-[#3b142f] rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shrink-0 shadow-xs"
               >
                 <div className="flex items-center gap-2.5 text-sm font-semibold">
-                  <CheckCircle2
-                    size={18}
-                    className="text-[#832b62] shrink-0"
-                  />
+                  <CheckCircle2 size={18} className="text-[#832b62] shrink-0" />
                   <span>{mensagemFeedback}</span>
                 </div>
                 <button

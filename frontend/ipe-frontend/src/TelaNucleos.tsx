@@ -142,10 +142,9 @@ export default function TelaNucleos() {
         '/nucleos?limite=100',
       );
       setNucleos(itens.map(nucleoDaApi));
-      // Mantém na sessão global apenas núcleos ATIVOS para seletores de novos cadastros (RN02)
-      definirNucleosDoUsuario(
-        itens.filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
-      );
+      // A sessão guarda todos os núcleos (histórico continua visível no Dashboard);
+      // seletores de novos cadastros filtram pelos ATIVOS (RN02)
+      definirNucleosDoUsuario(itens);
     } catch (erro) {
       console.error('Erro ao carregar núcleos:', erro);
       alert('Não foi possível carregar os núcleos: ' + mensagemDeErro(erro));
@@ -257,7 +256,9 @@ export default function TelaNucleos() {
     e.preventDefault();
     if (!nucleoSelecionado) return;
 
-    // Nome, sigla, descrição e status (PATCH /nucleos/:id): envia só o que mudou
+    // Nome, sigla e descrição (PATCH /nucleos/:id): envia só o que mudou.
+    // O status usa as rotas próprias (/desativar e /reativar) para manter a
+    // checagem de pendências (FE-026.01) e a auditoria corretas.
     const statusAtual =
       (nucleoSelecionado.status ?? 'ATIVO') === 'ATIVO' ? 'ATIVO' : 'INATIVO';
     const alteracoes: Record<string, string> = {};
@@ -267,7 +268,6 @@ export default function TelaNucleos() {
       alteracoes.sigla = siglaForm.trim();
     if (descricaoForm.trim() !== nucleoSelecionado.descricao)
       alteracoes.descricao = descricaoForm.trim();
-    if (statusForm !== statusAtual) alteracoes.status = statusForm;
 
     try {
       if (Object.keys(alteracoes).length > 0) {
@@ -280,11 +280,16 @@ export default function TelaNucleos() {
       if (arquivoImagem) {
         await enviarImagem(nucleoSelecionado.id, arquivoImagem);
       }
-      setModalEditarAberto(false);
       if (statusForm === 'ATIVO' && statusAtual !== 'ATIVO') {
+        await apiFetch(`/nucleos/${nucleoSelecionado.id}/reativar`, {
+          method: 'PATCH',
+        });
         exibirFeedback('Núcleo reativado com sucesso.');
-      } else if (statusForm !== 'ATIVO' && statusAtual === 'ATIVO') {
-        exibirFeedback('Núcleo desativado com sucesso.');
+      }
+      setModalEditarAberto(false);
+      if (statusForm !== 'ATIVO' && statusAtual === 'ATIVO') {
+        // Segue o mesmo fluxo do menu: confirmação + alerta de pendências
+        abrirDesativarModal(nucleoSelecionado);
       }
     } catch (erro) {
       // Ex.: 409 quando nome ou sigla já pertencem a outro núcleo
