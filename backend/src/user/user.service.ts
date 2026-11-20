@@ -20,6 +20,7 @@ import { removerUpload } from '../common/upload-imagem';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { NotificacaoService } from '../notificacao/notificacao.service';
+import { validarNomeUsuarioOuFalhar } from '../common/validators/nome-usuario.validator';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
 const PERFIS_COM_NUCLEO: Role[] = [Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO];
@@ -54,6 +55,7 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
     const { name, email, password, role } = createUserDto;
+    const nomeSanitizado = validarNomeUsuarioOuFalhar(name);
     const nucleoIds = [...new Set(createUserDto.nucleoIds ?? [])];
     const exigeNucleo = PERFIS_COM_NUCLEO.includes(role);
 
@@ -80,7 +82,7 @@ export class UserService {
     let user: Awaited<ReturnType<UserRepository['create']>>;
     try {
       user = await this.userRepository.create({
-        nome: name,
+        nome: nomeSanitizado,
         email,
         senhaHash,
         perfil: role,
@@ -189,8 +191,11 @@ export class UserService {
     }
 
     const alteracoes: { nome?: string; email?: string } = {};
-    if (dados.name !== undefined && dados.name !== atual.nome) {
-      alteracoes.nome = dados.name;
+    if (dados.name !== undefined) {
+      const nomeSanitizado = validarNomeUsuarioOuFalhar(dados.name);
+      if (nomeSanitizado !== atual.nome) {
+        alteracoes.nome = nomeSanitizado;
+      }
     }
     if (dados.email !== undefined && dados.email !== atual.email) {
       alteracoes.email = dados.email;

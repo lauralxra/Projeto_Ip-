@@ -28,6 +28,11 @@ import {
   type UsuarioApi,
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
+import {
+  nomeFoiAlterado,
+  sanitizarNomeUsuario,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 import { enviarFotoUsuario, trocarPropriaSenha } from './api/usuarios';
 
 const PERFIS_COM_NUCLEO: TipoDeConta[] = ['DN', 'EG'];
@@ -447,6 +452,10 @@ export default function TelaUsuarios() {
     });
 
   const criarUsuario = async (dados: Usuario, arquivoImagem: File | null) => {
+    const erroNome = validarNomeUsuario(dados.nome);
+    if (erroNome) throw new Error(erroNome);
+    const nomeSanitizado = sanitizarNomeUsuario(dados.nome);
+
     const exigeNucleo = PERFIS_COM_NUCLEO.includes(dados.tipo);
     const nucleoIds = exigeNucleo ? dados.nucleos.map((n) => n.id) : [];
 
@@ -459,7 +468,7 @@ export default function TelaUsuarios() {
     const criado = await apiFetch<{ id: string }>('/users', {
       method: 'POST',
       body: JSON.stringify({
-        name: dados.nome,
+        name: nomeSanitizado,
         email: dados.email,
         password: dados.senha,
         confirmPassword: dados.senha,
@@ -481,9 +490,17 @@ export default function TelaUsuarios() {
   ) => {
     const proprio = dados.id === UsuarioAtual.id;
 
+    // Só valida o nome quando ele muda: nome antigo fora da regra não
+    // impede editar e-mail, perfil, núcleos ou senha
+    const nomeMudou = nomeFoiAlterado(dados.nome, original.nome);
+    if (nomeMudou) {
+      const erroNome = validarNomeUsuario(dados.nome);
+      if (erroNome) throw new Error(erroNome);
+    }
+
     // Nome e e-mail: a Administração edita qualquer usuário
     const alteracoes: Record<string, string> = {};
-    if (dados.nome !== original.nome) alteracoes.name = dados.nome;
+    if (nomeMudou) alteracoes.name = sanitizarNomeUsuario(dados.nome);
     if (dados.email !== original.email) alteracoes.email = dados.email;
     if (Object.keys(alteracoes).length > 0) {
       const atualizado = await apiFetch<{ nome?: string; email?: string }>(

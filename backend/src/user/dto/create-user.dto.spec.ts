@@ -63,4 +63,13 @@ describe('CreateUserDto', () => {
 
     expect(campos).toEqual(['confirmPassword']);
   });
+
+  it('recusa nome com scripts maliciosos ou caracteres inválidos', async () => {
+    const { campos } = await validar({
+      ...valido,
+      name: '<script>alert(1)</script>',
+    });
+
+    expect(campos).toEqual(['name']);
+  });
 });

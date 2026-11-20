@@ -3,6 +3,13 @@ import { Imagens, Svg } from './config/assets';
 import { type Nucleo } from './dados/nucleos';
 import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
 import { urlDaImagem } from './api/mapeadores';
+import {
+  filtrarDigitacaoNome,
+  nomeFoiAlterado,
+  sanitizarNomeUsuario,
+  TAMANHO_MAX_NOME_USUARIO,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 
 const PERFIS_COM_NUCLEO: string[] = ['DN', 'EG'];
 
@@ -231,6 +238,8 @@ export function TelaUsuarioUserPopup({
     editandoProprioUsuario ?? (Boolean(id) && id === UsuarioAtual.id);
 
   const [formNome, setFormNome] = useState(nome || '');
+  const [erroNome, setErroNome] = useState<string | null>(null);
+  const [tentouEnviar, setTentouEnviar] = useState(false);
   const [formMail, setFormMail] = useState(email || '');
   const [formSenha, setFormSenha] = useState(senha || '');
   const [formTipo, setFormTipo] = useState<string>(tipo || 'DN');
@@ -262,6 +271,21 @@ export function TelaUsuarioUserPopup({
     }
   };
 
+  // Números e símbolos são descartados na digitação/colagem; o restante da
+  // regra (hífen/apóstrofo só entre letras, tamanho) é conferido no blur e no envio
+  const handleAlterarNome = (valorDigitado: string) => {
+    const novoValor = filtrarDigitacaoNome(valorDigitado);
+    setFormNome(novoValor);
+
+    if (tentouEnviar) {
+      setErroNome(validarNomeUsuario(novoValor));
+    } else if (erroNome) {
+      setErroNome(null);
+    }
+  };
+
+  const nomeMudou = nomeFoiAlterado(formNome, nome || '');
+
   const handleMudarImagem = (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
 
@@ -275,6 +299,21 @@ export function TelaUsuarioUserPopup({
 
   const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setTentouEnviar(true);
+
+    // Nome inalterado segue como veio, mesmo que seja antigo e fora da regra
+    let nomeSanitizado = formNome;
+    if (nomeMudou) {
+      const erroValidacao = validarNomeUsuario(formNome);
+      if (erroValidacao) {
+        setErroNome(erroValidacao);
+        return;
+      }
+
+      nomeSanitizado = sanitizarNomeUsuario(formNome);
+      setFormNome(nomeSanitizado);
+    }
+    setErroNome(null);
 
     const tipoFinal = ehProprioUsuario ? tipo : formTipo;
     const statusFinal = ehProprioUsuario ? status : formStatus;
@@ -299,7 +338,7 @@ export function TelaUsuarioUserPopup({
     onSubmit(
       {
         id: id || Date.now().toString(),
-        nome: formNome,
+        nome: nomeSanitizado,
         email: formMail,
         senha: formSenha,
         tipo: tipoFinal as TipoDeConta,
@@ -380,16 +419,40 @@ export function TelaUsuarioUserPopup({
           <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
             {/* Nome */}
             <div className="flex w-full min-w-0 flex-col gap-1.5">
-              <label className={estiloLabel}>Nome</label>
+              <label className={estiloLabel} htmlFor="campo-nome-usuario">
+                Nome
+              </label>
 
               <input
+                id="campo-nome-usuario"
                 type="text"
                 placeholder="Insira um nome..."
                 required
+                autoComplete="name"
+                maxLength={TAMANHO_MAX_NOME_USUARIO}
+                aria-invalid={Boolean(erroNome)}
+                aria-describedby={erroNome ? 'erro-nome-usuario' : undefined}
                 value={formNome}
-                onChange={(e) => setFormNome(e.target.value)}
-                className={estiloCampo}
+                onChange={(e) => handleAlterarNome(e.target.value)}
+                onBlur={() => {
+                  if (formNome && nomeMudou) {
+                    setErroNome(validarNomeUsuario(formNome));
+                  }
+                }}
+                className={`${estiloCampo} ${
+                  erroNome ? 'ring-2 ring-[#7a1f2b] bg-[#f8d7da]/25' : ''
+                }`}
               />
+
+              {erroNome && (
+                <p
+                  id="erro-nome-usuario"
+                  role="alert"
+                  className="text-xs font-medium text-[#7a1f2b]"
+                >
+                  {erroNome}
+                </p>
+              )}
             </div>
 
             {/* E-mail */}

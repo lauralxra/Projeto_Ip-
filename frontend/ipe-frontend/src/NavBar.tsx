@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Imagens } from './config/assets';
 import {
@@ -19,9 +19,16 @@ import { lerUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 export function NavBar() {
   const [mobileAberto, setMobileAberto] = useState(false);
   const [colapsado, setColapsado] = useState(false);
+  const [, setVersaoUsuario] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const usuario = lerUsuarioSessao();
+
+  useEffect(() => {
+    const atualizar = () => setVersaoUsuario((v) => v + 1);
+    window.addEventListener('usuario-atualizado', atualizar);
+    return () => window.removeEventListener('usuario-atualizado', atualizar);
+  }, []);
 
   const handleLogout = () => {
     encerrarSessaoLocal();

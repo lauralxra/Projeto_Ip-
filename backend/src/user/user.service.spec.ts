@@ -318,19 +318,45 @@ describe('UserService', () => {
       expect(repository.updateDados).not.toHaveBeenCalled();
     });
 
-    it('troca só o nome sem pedir senha', async () => {
-      repository.findActiveById.mockResolvedValue(usuario);
+    it('troca só o nome sem pedir senha, sanitiza espaços e registra auditoria (UC04)', async () => {
+      repository.findActiveById
+        .mockResolvedValueOnce(usuario)
+        .mockResolvedValueOnce({ ...usuario, nome: 'Maria Souza' });
 
-      await service.atualizarPerfil(
+      const atualizado = await service.atualizarPerfil(
         'usuario-uuid',
-        { name: 'Maria Souza' },
-        { id: 'usuario-uuid' },
+        { name: '  Maria   Souza  ' },
+        { id: 'usuario-uuid', ip: '127.0.0.1' },
       );
 
       expect(repository.findActiveWithPasswordById).not.toHaveBeenCalled();
       expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
         nome: 'Maria Souza',
       });
+      expect(audit.registrarAcao).toHaveBeenCalledWith({
+        userId: 'usuario-uuid',
+        acao: AcaoAuditoria.ATUALIZAR,
+        entidade: 'User',
+        entidadeId: 'usuario-uuid',
+        dadosAntigos: { nome: 'Maria' },
+        dadosNovos: { nome: 'Maria Souza' },
+        ip: '127.0.0.1',
+      });
+      expect(atualizado?.nome).toBe('Maria Souza');
+    });
+
+    it('rejeita nome com script malicioso ou caracteres inválidos na camada de serviço (UC04)', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await expect(
+        service.atualizarPerfil(
+          'usuario-uuid',
+          { name: '<script>alert(1)</script>' },
+          { id: 'usuario-uuid' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.updateDados).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 
