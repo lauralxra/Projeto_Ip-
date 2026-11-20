@@ -18,9 +18,19 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterSwagger } from './swagger/register.swagger';
 import { LoginSwagger } from './swagger/login.swagger';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { LimiteRecuperacaoGuard } from './limite-recuperacao.guard';
 import { Public } from './public.decorator';
 import type { AuthenticatedRequest } from './interface/request.interface';
 import { LogoutSwagger } from './swagger/logout.swagger';
+import { RequestRecoveryDto } from './dto/request-recovery.dto';
+import { ValidateCodeDto } from './dto/validate-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import {
+  RecoveryRequestSwagger,
+  RecoveryResendSwagger,
+  RecoveryResetSwagger,
+  RecoveryValidateSwagger,
+} from './swagger/recovery.swagger';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -63,5 +73,44 @@ export class AuthController {
     });
 
     return this.authService.logout(request.user.id, ip);
+  }
+
+  // UC02 - Recuperação de senha (rotas públicas)
+
+  @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
+  @Post('recovery/request')
+  @HttpCode(HttpStatus.OK)
+  @RecoveryRequestSwagger()
+  requestRecovery(@Body() dto: RequestRecoveryDto) {
+    return this.authService.solicitarRecuperacao(dto.email);
+  }
+
+  @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
+  @Post('recovery/validate')
+  @HttpCode(HttpStatus.OK)
+  @RecoveryValidateSwagger()
+  validateRecoveryCode(@Body() dto: ValidateCodeDto) {
+    return this.authService.validarCodigoRecuperacao(dto);
+  }
+
+  // RN07: gera um novo código e invalida o anterior
+  @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
+  @Post('recovery/resend')
+  @HttpCode(HttpStatus.OK)
+  @RecoveryResendSwagger()
+  resendRecoveryCode(@Body() dto: RequestRecoveryDto) {
+    return this.authService.solicitarRecuperacao(dto.email);
+  }
+
+  @Public()
+  @UseGuards(LimiteRecuperacaoGuard)
+  @Post('recovery/reset')
+  @HttpCode(HttpStatus.OK)
+  @RecoveryResetSwagger()
+  resetPassword(@Body() dto: ResetPasswordDto, @Ip() ip: string) {
+    return this.authService.redefinirSenha(dto, ip);
   }
 }

@@ -4,4 +4,6 @@ import { Role } from '@prisma/client';
 export interface JwtPayload {
   sub: string;
   role: Role;
+  // Preenchido pelo JwtService ao assinar (segundos desde a época)
+  iat?: number;
 }

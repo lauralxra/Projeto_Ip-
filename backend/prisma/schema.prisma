@@ -151,6 +151,8 @@ model User {
   perfil       Role?
   ativo        Boolean       @default(false)
   ultimoAcesso DateTime?     @map("ultimo_acesso") @db.Timestamptz(6)
+  // Tokens emitidos antes deste instante são recusados (ex.: após recuperar a senha)
+  sessoesInvalidadasEm DateTime? @map("sessoes_invalidadas_em") @db.Timestamptz(6)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)

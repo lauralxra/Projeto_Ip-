@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
+import { MailService } from '../mail/mail.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -28,6 +29,7 @@ describe('AuthService', () => {
       prisma as unknown as PrismaService,
       jwt as unknown as JwtService,
       audit as unknown as AuditService,
+      {} as MailService,
     );
   });
 
