@@ -105,6 +105,7 @@ function formatarTituloAcao(acao: string, entidade: string) {
     Registro: 'Medição',
     Nucleo: 'Núcleo',
     User: 'Usuário',
+    Notificacao: 'Notificação',
   };
   const nomeEntidade = nomesEntidades[entidade] || entidade;
 

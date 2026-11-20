@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
@@ -32,7 +33,9 @@ function criarPrismaMock() {
     notificacao: {
       create: jest.fn().mockResolvedValue({ id: NOTIF_ID }),
       findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       count: jest.fn().mockResolvedValue(0),
     },
     notificacaoUsuario: {
@@ -40,6 +43,7 @@ function criarPrismaMock() {
       findUnique: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn(),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       count: jest.fn().mockResolvedValue(0),
     },
     $transaction: jest.fn(),
@@ -396,6 +400,114 @@ describe('NotificacaoService', () => {
           take: 10,
         }),
       );
+    });
+  });
+
+  describe('excluir e excluirComoAdmin (UC014)', () => {
+    const notificacaoExistente = {
+      id: NOTIF_ID,
+      titulo: 'Prazo Q1',
+      tipo: TipoNotificacao.AVISO_GERAL,
+      nucleoId: NUCLEO_ID,
+      _count: { destinatarios: 3 },
+    };
+
+    it('permite que qualquer perfil exclua notificação da própria caixa sem apagar de outros usuários', async () => {
+      prisma.notificacao.findUnique.mockResolvedValue(notificacaoExistente);
+      prisma.notificacaoUsuario.findUnique.mockResolvedValue({ isRead: false });
+
+      await expect(
+        service.excluir(
+          NOTIF_ID,
+          { id: USER_A, role: Role.DIRETORES_NUCLEOS },
+          '127.0.0.1',
+        ),
+      ).resolves.toEqual({ message: 'Notificação excluída com sucesso.' });
+
+      expect(prisma.notificacaoUsuario.deleteMany).toHaveBeenCalledWith({
+        where: { notificacaoId: NOTIF_ID, userId: USER_A },
+      });
+      expect(prisma.notificacao.deleteMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: USER_A,
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidade: 'Notificacao',
+          entidadeId: NOTIF_ID,
+          dadosNovos: { excluidaParaUsuario: true },
+        }),
+        prisma,
+      );
+    });
+
+    it('rejeita com 403 quando usuário não administrador tenta excluir notificação de terceiro', async () => {
+      prisma.notificacao.findUnique.mockResolvedValue(notificacaoExistente);
+      prisma.notificacaoUsuario.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.excluir(
+          NOTIF_ID,
+          { id: USER_B, role: Role.EQUIPE_GESTAO },
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.notificacaoUsuario.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.notificacao.deleteMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 quando a notificação não existe', async () => {
+      prisma.notificacao.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.excluir(
+          NOTIF_ID,
+          { id: USER_A, role: Role.EQUIPE_COMUNICACAO },
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('permite ao administrador excluir notificação globalmente (aba Enviadas)', async () => {
+      prisma.notificacao.findUnique.mockResolvedValue(notificacaoExistente);
+
+      await expect(
+        service.excluirComoAdmin(NOTIF_ID, ADMIN_ID, '127.0.0.1'),
+      ).resolves.toEqual({ message: 'Notificação excluída com sucesso.' });
+
+      expect(prisma.notificacao.deleteMany).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: ADMIN_ID,
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidade: 'Notificacao',
+          entidadeId: NOTIF_ID,
+          dadosNovos: { excluida: true },
+        }),
+        prisma,
+      );
+    });
+
+    it('não apaga globalmente quando o administrador usa DELETE /:id numa notificação fora da própria caixa', async () => {
+      prisma.notificacao.findUnique.mockResolvedValue(notificacaoExistente);
+      prisma.notificacaoUsuario.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.excluir(
+          NOTIF_ID,
+          { id: ADMIN_ID, role: Role.ADMINISTRADOR },
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.notificacao.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.notificacaoUsuario.deleteMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 });
