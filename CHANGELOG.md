@@ -1,3 +1,17 @@
+# [1.1.0-dev.24](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.23...v1.1.0-dev.24) (2026-11-20)
+
+
+### Bug Fixes
+
+* **nucleos,programas:** preservar historico de nucleos inativos e permitir reativar programas inativos ([e55cc89](https://github.com/lauralxra/Projeto_Ip-/commit/e55cc8946a4dfe9a1f10521c0128262147434e05))
+
+
+### Features
+
+* **indicadores:** permitir enviar medicao especifica do historico para analise (UC037) ([bc620b7](https://github.com/lauralxra/Projeto_Ip-/commit/bc620b76208904b6fad1af6fbdf89f933d32a538))
+* **nucleos:** implementar uc026 desativar e arquivar nucleo ([e016aa0](https://github.com/lauralxra/Projeto_Ip-/commit/e016aa0ae8f1ba58172dee0b141141f06a2f1e96))
+* **programas:** implementar uc031 arquivar e desativar programa ([5b17879](https://github.com/lauralxra/Projeto_Ip-/commit/5b178791a8e5345a25e9162d2b85f53fa5682163))
+
 # [1.1.0-dev.23](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.22...v1.1.0-dev.23) (2026-11-20)
 
 
