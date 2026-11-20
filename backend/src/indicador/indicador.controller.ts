@@ -24,8 +24,11 @@ import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 import {
   CreateIndicadorSwagger,
   FindAllIndicadoresSwagger,
+  FindOneIndicadorSwagger,
+  InativarIndicadorSwagger,
   RemoveIndicadorSwagger,
   SalvarRegistroSwagger,
+  UpdateIndicadorSwagger,
 } from './swagger/indicador.swagger';
 
 @ApiTags('indicadores')
@@ -41,6 +44,15 @@ export class IndicadorController {
     return this.indicadorService.findAll(req.user);
   }
 
+  @Get(':id')
+  @FindOneIndicadorSwagger()
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.indicadorService.findOne(id, req.user);
+  }
+
   @Post()
   @Roles(Role.ADMINISTRADOR)
   @CreateIndicadorSwagger()
@@ -54,6 +66,7 @@ export class IndicadorController {
 
   @Patch(':id')
   @Roles(Role.ADMINISTRADOR)
+  @UpdateIndicadorSwagger()
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dados: UpdateIndicadorDto,
@@ -61,6 +74,17 @@ export class IndicadorController {
     @Ip() ip: string,
   ) {
     return this.indicadorService.update(id, dados, { id: req.user.id, ip });
+  }
+
+  @Patch(':id/inativar')
+  @Roles(Role.ADMINISTRADOR)
+  @InativarIndicadorSwagger()
+  inativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.indicadorService.inativar(id, { id: req.user.id, ip });
   }
 
   @Delete(':id')
