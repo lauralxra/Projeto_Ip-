@@ -447,31 +447,46 @@ export class UserService {
         nucleosAntigos.length > 0 || dto.nucleoIds !== undefined;
     }
 
-    // 4. Atualiza o perfil
-    if (dto.role) {
-      await this.userRepository.updatePermissions(id, dto.role);
-    }
+    // 4 a 6 numa única transação: perfil, núcleos e auditoria são gravados
+    // juntos ou nenhum deles é (ex.: perfil novo com núcleos antigos)
+    await this.prisma.$transaction(async (tx) => {
+      // 4. Atualiza o perfil
+      if (dto.role) {
+        const { count } = await this.userRepository.updatePermissions(
+          id,
+          dto.role,
+          tx,
+        );
+        // Usuário excluído entre a leitura e a escrita
+        if (count === 0) {
+          throw new NotFoundException('Usuário não encontrado.');
+        }
+      }
 
-    // 5. Sincroniza os núcleos
-    if (sincronizarNucleos) {
-      await this.userRepository.syncNucleos(id, nucleosFinais);
-    }
+      // 5. Sincroniza os núcleos
+      if (sincronizarNucleos) {
+        await this.userRepository.syncNucleos(id, nucleosFinais, tx);
+      }
 
-    // 6. Registra auditoria
-    await this.audit.registrarAcao({
-      userId: autor.id,
-      acao: AcaoAuditoria.ATUALIZAR,
-      entidade: 'User',
-      entidadeId: id,
-      dadosAntigos: {
-        perfil: usuarioAtual.perfil,
-        nucleos: nucleosAntigos,
-      },
-      dadosNovos: {
-        perfil: perfilFinal,
-        nucleos: nucleosFinais,
-      },
-      ip: autor.ip,
+      // 6. Registra auditoria
+      await this.audit.registrarAcao(
+        {
+          userId: autor.id,
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'User',
+          entidadeId: id,
+          dadosAntigos: {
+            perfil: usuarioAtual.perfil,
+            nucleos: nucleosAntigos,
+          },
+          dadosNovos: {
+            perfil: perfilFinal,
+            nucleos: nucleosFinais,
+          },
+          ip: autor.ip,
+        },
+        tx,
+      );
     });
 
     return { message: 'Permissões atualizadas com sucesso.' };

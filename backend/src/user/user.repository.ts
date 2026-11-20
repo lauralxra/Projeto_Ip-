@@ -57,8 +57,13 @@ export class UserRepository {
     });
   }
 
-  updatePermissions(id: string, role: Role) {
-    return this.prisma.user.updateMany({
+  // `client` permite rodar dentro de uma transação aberta pelo serviço
+  updatePermissions(
+    id: string,
+    role: Role,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    return client.user.updateMany({
       where: { id, deletedAt: null },
       data: { perfil: role },
     });
@@ -71,13 +76,20 @@ export class UserRepository {
     });
   }
 
-  syncNucleos(userId: string, nucleoIds: string[]) {
-    return this.prisma.$transaction([
-      this.prisma.userNucleo.deleteMany({ where: { userId } }),
-      this.prisma.userNucleo.createMany({
+  // Troca todos os vínculos do usuário. Deve rodar dentro de uma transação
+  // (o serviço passa o `client` dela) para não deixar o usuário sem núcleos
+  // caso a criação falhe depois da remoção
+  async syncNucleos(
+    userId: string,
+    nucleoIds: string[],
+    client: Prisma.TransactionClient,
+  ) {
+    await client.userNucleo.deleteMany({ where: { userId } });
+    if (nucleoIds.length > 0) {
+      await client.userNucleo.createMany({
         data: nucleoIds.map((nucleoId) => ({ userId, nucleoId })),
-      }),
-    ]);
+      });
+    }
   }
 
   updatePhoto(id: string, fotoUrl: string) {
