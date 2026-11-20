@@ -65,7 +65,9 @@ export class NucleoService {
 
   async search(filtros: SearchNucleoDto, usuario: AuthenticatedUser) {
     if (!usuario?.role) {
-      throw new ForbiddenException('Você não possui permissão para acessar núcleos.');
+      throw new ForbiddenException(
+        'Você não possui permissão para acessar núcleos.',
+      );
     }
 
     const { termo, programaId, status, dataInicio, dataFim, ano, trimestre } =

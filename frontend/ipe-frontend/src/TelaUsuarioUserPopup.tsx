@@ -282,7 +282,12 @@ export function TelaUsuarioUserPopup({
     const nucleosFinais = exigeNucleoFinal ? formNucleos : [];
 
     // UC08 / UC012: exigir núcleo obrigatório para Diretor de Núcleo e Equipe de Gestão
-    if (adm && !ehProprioUsuario && exigeNucleoFinal && nucleosFinais.length === 0) {
+    if (
+      adm &&
+      !ehProprioUsuario &&
+      exigeNucleoFinal &&
+      nucleosFinais.length === 0
+    ) {
       setErroNucleos(
         'Selecione ao menos um núcleo para contas de Diretor de Núcleo ou Equipe de Gestão.',
       );
@@ -471,10 +476,7 @@ export function TelaUsuarioUserPopup({
               />
 
               {erroNucleos && (
-                <p
-                  role="alert"
-                  className="text-xs font-medium text-[#7a1f2b]"
-                >
+                <p role="alert" className="text-xs font-medium text-[#7a1f2b]">
                   {erroNucleos}
                 </p>
               )}

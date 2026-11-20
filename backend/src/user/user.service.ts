@@ -427,7 +427,11 @@ export class UserService {
       }
 
       if (dto.nucleoIds !== undefined) {
-        await this.garantirNucleosAtivos(nucleosFinais);
+        // Só os núcleos novos precisam estar ativos: manter um vínculo antigo
+        // com núcleo que foi desativado depois não pode travar a edição
+        await this.garantirNucleosAtivos(
+          nucleosFinais.filter((n) => !nucleosAntigos.includes(n)),
+        );
         sincronizarNucleos = true;
       }
     } else {

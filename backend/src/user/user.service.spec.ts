@@ -507,6 +507,30 @@ describe('UserService', () => {
       );
     });
 
+    it('mantém núcleo antigo já vinculado sem exigir que ele ainda esteja ativo', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-desativado' },
+      ]);
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { nucleoIds: ['nucleo-desativado', 'nucleo-novo'] },
+        autor,
+      );
+
+      expect(prisma.nucleo.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['nucleo-novo'] },
+          }) as unknown,
+        }),
+      );
+      expect(repository.syncNucleos).toHaveBeenCalledWith('usuario-uuid', [
+        'nucleo-desativado',
+        'nucleo-novo',
+      ]);
+    });
+
     it('recusa remover todos os núcleos de um DN mesmo sem informar o perfil', async () => {
       repository.findNucleosByUserId.mockResolvedValue([
         { nucleoId: 'nucleo-antigo' },

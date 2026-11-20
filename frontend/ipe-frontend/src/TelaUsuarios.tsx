@@ -398,7 +398,7 @@ export default function TelaUsuarios() {
       .catch((erro) => console.error('Erro ao carregar núcleos ativos:', erro));
 
     const aoAtualizarUsuario = () => {
-      carregarUsuarios();
+      void carregarUsuarios();
     };
     window.addEventListener('usuario-atualizado', aoAtualizarUsuario);
     return () => {
@@ -636,7 +636,7 @@ export default function TelaUsuarios() {
               </p>
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => void navigate('/dashboard')}
                 className="w-full py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
               >
                 Voltar para o Dashboard
