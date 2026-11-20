@@ -1,19 +1,3 @@
-# [1.1.0-dev.18](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.17...v1.1.0-dev.18) (2026-11-20)
-
-
-### Bug Fixes
-
-* **deploy:** add prod docker-compose, nginx config and fix upload swagger ([cea931f](https://github.com/lauralxra/Projeto_Ip-/commit/cea931f731da0ab003fbbb79bb811f5d148ce6a5))
-* **frontend:** restaura onClick do botão de logout perdido no merge ([54d80f6](https://github.com/lauralxra/Projeto_Ip-/commit/54d80f6f7262e992f59000ca32cf288275fbf80c))
-* **test:** corrige regex do moduleNameMapper no jest-e2e.json ([608d420](https://github.com/lauralxra/Projeto_Ip-/commit/608d4204a179e219f754a85f645af25596fa789a))
-
-
-### Features
-
-* ajustes visuais no menu lateral e tela de login ([be2449d](https://github.com/lauralxra/Projeto_Ip-/commit/be2449d86dd5d1280ded6857ccfd8220cf1cb570))
-* Implementação das telas de recuperção e redefinição de senha ([cf27e36](https://github.com/lauralxra/Projeto_Ip-/commit/cf27e361f22c9491177bf656c688ff450ba6a895))
-* updating package ([175aea1](https://github.com/lauralxra/Projeto_Ip-/commit/175aea1d4282fe024b206879db6b23e1803e88f9))
-
 # [1.1.0-dev.18](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.17...v1.1.0-dev.18) (2026-11-18)
 
 
