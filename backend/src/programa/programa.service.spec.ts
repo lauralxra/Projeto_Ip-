@@ -51,6 +51,7 @@ describe('ProgramaService', () => {
       groupBy: jest.Mock;
     };
     nucleo: { findFirst: jest.Mock };
+    indicador: { updateMany: jest.Mock };
     programaParticipante: { deleteMany: jest.Mock; createMany: jest.Mock };
     user: { count: jest.Mock };
     $transaction: jest.Mock;
@@ -72,6 +73,9 @@ describe('ProgramaService', () => {
         findFirst: jest
           .fn()
           .mockResolvedValue({ status: StatusRegistro.ATIVO }),
+      },
+      indicador: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       programaParticipante: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -251,6 +255,22 @@ describe('ProgramaService', () => {
       await expect(
         service.findAll({ status: StatusRegistro.INATIVO }, diretor),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('restringe consulta de programas arquivados apenas ao administrador (CT-031.04)', async () => {
+      for (const role of [
+        Role.DIRETORES_NUCLEOS,
+        Role.EQUIPE_COMUNICACAO,
+        Role.EQUIPE_GESTAO,
+      ]) {
+        await expect(
+          service.findAll(
+            { status: StatusRegistro.ARQUIVADO },
+            { id: 'user-nao-adm', role },
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      }
+      expect(prisma.programa.findMany).not.toHaveBeenCalled();
     });
 
     it('aplica os filtros de nome e núcleo', async () => {
@@ -449,6 +469,42 @@ describe('ProgramaService', () => {
       expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({ acao: AcaoAuditoria.RESTAURAR }),
       );
+    });
+
+    it('arquiva programa ativo mantendo o vínculo dos indicadores (CT-031.01)', async () => {
+      prisma.programa.findFirst.mockResolvedValue(programaAtual);
+
+      await expect(service.arquivar(PROGRAMA_ID, autor)).resolves.toEqual({
+        message: 'Programa arquivado com sucesso.',
+      });
+      expect(argumento(prisma.programa.updateMany)).toEqual({
+        where: {
+          id: PROGRAMA_ID,
+          deletedAt: null,
+          status: StatusRegistro.ATIVO,
+        },
+        data: { status: StatusRegistro.ARQUIVADO },
+      });
+      // O histórico por programa (Dashboard) depende do vínculo: não pode ser apagado
+      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ARQUIVAR,
+          dadosAntigos: { status: StatusRegistro.ATIVO },
+          dadosNovos: { status: StatusRegistro.ARQUIVADO },
+        }),
+      );
+    });
+
+    it('reativar um programa arquivado não altera os vínculos dos indicadores', async () => {
+      prisma.programa.findFirst.mockResolvedValue({
+        ...programaAtual,
+        status: StatusRegistro.ARQUIVADO,
+      });
+
+      await service.reativar(PROGRAMA_ID, autor);
+
+      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
     });
 
     it('não audita quando outra requisição alterou o status antes', async () => {

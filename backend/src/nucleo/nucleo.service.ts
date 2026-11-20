@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
+import { AcaoAuditoria, Prisma, Role, StatusRegistro } from '@prisma/client';
 import { CreateNucleoDto } from './dto/create-nucleo.dto';
 import { SearchNucleoDto } from './dto/search-nucleo.dto';
 import { UpdateNucleoDto } from './dto/update-nucleo.dto';
@@ -257,10 +257,23 @@ export class NucleoService {
     });
   }
 
+  async verificarPendencias(id: string) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    return this.nucleoRepository.contarPendencias(id);
+  }
+
   async deactivate(id: string, autor: AutorAcao) {
     const nucleo = await this.nucleoRepository.findAtivoById(id);
     if (!nucleo) {
       throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    if (nucleo.status !== StatusRegistro.ATIVO) {
+      throw new ConflictException('O núcleo já está desativado ou arquivado.');
     }
 
     const desativado = await this.nucleoRepository.deactivate(id);
@@ -281,5 +294,42 @@ export class NucleoService {
       },
       ip: autor.ip,
     });
+  }
+
+  async reactivate(id: string, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
+      throw new NotFoundException('Núcleo não encontrado.');
+    }
+
+    if (nucleo.status === StatusRegistro.ATIVO) {
+      throw new ConflictException('O núcleo já está ativo.');
+    }
+
+    const reativado = await this.nucleoRepository.reactivate(id);
+    if (!reativado) {
+      throw new ConflictException(
+        'O núcleo foi alterado por outra operação. Tente novamente.',
+      );
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.RESTAURAR,
+      entidade: 'Nucleo',
+      entidadeId: id,
+      dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },
+      dadosNovos: {
+        ...nucleo,
+        status: StatusRegistro.ATIVO,
+        createdAt: nucleo.createdAt.toISOString(),
+      },
+      ip: autor.ip,
+    });
+
+    return {
+      message: 'Núcleo reativado com sucesso.',
+      status: StatusRegistro.ATIVO,
+    };
   }
 }

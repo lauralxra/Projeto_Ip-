@@ -41,6 +41,7 @@ export interface NucleoApi {
   sigla: string;
   descricao?: string | null;
   imagemUrl?: string | null;
+  status?: 'ATIVO' | 'INATIVO' | 'ARQUIVADO';
 }
 
 // Mantém a identidade visual dos núcleos conhecidos (cor e logo) pela sigla.
@@ -56,6 +57,7 @@ export function nucleoDaApi(item: NucleoApi): Nucleo {
     nome: item.nome,
     sigla: item.sigla,
     descricao: item.descricao ?? '',
+    status: item.status ?? 'ATIVO',
     corBg: visual?.corBg ?? 'bg-[#832b62]',
     corIcone: visual?.corIcone ?? 'text-white',
     icone,

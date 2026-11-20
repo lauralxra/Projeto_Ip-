@@ -785,7 +785,8 @@ export default function TelaIndicadores() {
       if (!token) return;
 
       try {
-        const resposta = await fetch(`${API_BASE_URL}/programas`, {
+        // UC031 (CT-031.03): exibe apenas programas ATIVOS para vinculação a indicadores
+        const resposta = await fetch(`${API_BASE_URL}/programas?status=ATIVO`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -797,25 +798,27 @@ export default function TelaIndicadores() {
 
         const dados = await resposta.json();
 
-        const programasReais: Programa[] = dados.map((item: any) => ({
-          id: item.id,
-          nome: item.nome,
-          descricao: item.descricao ?? '',
-          nucleo: item.nucleo
-            ? {
-                id: item.nucleo.id,
-                nome: item.nucleo.nome,
-                sigla: item.nucleo.sigla,
-                descricao: '',
-                corBg: 'bg-[#832b62]',
-                corIcone: 'text-white',
-              }
-            : undefined,
-          dataDeInicio: '',
-          status: 'ATIVO',
-          acoes: [],
-          indicadores: [],
-        }));
+        const programasReais: Programa[] = dados
+          .filter((item: any) => (item.status ?? 'ATIVO') === 'ATIVO')
+          .map((item: any) => ({
+            id: item.id,
+            nome: item.nome,
+            descricao: item.descricao ?? '',
+            nucleo: item.nucleo
+              ? {
+                  id: item.nucleo.id,
+                  nome: item.nucleo.nome,
+                  sigla: item.nucleo.sigla,
+                  descricao: '',
+                  corBg: 'bg-[#832b62]',
+                  corIcone: 'text-white',
+                }
+              : undefined,
+            dataDeInicio: '',
+            status: 'ATIVO',
+            acoes: [],
+            indicadores: [],
+          }));
 
         setProgramasDoBanco(programasReais);
       } catch (erro) {
@@ -1358,6 +1361,84 @@ export default function TelaIndicadores() {
     } catch (erro) {
       console.error('Erro ao excluir medição:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao excluir medição.');
+    }
+  };
+
+  // UC037: Envia medição específica do histórico para análise da Administração
+  const enviarMedicaoHistoricoParaRevisao = async (
+    regId: string,
+    ano: number,
+    trimestre: string,
+  ) => {
+    if (!indicSelecionado) return;
+
+    const confirmou = window.confirm(
+      `Deseja enviar a medição de ${ano} (${trimestre}) do indicador "${indicSelecionado.nome}" para análise da Administração?`,
+    );
+    if (!confirmou) return;
+
+    try {
+      await apiFetch(`/registros/${regId}/enviar-revisao`, {
+        method: 'PATCH',
+      });
+
+      await carregarIndicadores(filtroStatus);
+
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (respAtualizada.ok) {
+          const dadosNovos = await respAtualizada.json();
+          const atual = dadosNovos.find(
+            (i: any) => i.id === indicSelecionado.id,
+          );
+          if (atual) {
+            setIndicSelecionado((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    valAtual:
+                      atual.registros?.[0]?.valorRealizado != null
+                        ? String(atual.registros[0].valorRealizado)
+                        : prev.valAtual,
+                    ano: atual.registros?.[0]?.ano ?? prev.ano,
+                    trimestre:
+                      atual.registros?.[0]?.trimestre ?? prev.trimestre,
+                    statusAprovacao:
+                      atual.registros?.[0]?.statusAprovacao ??
+                      prev.statusAprovacao,
+                    registros: (atual.registros ?? []).map((r: any) => ({
+                      id: r.id,
+                      ano: r.ano,
+                      trimestre: r.trimestre,
+                      valorRealizado:
+                        r.valorRealizado != null
+                          ? String(r.valorRealizado)
+                          : null,
+                      metaAplicada:
+                        r.metaAplicada != null ? String(r.metaAplicada) : null,
+                      statusAprovacao: r.statusAprovacao,
+                      status: r.status,
+                      justificativaDevolucao: r.justificativaDevolucao ?? null,
+                    })),
+                  }
+                : null,
+            );
+          }
+        }
+      }
+
+      alert(
+        `Medição de ${ano} (${trimestre}) enviada para análise com sucesso!`,
+      );
+    } catch (erro) {
+      console.error('Erro ao enviar medição para análise:', erro);
+      alert(
+        'Não foi possível enviar a medição para análise: ' +
+          mensagemDeErro(erro),
+      );
     }
   };
 
@@ -3059,21 +3140,42 @@ export default function TelaIndicadores() {
                                       </span>
                                     )
                                   ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setHistoricoAno(String(reg.ano));
-                                        setHistoricoTrimestre(reg.trimestre);
-                                        setHistoricoValor(
-                                          reg.valorRealizado != null
-                                            ? String(reg.valorRealizado)
-                                            : '',
-                                        );
-                                      }}
-                                      className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
-                                    >
-                                      Carregar para editar
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      {(UsuarioAtual.tipo === 'ADM' ||
+                                        UsuarioAtual.tipo === 'DN') &&
+                                        reg.valorRealizado != null && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              enviarMedicaoHistoricoParaRevisao(
+                                                reg.id,
+                                                reg.ano,
+                                                reg.trimestre,
+                                              )
+                                            }
+                                            title={`Enviar medição de ${reg.ano} (${reg.trimestre}) para análise`}
+                                            className="inline-flex items-center gap-1 text-[11px] text-sky-700 hover:text-sky-800 font-semibold bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                                          >
+                                            <Send size={11} />
+                                            <span>Enviar para Análise</span>
+                                          </button>
+                                        )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setHistoricoAno(String(reg.ano));
+                                          setHistoricoTrimestre(reg.trimestre);
+                                          setHistoricoValor(
+                                            reg.valorRealizado != null
+                                              ? String(reg.valorRealizado)
+                                              : '',
+                                          );
+                                        }}
+                                        className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                                      >
+                                        Carregar para editar
+                                      </button>
+                                    </div>
                                   )}
                                   {UsuarioAtual.tipo === 'ADM' && (
                                     <button

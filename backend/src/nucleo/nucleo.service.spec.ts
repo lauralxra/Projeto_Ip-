@@ -31,6 +31,8 @@ describe('NucleoService', () => {
     findAtivoComVinculos: jest.Mock;
     softDelete: jest.Mock;
     deactivate: jest.Mock;
+    reactivate: jest.Mock;
+    contarPendencias: jest.Mock;
     updateImagem: jest.Mock;
     update: jest.Mock;
     findConflitoOutro: jest.Mock;
@@ -55,6 +57,8 @@ describe('NucleoService', () => {
       findAtivoComVinculos: jest.fn(),
       softDelete: jest.fn(),
       deactivate: jest.fn(),
+      reactivate: jest.fn(),
+      contarPendencias: jest.fn(),
       updateImagem: jest.fn(),
       update: jest.fn(),
       findConflitoOutro: jest.fn(),
@@ -310,6 +314,82 @@ describe('NucleoService', () => {
         NotFoundException,
       );
       expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('retorna 409 quando o núcleo já está inativo/arquivado sem auditar', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleo,
+        status: StatusRegistro.INATIVO,
+      });
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.deactivate).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verificarPendencias e reactivate (UC026)', () => {
+    const nucleoInativo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo Teste',
+      sigla: 'NT',
+      descricao: null,
+      corHex: '#3b142f',
+      imagemUrl: null,
+      status: StatusRegistro.INATIVO,
+      createdAt,
+    };
+
+    it('retorna contagem de indicadores pendentes para confirmação (FE-026.01)', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleoInativo,
+        status: StatusRegistro.ATIVO,
+      });
+      repository.contarPendencias.mockResolvedValue({
+        possuiPendencias: true,
+        totalIndicadoresPendentes: 2,
+        totalRegistrosPendentes: 3,
+      });
+
+      await expect(service.verificarPendencias('nucleo-uuid')).resolves.toEqual(
+        {
+          possuiPendencias: true,
+          totalIndicadoresPendentes: 2,
+          totalRegistrosPendentes: 3,
+        },
+      );
+    });
+
+    it('reativa um núcleo inativo e registra auditoria RESTAURAR (RN03)', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoInativo);
+      repository.reactivate.mockResolvedValue(true);
+
+      await expect(service.reactivate('nucleo-uuid', autor)).resolves.toEqual({
+        message: 'Núcleo reativado com sucesso.',
+        status: StatusRegistro.ATIVO,
+      });
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.RESTAURAR,
+          entidade: 'Nucleo',
+          entidadeId: 'nucleo-uuid',
+        }),
+      );
+    });
+
+    it('recusa reativar um núcleo já ativo com 409', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleoInativo,
+        status: StatusRegistro.ATIVO,
+      });
+
+      await expect(service.reactivate('nucleo-uuid', autor)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.reactivate).not.toHaveBeenCalled();
     });
   });
 

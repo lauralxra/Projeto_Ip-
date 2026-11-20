@@ -384,6 +384,10 @@ export class ProgramaService {
       );
     }
 
+    // UC031: arquivar só muda o status. O vínculo dos indicadores é mantido para
+    // preservar o histórico (filtro por programa no Dashboard) e permitir que a
+    // reativação volte ao estado anterior; programas não ATIVOS já são recusados
+    // em novos vínculos de indicadores e na importação.
     // Só altera se o status ainda for o lido acima: evita auditar duas vezes
     // em requisições concorrentes
     const { count } = await this.prisma.programa.updateMany({
