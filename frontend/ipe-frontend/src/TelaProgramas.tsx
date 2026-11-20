@@ -946,6 +946,35 @@ type programItems = {
   onClose: () => void;
 };
 
+function ehNucleoInstitucional(nucleo?: Nucleo): boolean {
+  const sigla = (nucleo?.sigla ?? '').trim().toUpperCase();
+  return sigla === 'IPÊ' || sigla === 'IPE';
+}
+
+// UC27: filtra usuários elegíveis como responsável pelo núcleo selecionado
+// (ou perfis institucionais ADM/EC quando o núcleo for o institucional IPÊ)
+function filtrarResponsaveisPorNucleo(
+  usuarios: Usuario[],
+  nucleo?: Nucleo,
+): Usuario[] {
+  if (!nucleo) return [];
+
+  const usuariosAtivos = usuarios.filter((u) => u.status === 1);
+  const institucional = ehNucleoInstitucional(nucleo);
+
+  return usuariosAtivos.filter((u) => {
+    // Compara só pelo id, como o backend: comparar pela sigla aceitaria um
+    // núcleo excluído com a mesma sigla, e o backend recusaria o responsável
+    const vinculadoAoNucleo = u.nucleos.some((n) => n.id === nucleo.id);
+
+    if (institucional) {
+      return vinculadoAoNucleo || u.tipo === 'ADM' || u.tipo === 'EC';
+    }
+
+    return vinculadoAoNucleo;
+  });
+}
+
 function EditProgramaPopup({
   header,
   id,
@@ -963,6 +992,7 @@ function EditProgramaPopup({
 }: programItems) {
   const listaUsuarios =
     usuarios && usuarios.length > 0 ? usuarios : UsuariosCadastrados;
+  const usuariosAtivos = listaUsuarios.filter((u) => u.status === 1);
   // Em edição, preserva o núcleo já vinculado mesmo se foi desativado depois;
   // em novos cadastros, exibe estritamente núcleos ativos (CT-026.04)
   const opcoesNucleo =
@@ -983,6 +1013,34 @@ function EditProgramaPopup({
     participantes || [],
   );
 
+  // UC27: responsáveis filtrados dinamicamente pelo núcleo selecionado
+  const responsaveisElegiveis = filtrarResponsaveisPorNucleo(
+    listaUsuarios,
+    formNucleo,
+  );
+  // Em edição sem troca de núcleo, preserva o responsável já salvo caso ele não esteja na lista
+  const opcoesResponsaveis =
+    id &&
+    responsavel &&
+    formNucleo?.id === nucleo?.id &&
+    !responsaveisElegiveis.some((u) => u.id === responsavel.id)
+      ? [...responsaveisElegiveis, responsavel]
+      : responsaveisElegiveis;
+
+  const handleSelecionarNucleo = (novoNucleo?: Nucleo) => {
+    setFormNucleo(novoNucleo);
+    const novosElegiveis = filtrarResponsaveisPorNucleo(
+      listaUsuarios,
+      novoNucleo,
+    );
+    if (
+      formResponsavel &&
+      !novosElegiveis.some((u) => u.id === formResponsavel.id)
+    ) {
+      setFormResponsavel(undefined);
+    }
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -991,8 +1049,13 @@ function EditProgramaPopup({
       return;
     }
 
-    if (!formResponsavel) {
-      alert('Por favor, selecione um responsável.');
+    if (
+      !formResponsavel ||
+      !opcoesResponsaveis.some((u) => u.id === formResponsavel.id)
+    ) {
+      alert(
+        'Por favor, selecione um responsável vinculado ao núcleo escolhido.',
+      );
       return;
     }
 
@@ -1100,7 +1163,7 @@ function EditProgramaPopup({
                 const n = opcoesNucleo.find(
                   (item) => item.id === e.target.value,
                 );
-                setFormNucleo(n);
+                handleSelecionarNucleo(n);
               }}
               required
               className="bg-[#d8d0d8] h-[45px] px-3 rounded-[15px] border-none outline-none font-bold text-xs cursor-pointer text-black"
@@ -1116,31 +1179,46 @@ function EditProgramaPopup({
             </select>
           </div>
 
-          {/* Responsável */}
+          {/* Responsável (UC27: filtrado dinamicamente pelo núcleo selecionado) */}
           <div className="flex flex-col gap-1 w-full">
             <label className="font-bold text-sm text-black">
               Responsável pelo Programa
             </label>
             <select
               value={formResponsavel?.id || ''}
+              disabled={!formNucleo || opcoesResponsaveis.length === 0}
               onChange={(e) => {
-                const u = listaUsuarios.find(
+                const u = opcoesResponsaveis.find(
                   (item: Usuario) => item.id === e.target.value,
                 );
                 setFormResponsavel(u);
               }}
               required
-              className="bg-[#ffdfbf] h-[45px] px-3 rounded-[15px] border-none outline-none font-bold text-xs cursor-pointer text-black"
+              className={`bg-[#ffdfbf] h-[45px] px-3 rounded-[15px] border-none outline-none font-bold text-xs text-black ${
+                !formNucleo || opcoesResponsaveis.length === 0
+                  ? 'opacity-65 cursor-not-allowed'
+                  : 'cursor-pointer'
+              }`}
             >
               <option value="" disabled>
-                Selecione um responsável...
+                {!formNucleo
+                  ? 'Selecione um núcleo primeiro...'
+                  : opcoesResponsaveis.length === 0
+                    ? 'Nenhum responsável vinculado a este núcleo'
+                    : 'Selecione um responsável...'}
               </option>
-              {listaUsuarios.map((u: Usuario) => (
+              {opcoesResponsaveis.map((u: Usuario) => (
                 <option key={u.id} value={u.id}>
                   {u.nome} {u.email ? `(${u.email})` : ''}
                 </option>
               ))}
             </select>
+            {formNucleo && opcoesResponsaveis.length === 0 && (
+              <p className="text-[11px] text-[#7a1f2b]">
+                Nenhum usuário ativo está vinculado ao núcleo {formNucleo.sigla}
+                .
+              </p>
+            )}
           </div>
         </div>
 
@@ -1153,7 +1231,7 @@ function EditProgramaPopup({
             onChange={(e) => {
               const id = e.target.value;
               if (!id) return;
-              const usuario = listaUsuarios.find((u: Usuario) => u.id === id);
+              const usuario = usuariosAtivos.find((u: Usuario) => u.id === id);
               if (
                 usuario &&
                 !formParticipantes.some((u: Usuario) => u.id === id)
@@ -1168,7 +1246,7 @@ function EditProgramaPopup({
             <option value="" disabled>
               Adicionar participante...
             </option>
-            {listaUsuarios.map((u: Usuario) => (
+            {usuariosAtivos.map((u: Usuario) => (
               <option key={u.id} value={u.id}>
                 {u.nome} {u.email ? `(${u.email})` : ''}
               </option>
