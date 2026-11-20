@@ -186,10 +186,10 @@ export default function TelaNucleos() {
         {/* Cabeçalho */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+            <h1 className="text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
               Núcleos
             </h1>
-            <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
+            <p className="font-sans font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
               Áreas de atuação responsáveis pelo envio periódico dos dados
             </p>
           </div>

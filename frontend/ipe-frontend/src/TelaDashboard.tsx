@@ -909,10 +909,10 @@ export default function TelaDashboard() {
           {/* Cabeçalho do Dashboard */}
           <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#a13680]">
+              <h1 className="text-2xl sm:text-3xl font-sans font-normal text-[#a13680]">
                 Dashboard
               </h1>
-              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light text-xs sm:text-sm text-slate-500 mt-1">
+              <p className="font-sans font-light text-xs sm:text-sm text-slate-500 mt-1">
                 Acompanhe os resultados dos núcleos, programas e indicadores
                 institucionais
               </p>

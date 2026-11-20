@@ -18,7 +18,7 @@ function BtnUserStatus({ value, onChange }: BtnUserStatusProps) {
       <select
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-xs text-center"
+        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-sans font-bold text-xs text-center"
       >
         <option value={1}>Ativo</option>
         <option value={0}>Inativo</option>
@@ -111,7 +111,7 @@ function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-xs text-center"
+        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-sans font-bold text-xs text-center"
       >
         <option value="ADM">Administrador</option>
         <option value="DN">Diretor de Núcleo</option>
@@ -205,7 +205,7 @@ export function TelaUsuarioUserPopup({
         data-name="Up"
       >
         <div
-          className="[word-break:break-word] flex flex-[1_0_0] flex-col font-['Google_Sans_Flex:Bold',sans-serif] font-bold h-full justify-center leading-[0] min-w-px not-italic relative text-[36px] text-black"
+          className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-bold h-full justify-center leading-[0] min-w-px not-italic relative text-[36px] text-black"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
         >
           <p className="leading-[normal]">{header}</p>
@@ -276,7 +276,7 @@ export function TelaUsuarioUserPopup({
               data-name="CampoNome"
             >
               <label
-                className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
+                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
                 style={{
                   fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                 }}
@@ -293,7 +293,7 @@ export function TelaUsuarioUserPopup({
                   required
                   value={formNome}
                   onChange={(e) => setFormNome(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
                   style={{
                     fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                   }}
@@ -306,7 +306,7 @@ export function TelaUsuarioUserPopup({
               data-name="CampoMail"
             >
               <label
-                className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
+                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
                 style={{
                   fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                 }}
@@ -323,7 +323,7 @@ export function TelaUsuarioUserPopup({
                   required
                   value={formMail}
                   onChange={(e) => setFormMail(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
                   style={{
                     fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                   }}
@@ -336,7 +336,7 @@ export function TelaUsuarioUserPopup({
               data-name="CampoSenha"
             >
               <label
-                className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
+                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
                 style={{
                   fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                 }}
@@ -353,7 +353,7 @@ export function TelaUsuarioUserPopup({
                   required
                   value={formSenha}
                   onChange={(e) => setFormSenha(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-['Google_Sans_Flex:Light',sans-serif] font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
+                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
                   style={{
                     fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
                   }}
@@ -398,7 +398,7 @@ export function TelaUsuarioUserPopup({
           data-name="btnCancel"
         >
           <div
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold justify-center leading-[0] min-w-px not-italic relative text-[#3b142f] text-[24.413px] text-center"
+            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-semibold justify-center leading-[0] min-w-px not-italic relative text-[#3b142f] text-[24.413px] text-center"
             style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
           >
             <p className="leading-[normal]">Cancelar</p>
@@ -412,7 +412,7 @@ export function TelaUsuarioUserPopup({
         >
           <div className="content-stretch flex flex-[1_0_0] gap-[15px] items-center justify-center min-w-px relative">
             <p
-              className="[word-break:break-word] font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold leading-[normal] not-italic relative shrink-0 text-[24.413px] text-white whitespace-nowrap"
+              className="[word-break:break-word] font-sans font-semibold leading-[normal] not-italic relative shrink-0 text-[24.413px] text-white whitespace-nowrap"
               style={{
                 fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
               }}

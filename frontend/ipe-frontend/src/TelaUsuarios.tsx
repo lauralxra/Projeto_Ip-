@@ -107,7 +107,7 @@ function LabelTxt({ txt, widt }: { txt: string; widt?: string }) {
       }
     >
       <div
-        className="[word-break:break-word] flex flex-col font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold justify-center leading-[0] not-italic relative shrink-0 text-[15px] text-center text-white whitespace-nowrap"
+        className="[word-break:break-word] flex flex-col font-sans font-semibold justify-center leading-[0] not-italic relative shrink-0 text-[15px] text-center text-white whitespace-nowrap"
         style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0' }}
       >
         <p className="leading-[normal]">{txt}</p>
@@ -157,7 +157,7 @@ function LinhaUsuarioCadastrado({
       {/* id */}
       <div className="flex flex-row items-center w-auto">
         <div className="content-stretch flex h-full items-center max-w-[80px] overflow-clip px-[15px] relative shrink-0 w-[100px]">
-          <p className="[word-break:break-word] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] not-italic relative shrink-0 text-[14px] text-black whitespace-nowrap">
+          <p className="[word-break:break-word] font-sans font-normal leading-[normal] not-italic relative shrink-0 text-[14px] text-black whitespace-nowrap">
             {usuario.id}
           </p>
         </div>
@@ -186,7 +186,7 @@ function LinhaUsuarioCadastrado({
           </div>
 
           <div className="content-stretch flex flex-col items-start justify-start w-full relative shrink-0 py-1">
-            <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-tight text-[14px] text-black whitespace-normal break-words w-full">
+            <p className="font-sans font-normal leading-tight text-[14px] text-black whitespace-normal break-words w-full">
               {usuario.nome}
             </p>
           </div>

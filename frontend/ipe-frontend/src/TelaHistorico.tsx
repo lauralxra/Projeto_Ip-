@@ -341,10 +341,10 @@ export default function TelaHistorico() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between w-full gap-4 px-2">
             {/* Top */}
             <div>
-              <h1 className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <h1 className="text-2xl sm:text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
                 Histórico
               </h1>
-              <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-xs sm:text-sm text-slate-500 mt-1">
+              <p className="font-sans font-light relative shrink-0 text-[#8e8e93] w-full text-xs sm:text-sm text-slate-500 mt-1">
                 Acompanhe o registro oficial e imutável de todas as ações,
                 edições e movimentações do sistema.
               </p>

@@ -104,13 +104,13 @@ function UserInfo() {
     >
       <Pfp />
       <div
-        className="[word-break:break-word] flex flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center min-w-full not-italic relative shrink-0 text-[#a13680] text-[24px] text-center w-[min-content]"
+        className="[word-break:break-word] flex flex-col font-sans font-normal justify-center min-w-full not-italic relative shrink-0 text-[#a13680] text-[24px] text-center w-[min-content]"
         style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
       >
         <p className="leading-[normal]">{UsuarioAtual.nome}</p>
       </div>
       <div
-        className="[word-break:break-word] flex flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center min-w-full not-italic relative shrink-0 text-[#aeaeb2] text-[15px] text-center w-[min-content]"
+        className="[word-break:break-word] flex flex-col font-sans font-normal justify-center min-w-full not-italic relative shrink-0 text-[#aeaeb2] text-[15px] text-center w-[min-content]"
         style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
       >
         <p className="leading-[normal]">{UsuarioAtual.tipo}</p>
@@ -161,7 +161,7 @@ export function Fields() {
         data-name="Mail"
       >
         <label
-          className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
+          className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
         >
           Email
@@ -169,7 +169,7 @@ export function Fields() {
 
         <div className="bg-[#f2f2f7] content-stretch flex items-center justify-between overflow-clip px-[9px] py-[5px] relative rounded-[10px] shrink-0 w-full">
           <input
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
+            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
             style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
             type="text"
             placeholder="Insira um Email..."
@@ -187,7 +187,7 @@ export function Fields() {
         data-name="Senha"
       >
         <label
-          className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
+          className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
         >
           Senha
@@ -195,7 +195,7 @@ export function Fields() {
 
         <div className="bg-[#f2f2f7] content-stretch flex items-center justify-between overflow-clip px-[9px] py-[5px] relative rounded-[10px] shrink-0 w-full">
           <input
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-['Google_Sans_Flex:Regular',sans-serif] font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
+            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
             style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
             type="password"
             placeholder="Insira uma senha..."
@@ -238,7 +238,7 @@ function OptExtras({
         {/* Gerenciar usuários */}
         <a
           href="/usuarios"
-          className="text-center font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
+          className="text-center font-sans font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
         >
           {UsuarioAtual.tipo == 'ADM'
@@ -249,7 +249,7 @@ function OptExtras({
         {/* Editar perfil */}
         <a
           onClick={() => abrirEditModal(leUser)}
-          className="text-center font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
+          className="text-center font-sans font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
         >
           Editar perfil

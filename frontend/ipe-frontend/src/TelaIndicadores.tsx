@@ -1880,7 +1880,7 @@ export default function TelaIndicadores() {
               className="flex items-center justify-between px-2 sm:px-4 w-full"
               data-name="Titulo"
             >
-              <p className="text-2xl sm:text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <p className="text-2xl sm:text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
                 Indicadores
               </p>
             </div>

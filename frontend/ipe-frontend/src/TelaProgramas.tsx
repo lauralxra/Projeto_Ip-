@@ -147,17 +147,17 @@ function ProgramaObj({
         )}
 
         {/* nome */}
-        <p className="font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold text-[#040404] text-[15px] sm:text-[16px] leading-tight break-words">
+        <p className="font-sans font-semibold text-[#040404] text-[15px] sm:text-[16px] leading-tight break-words">
           {programaEmSi.nome}
         </p>
 
         {/* sigla */}
-        <p className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[12px]">
+        <p className="font-sans font-bold text-[#664666] text-[12px]">
           {nucleo.sigla}
         </p>
 
         {/* desceição */}
-        <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#4a4a4a] text-[12px] sm:text-[13px] leading-snug line-clamp-2 break-words">
+        <p className="font-sans font-normal text-[#4a4a4a] text-[12px] sm:text-[13px] leading-snug line-clamp-2 break-words">
           {programaEmSi.descricao}
         </p>
 
@@ -399,7 +399,7 @@ export default function TelaProgramas() {
       <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10">
         <div className="flex flex-1 flex-col gap-5 items-center pt-2 sm:pt-4 pb-20 w-full h-full">
           <div className="flex items-center justify-between px-[10px] w-full shrink-0">
-            <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+            <p className="text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
               Programas
             </p>
           </div>
@@ -623,9 +623,7 @@ function EditProgramaPopup({
       className="bg-white border border-[#a13680] border-solid flex flex-col gap-6 items-center overflow-y-auto max-h-[90vh] px-6 sm:px-[50px] py-[25px] sm:py-[30px] relative rounded-[32px] sm:rounded-[45px] w-full max-w-2xl shadow-2xl"
     >
       <div className="flex items-center justify-between w-full">
-        <h2 className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[28px] text-black">
-          {header}
-        </h2>
+        <h2 className="font-sans font-bold text-[28px] text-black">{header}</h2>
       </div>
 
       {/* Opcoes do Formulário */}

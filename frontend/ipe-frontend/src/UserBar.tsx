@@ -141,7 +141,7 @@ export function User() {
 
         {/* Nome */}
         <p
-          className="truncate max-w-[150px] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] not-italic relative text-[#a13680] text-[14px]"
+          className="truncate max-w-[150px] font-sans font-normal leading-[normal] not-italic relative text-[#a13680] text-[14px]"
           style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
           title={UsuarioAtual.nome}
         >
