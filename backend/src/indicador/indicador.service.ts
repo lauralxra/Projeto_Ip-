@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorAcao } from '../common/interfaces/autor-acao.interface';
 import { CreateIndicadorDto } from './dto/create-indicador.dto';
+import { FilterIndicadorDto } from './dto/filter-indicador.dto';
 import { UpdateIndicadorDto } from './dto/update-indicador.dto';
 import { SalvarRegistroDto } from './dto/salvar-registro.dto';
 import {
@@ -28,6 +29,30 @@ export interface UsuarioAutenticado {
   id: string;
   role: Role;
 }
+
+type MudancaStatusIndicador = {
+  status: StatusRegistro;
+  acao: AcaoAuditoria;
+  mensagem: string;
+};
+
+const ARQUIVAR: MudancaStatusIndicador = {
+  status: StatusRegistro.ARQUIVADO,
+  acao: AcaoAuditoria.ARQUIVAR,
+  mensagem: 'Indicador arquivado com sucesso.',
+};
+
+const DESATIVAR: MudancaStatusIndicador = {
+  status: StatusRegistro.INATIVO,
+  acao: AcaoAuditoria.DESATIVAR,
+  mensagem: 'Indicador desativado com sucesso.',
+};
+
+const REATIVAR: MudancaStatusIndicador = {
+  status: StatusRegistro.ATIVO,
+  acao: AcaoAuditoria.RESTAURAR,
+  mensagem: 'Indicador reativado com sucesso.',
+};
 
 @Injectable()
 export class IndicadorService {
@@ -44,9 +69,12 @@ export class IndicadorService {
     return vinculos.map((v) => v.nucleoId);
   }
 
-  // RF04: administração e Comunicação veem todos os núcleos; os demais, só os seus.
+  // RF04 / UC041: por padrão retorna apenas indicadores ATIVOS (não polui a tela operacional).
+  // Inativos ou arquivados só aparecem quando filtrados explicitamente por status.
+  // Administração e Comunicação veem todos os núcleos; os demais, só os seus.
   // A Comunicação recebe apenas registros aprovados ou publicados (RN01).
-  async findAll(usuario: UsuarioAutenticado) {
+  async findAll(usuario: UsuarioAutenticado, filtros?: FilterIndicadorDto) {
+    const status = filtros?.status ?? StatusRegistro.ATIVO;
     const veTodosOsNucleos =
       usuario.role === Role.ADMINISTRADOR ||
       usuario.role === Role.EQUIPE_COMUNICACAO;
@@ -60,7 +88,7 @@ export class IndicadorService {
     return this.prisma.indicador.findMany({
       where: {
         deletedAt: null,
-        status: StatusRegistro.ATIVO,
+        status,
         ...(filtroNucleos === undefined
           ? {}
           : {
@@ -232,6 +260,13 @@ export class IndicadorService {
       throw new NotFoundException('Indicador não encontrado.');
     }
 
+    // UC041 Regra 1: indicador arquivado/inativo não pode mais sofrer edições
+    if (indicador.status && indicador.status !== StatusRegistro.ATIVO) {
+      throw new ConflictException(
+        'Não é possível editar um indicador inativo ou arquivado.',
+      );
+    }
+
     const nucleoId =
       dados.nucleoId !== undefined ? dados.nucleoId : indicador.nucleoId;
     const escopo = dados.escopo !== undefined ? dados.escopo : indicador.escopo;
@@ -350,37 +385,74 @@ export class IndicadorService {
     return atualizado;
   }
 
-  // RF11: inativa o indicador sem excluí-lo, preservando o histórico
-  async inativar(id: string, autor: AutorAcao) {
-    const indicador = await this.prisma.indicador.findFirst({
+  // UC041: arquivar/desativar muda apenas o status, preservando 100% do histórico
+  arquivar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, ARQUIVAR, autor);
+  }
+
+  desativar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, DESATIVAR, autor);
+  }
+
+  // RF11: inativar é sinônimo de desativar (muda status para INATIVO e audita DESATIVAR)
+  inativar(id: string, autor: AutorAcao) {
+    return this.desativar(id, autor);
+  }
+
+  reativar(id: string, autor: AutorAcao) {
+    return this.alterarStatus(id, REATIVAR, autor);
+  }
+
+  private async alterarStatus(
+    id: string,
+    mudanca: MudancaStatusIndicador,
+    autor: AutorAcao,
+  ) {
+    const atual = await this.prisma.indicador.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, nome: true, status: true },
+      select: { id: true, nome: true, status: true, nucleoId: true },
     });
 
-    if (!indicador) {
+    if (!atual) {
       throw new NotFoundException('Indicador não encontrado.');
     }
 
-    if (indicador.status === StatusRegistro.INATIVO) {
-      throw new ConflictException('O indicador já está inativo.');
+    if (atual.status === mudanca.status) {
+      throw new ConflictException(
+        `O indicador já está ${mudanca.status.toLowerCase()}.`,
+      );
     }
 
-    const inativado = await this.prisma.indicador.update({
-      where: { id },
-      data: { status: StatusRegistro.INATIVO },
+    // Atualização atômica condicionada ao status lido para evitar auditoria duplicada
+    // em requisições simultâneas. Nenhum registro histórico ou meta é alterado.
+    const { count } = await this.prisma.indicador.updateMany({
+      where: { id, deletedAt: null, status: atual.status },
+      data: { status: mudanca.status },
     });
+
+    if (count === 0) {
+      throw new ConflictException(
+        'O indicador foi alterado por outra operação. Tente novamente.',
+      );
+    }
 
     await this.audit.registrarAcao({
       userId: autor.id,
-      acao: AcaoAuditoria.DESATIVAR,
+      acao: mudanca.acao,
       entidade: 'Indicador',
       entidadeId: id,
-      dadosAntigos: { status: indicador.status },
-      dadosNovos: { status: StatusRegistro.INATIVO },
+      dadosAntigos: {
+        nome: atual.nome,
+        status: atual.status,
+      },
+      dadosNovos: {
+        nome: atual.nome,
+        status: mudanca.status,
+      },
       ip: autor.ip,
     });
 
-    return inativado;
+    return { message: mudanca.mensagem, status: mudanca.status };
   }
 
   // RF03: remove um indicador por vez (exclusão lógica), levando junto metas e registros

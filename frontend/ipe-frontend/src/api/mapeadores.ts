@@ -67,6 +67,7 @@ export interface UsuarioApi {
   id: string;
   nome: string;
   email: string;
+  fotoUrl?: string | null;
   perfil?: string | null;
   ativo?: boolean;
   nucleos?: { nucleo: NucleoApi }[];
@@ -78,8 +79,7 @@ export function usuarioDaApi(item: UsuarioApi): Usuario {
     nome: item.nome,
     email: item.email,
     senha: SENHA_OCULTA,
-    // Fotos enviadas ficam no backend e ainda não são servidas: usa a foto padrão
-    imagem: undefined,
+    imagem: item.fotoUrl ? urlDoArquivo(item.fotoUrl) : undefined,
     tipo: tipoDoPerfil(item.perfil),
     nucleos: (item.nucleos ?? []).map((v) => nucleoDaApi(v.nucleo)),
     status: item.ativo === false ? 0 : 1,
