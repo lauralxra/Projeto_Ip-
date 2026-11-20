@@ -7,14 +7,16 @@ import { type Nucleo } from './dados/nucleos';
 import { type Usuario, TipoDeConta, UsuarioAtual } from './dados/usuarios';
 import { BtnCriar } from './BtnCriar';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
-import { apiFetch, mensagemDeErro, urlDoArquivo } from './api/cliente';
+import { apiFetch, mensagemDeErro } from './api/cliente';
 import {
   perfilDoTipo,
   SENHA_OCULTA,
   usuarioDaApi,
+  urlDaImagem,
   type UsuarioApi,
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
+import { enviarFotoUsuario, trocarPropriaSenha } from './api/usuarios';
 
 const mesmosNucleos = (a: Nucleo[], b: Nucleo[]) =>
   a.length === b.length && a.every((n) => b.some((m) => m.id === n.id));
@@ -173,7 +175,11 @@ function LinhaUsuarioCadastrado({
                 <img
                   alt=""
                   className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-                  src={usuario.imagem || Imagens.DefaultPFP}
+                  src={
+                    usuario.imagem
+                      ? urlDaImagem(usuario.imagem)
+                      : Imagens.DefaultPFP
+                  }
                 />
               </div>
             </div>
@@ -301,7 +307,14 @@ export default function TelaUsuarios() {
     setModalEdicao(true);
   };
 
-  const criarUsuario = async (dados: Usuario) => {
+  // Status da tela (1 = Ativo, 0 = Inativo) -> PATCH /users/:id/status
+  const aplicarStatus = (id: string, status: number) =>
+    apiFetch(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ativo: status === 1 }),
+    });
+
+  const criarUsuario = async (dados: Usuario, arquivoImagem: File | null) => {
     const criado = await apiFetch<{ id: string }>('/users', {
       method: 'POST',
       body: JSON.stringify({
@@ -319,39 +332,40 @@ export default function TelaUsuarios() {
         body: JSON.stringify({ nucleoIds: dados.nucleos.map((n) => n.id) }),
       });
     }
+    // Usuários cadastrados pela Administração já nascem ativos
+    if (dados.status !== 1) await aplicarStatus(criado.id, dados.status);
+    if (arquivoImagem) await enviarFotoUsuario(criado.id, arquivoImagem);
   };
 
   // Envia só o que mudou; cada campo tem seu endpoint
   const editarUsuario = async (
     dados: Usuario,
     original: Usuario,
-    arquivoImagem?: File | null,
+    arquivoImagem: File | null,
   ) => {
-    const avisos: string[] = [];
+    const proprio = dados.id === UsuarioAtual.id;
 
-    if (dados.nome !== original.nome) {
+    // Nome e e-mail: a Administração edita qualquer usuário
+    const alteracoes: Record<string, string> = {};
+    if (dados.nome !== original.nome) alteracoes.name = dados.nome;
+    if (dados.email !== original.email) alteracoes.email = dados.email;
+    if (Object.keys(alteracoes).length > 0) {
       await apiFetch(`/users/${dados.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: dados.nome }),
+        body: JSON.stringify(alteracoes),
       });
-      if (dados.id === UsuarioAtual.id) {
-        UsuarioAtual.nome = dados.nome;
-        atualizarUsuarioSessao({ nome: dados.nome });
+      if (proprio) {
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
         window.dispatchEvent(new Event('usuario-atualizado'));
       }
     }
 
-    if (dados.email !== original.email) {
-      await apiFetch(`/users/${dados.id}/email`, {
-        method: 'PATCH',
-        body: JSON.stringify({ email: dados.email }),
-      });
-      if (dados.id === UsuarioAtual.id) {
-        UsuarioAtual.email = dados.email;
-        atualizarUsuarioSessao({ email: dados.email });
-      }
-    }
-
+    // Tipo de conta e núcleos antes do status: ativar exige tipo de conta
     const tipoMudou = dados.tipo !== original.tipo;
     const nucleosMudaram = !mesmosNucleos(dados.nucleos, original.nucleos);
     if (tipoMudou || nucleosMudaram) {
@@ -365,42 +379,35 @@ export default function TelaUsuarios() {
     }
 
     if (dados.status !== original.status) {
-      await apiFetch(`/users/${dados.id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ ativo: dados.status === 1 }),
-      });
+      await aplicarStatus(dados.id, dados.status);
     }
 
-    if (arquivoImagem) {
-      if (dados.id === UsuarioAtual.id) {
-        const formulario = new FormData();
-        formulario.append('photo', arquivoImagem);
-        const resposta = await apiFetch<{ message: string; fotoUrl: string }>(
-          '/users/profile/photo',
-          {
-            method: 'PATCH',
-            body: formulario,
-          },
-        );
-        UsuarioAtual.imagem = urlDoArquivo(resposta.fotoUrl);
-        atualizarUsuarioSessao({ fotoUrl: resposta.fotoUrl });
-        window.dispatchEvent(new Event('usuario-atualizado'));
+    // Senha: a Administração redefine a de outro usuário; a própria exige a senha atual
+    if (dados.senha !== SENHA_OCULTA) {
+      if (proprio) {
+        await trocarPropriaSenha(dados.senha);
       } else {
-        avisos.push('foto');
+        await apiFetch(`/users/${dados.id}/password`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            newPassword: dados.senha,
+            confirmNewPassword: dados.senha,
+          }),
+        });
       }
     }
 
-    if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
-    if (avisos.length > 0) {
-      alert(
-        `Ainda não há endpoint para alterar ${avisos.join(', ')} de um usuário; esses campos não foram salvos.`,
-      );
+    if (arquivoImagem) {
+      await enviarFotoUsuario(dados.id, arquivoImagem);
+      if (proprio) {
+        window.dispatchEvent(new Event('usuario-atualizado'));
+      }
     }
   };
 
   const handleSalvarUsuario = async (
     dadosUsuario: Usuario,
-    arquivoImagem?: File | null,
+    arquivoImagem: File | null,
   ) => {
     const original = usuarios.find((u) => u.id === dadosUsuario.id);
 
@@ -409,7 +416,7 @@ export default function TelaUsuarios() {
         await editarUsuario(dadosUsuario, original, arquivoImagem);
         setModalEdicao(false);
       } else {
-        await criarUsuario(dadosUsuario);
+        await criarUsuario(dadosUsuario, arquivoImagem);
         setModalCriacao(false);
       }
       setUserSelecionado(undefined);

@@ -21,24 +21,70 @@ import {
 } from './dados/usuarios';
 import 'react-datepicker/dist/react-datepicker.css';
 
+type StatusApi = 'ATIVO' | 'INATIVO' | 'ARQUIVADO';
+
 interface ProgramaApi {
   id: string;
   nome: string;
   descricao?: string | null;
+  status: StatusApi;
   createdAt: string;
   nucleo?: NucleoApi | null;
+  // AAAA-MM-DD (devolvido como ISO à meia-noite UTC)
+  dataInicio?: string | null;
   responsavelId?: string | null;
-  responsavel?: {
-    id: string;
-    nome: string;
-    email: string;
-  } | null;
+  responsavel?: { id: string; nome: string; email?: string } | null;
+  participantes?: { user: { id: string; nome: string; email?: string } }[];
 }
+
+const STATUS_DA_TELA: Record<StatusApi, string> = {
+  ATIVO: 'Ativo',
+  INATIVO: 'Inativo',
+  ARQUIVADO: 'Arquivado',
+};
 
 // Programas sem núcleo são institucionais: o card usa a identidade do IPÊ
 const NUCLEO_INSTITUCIONAL: Nucleo =
   NucleosCadastrados.find((n) => n.sigla === 'IPÊ') ?? NucleosCadastrados[0];
 
+// A data de início é só um dia: monta no horário local para não "voltar"
+// um dia no fuso do Brasil, e envia no formato AAAA-MM-DD
+const dataLocal = (iso: string) => {
+  const [ano, mes, dia] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+};
+const paraAAAAMMDD = (data: Date) =>
+  `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+
+// Responsável e participantes vêm só com id e nome; o formulário usa o id
+const usuarioResumido = (u: { id: string; nome: string }): Usuario => ({
+  id: u.id,
+  nome: u.nome,
+  email: '',
+  senha: '',
+  tipo: 'EC',
+  nucleos: [],
+  status: 1,
+});
+
+const programaDaApi = (item: ProgramaApi): Programa => ({
+  id: item.id,
+  nome: item.nome,
+  descricao: item.descricao ?? '',
+  nucleo: item.nucleo ? nucleoDaApi(item.nucleo) : undefined,
+  // Sem data de início cadastrada, mostra a data de cadastro
+  dataDeInicio: item.dataInicio
+    ? dataLocal(item.dataInicio)
+    : new Date(item.createdAt),
+  status: STATUS_DA_TELA[item.status] ?? 'Ativo',
+  responsavel: item.responsavel ? usuarioResumido(item.responsavel) : undefined,
+  participantes: (item.participantes ?? []).map((p) => usuarioResumido(p.user)),
+});
+
+const idsDosParticipantes = (programa: Programa) =>
+  programa.participantes.map((u) => u.id);
+const mesmosIds = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 function ProgramaObj({
   programaEmSi,
   editFunc,
@@ -177,54 +223,37 @@ export default function TelaProgramas() {
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Usuario[]>([]);
 
+  // O administrador vê também programas inativos e arquivados, para poder reativá-los;
+  // os demais perfis recebem só os ativos
+  const carregarProgramas = async () => {
+    try {
+      const status: StatusApi[] =
+        UsuarioAtual.tipo === 'ADM'
+          ? ['ATIVO', 'INATIVO', 'ARQUIVADO']
+          : ['ATIVO'];
+      const listas = await Promise.all(
+        status.map((s) => apiFetch<ProgramaApi[]>(`/programas?status=${s}`)),
+      );
+      setProgramas(
+        listas
+          .flat()
+          .map(programaDaApi)
+          .sort((a, b) => a.nome.localeCompare(b.nome)),
+      );
+    } catch (erro) {
+      console.error('Erro ao carregar programas:', erro);
+      alert('Não foi possível carregar os programas: ' + mensagemDeErro(erro));
+    }
+  };
+
   useEffect(() => {
-    const carregarProgramas = async () => {
-      try {
-        const dados = await apiFetch<ProgramaApi[]>('/programas');
-        setProgramas(
-          dados.map((item) => ({
-            id: item.id,
-            nome: item.nome,
-            descricao: item.descricao ?? '',
-            nucleo: item.nucleo ? nucleoDaApi(item.nucleo) : undefined,
-            // A API não tem data de início: usa a data de cadastro
-            dataDeInicio: new Date(item.createdAt),
-            // GET /programas só devolve programas ativos
-            status: 'Ativo',
-            responsavel: item.responsavel
-              ? {
-                  id: item.responsavel.id,
-                  nome: item.responsavel.nome,
-                  email: item.responsavel.email,
-                  senha: '',
-                  tipo: 'EC',
-                  nucleos: [],
-                  status: 1,
-                }
-              : undefined,
-            participantes: [],
-          })),
-        );
-      } catch (erro) {
-        console.error('Erro ao carregar programas:', erro);
-        alert(
-          'Não foi possível carregar os programas: ' + mensagemDeErro(erro),
-        );
-      }
-    };
-
-    const carregarUsuarios = async () => {
-      if (UsuarioAtual.tipo !== 'ADM') return;
-      try {
-        const dados = await apiFetch<UsuarioApi[]>('/users');
-        setUsuariosDisponiveis(dados.map(usuarioDaApi));
-      } catch (err) {
-        console.error('Erro ao carregar usuários:', err);
-      }
-    };
-
     carregarProgramas();
-    carregarUsuarios();
+
+    if (UsuarioAtual.tipo === 'ADM') {
+      apiFetch<UsuarioApi[]>('/users')
+        .then((dados) => setUsuariosDisponiveis(dados.map(usuarioDaApi)))
+        .catch((erro) => console.error('Erro ao carregar usuários:', erro));
+    }
   }, []);
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
@@ -273,89 +302,72 @@ export default function TelaProgramas() {
     setModalEdicao(true);
   };
 
+  // Status escolhido no formulário -> rota da API (Arquivado só muda pela API)
+  const aplicarStatus = async (id: string, de: string, para: string) => {
+    if (de === para || para === 'Arquivado') return;
+    await apiFetch(
+      `/programas/${id}/${para === 'Inativo' ? 'desativar' : 'reativar'}`,
+      { method: 'PATCH' },
+    );
+  };
+
   const handleSalvarPrograma = async (dadosProgram: Programa) => {
-    const existe = programas.some((u) => u.id === dadosProgram.id);
+    const original = programas.find((u) => u.id === dadosProgram.id);
+    const descricao = dadosProgram.descricao.trim();
 
     try {
-      if (existe) {
-        const atualizado = await apiFetch<ProgramaApi>(
-          `/programas/${dadosProgram.id}`,
-          {
-            method: 'PATCH',
-            body: JSON.stringify({
-              nome: dadosProgram.nome,
-              descricao: dadosProgram.descricao || undefined,
-              nucleoId: dadosProgram.nucleo?.id || null,
-              responsavelId: dadosProgram.responsavel?.id || null,
-            }),
-          },
-        );
+      if (original) {
+        // Envia só o que mudou: a API recusa uma edição sem alterações
+        const alteracoes: Record<string, unknown> = {};
+        if (dadosProgram.nome !== original.nome)
+          alteracoes.nome = dadosProgram.nome;
+        if (descricao !== original.descricao) alteracoes.descricao = descricao;
+        if (dadosProgram.nucleo?.id !== original.nucleo?.id)
+          alteracoes.nucleoId = dadosProgram.nucleo?.id ?? null;
+        if (dadosProgram.responsavel?.id !== original.responsavel?.id)
+          alteracoes.responsavelId = dadosProgram.responsavel?.id ?? null;
+        if (
+          paraAAAAMMDD(dadosProgram.dataDeInicio) !==
+          paraAAAAMMDD(original.dataDeInicio)
+        )
+          alteracoes.dataInicio = paraAAAAMMDD(dadosProgram.dataDeInicio);
+        if (
+          !mesmosIds(
+            idsDosParticipantes(dadosProgram),
+            idsDosParticipantes(original),
+          )
+        )
+          alteracoes.participanteIds = idsDosParticipantes(dadosProgram);
 
-        setProgramas((prev) =>
-          prev.map((u) =>
-            u.id === dadosProgram.id
-              ? {
-                  ...dadosProgram,
-                  nome: atualizado.nome,
-                  descricao: atualizado.descricao ?? '',
-                  nucleo: atualizado.nucleo
-                    ? nucleoDaApi(atualizado.nucleo)
-                    : undefined,
-                  responsavel: atualizado.responsavel
-                    ? {
-                        id: atualizado.responsavel.id,
-                        nome: atualizado.responsavel.nome,
-                        email: atualizado.responsavel.email,
-                        senha: '',
-                        tipo: 'EC',
-                        nucleos: [],
-                        status: 1,
-                      }
-                    : undefined,
-                }
-              : u,
-          ),
-        );
+        if (Object.keys(alteracoes).length > 0) {
+          await apiFetch(`/programas/${original.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(alteracoes),
+          });
+        }
+        await aplicarStatus(original.id, original.status, dadosProgram.status);
         setModalEdicao(false);
       } else {
-        const criado = await apiFetch<ProgramaApi>('/programas', {
+        const criado = await apiFetch<{ id: string }>('/programas', {
           method: 'POST',
           body: JSON.stringify({
             nome: dadosProgram.nome,
-            descricao: dadosProgram.descricao || undefined,
-            nucleoId: dadosProgram.nucleo?.id || undefined,
-            responsavelId: dadosProgram.responsavel?.id || undefined,
+            descricao: descricao || undefined,
+            nucleoId: dadosProgram.nucleo?.id,
+            responsavelId: dadosProgram.responsavel?.id,
+            dataInicio: paraAAAAMMDD(dadosProgram.dataDeInicio),
+            participanteIds: idsDosParticipantes(dadosProgram),
           }),
         });
-
-        const novoPrograma: Programa = {
-          id: criado.id,
-          nome: criado.nome,
-          descricao: criado.descricao ?? '',
-          nucleo: criado.nucleo ? nucleoDaApi(criado.nucleo) : undefined,
-          responsavel: criado.responsavel
-            ? {
-                id: criado.responsavel.id,
-                nome: criado.responsavel.nome,
-                email: criado.responsavel.email,
-                senha: '',
-                tipo: 'EC',
-                nucleos: [],
-                status: 1,
-              }
-            : undefined,
-          dataDeInicio: new Date(criado.createdAt),
-          status: 'Ativo',
-          participantes: [],
-        };
-
-        setProgramas((prev) => [...prev, novoPrograma]);
+        await aplicarStatus(criado.id, 'Ativo', dadosProgram.status);
         setModalCriacao(false);
       }
+
       setProgramaSelecionado(undefined);
     } catch (erro) {
-      console.error('Erro ao salvar programa:', erro);
-      alert(erro instanceof Error ? erro.message : 'Erro ao salvar programa.');
+      alert('Não foi possível salvar o programa: ' + mensagemDeErro(erro));
+    } finally {
+      await carregarProgramas();
     }
   };
 
@@ -372,14 +384,11 @@ export default function TelaProgramas() {
       await apiFetch(`/programas/${programaSelecionado.id}`, {
         method: 'DELETE',
       });
-      setProgramas((prev) =>
-        prev.filter((n) => n.id !== programaSelecionado.id),
-      );
       setModalDeletarAberto(false);
-      setProgramaSelecionado(undefined);
+      await carregarProgramas();
     } catch (erro) {
-      console.error('Erro ao excluir programa:', erro);
-      alert(erro instanceof Error ? erro.message : 'Erro ao excluir programa.');
+      // Ex.: 409 quando o programa tem indicadores ou ações vinculados
+      alert('Não foi possível excluir o programa: ' + mensagemDeErro(erro));
     }
   };
 
@@ -469,7 +478,7 @@ export default function TelaProgramas() {
             dataDeInicio={new Date()}
             responsavel={undefined}
             participantes={[]}
-            usuariosDisponiveis={usuariosDisponiveis}
+            usuarios={usuariosDisponiveis}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalCriacao(false)}
           />
@@ -488,7 +497,7 @@ export default function TelaProgramas() {
             dataDeInicio={programaSelecionado.dataDeInicio}
             responsavel={programaSelecionado.responsavel}
             participantes={programaSelecionado.participantes}
-            usuariosDisponiveis={usuariosDisponiveis}
+            usuarios={usuariosDisponiveis}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalEdicao(false)}
           />
@@ -543,7 +552,8 @@ type programItems = {
   status: string;
   responsavel?: Usuario;
   participantes: Usuario[];
-  usuariosDisponiveis?: Usuario[];
+  // Usuários reais (GET /users) para responsável e participantes
+  usuarios: Usuario[];
   onSubmit: (programa: Programa) => void;
   onClose: () => void;
 };
@@ -558,14 +568,12 @@ function EditProgramaPopup({
   status,
   responsavel,
   participantes,
-  usuariosDisponiveis = [],
+  usuarios,
   onSubmit,
   onClose,
 }: programItems) {
   const listaUsuarios =
-    usuariosDisponiveis && usuariosDisponiveis.length > 0
-      ? usuariosDisponiveis
-      : UsuariosCadastrados;
+    usuarios && usuarios.length > 0 ? usuarios : UsuariosCadastrados;
   const [formNome, setFormNome] = useState(nome || '');
   const [formNucleo, setFormNucleo] = useState<Nucleo | undefined>(nucleo);
   const [formDescricao, setFormDescricao] = useState(descricao || '');
@@ -721,7 +729,7 @@ function EditProgramaPopup({
               value={formResponsavel?.id || ''}
               onChange={(e) => {
                 const u = listaUsuarios.find(
-                  (item) => item.id === e.target.value,
+                  (item: Usuario) => item.id === e.target.value,
                 );
                 setFormResponsavel(u);
               }}
@@ -731,7 +739,7 @@ function EditProgramaPopup({
               <option value="" disabled>
                 Selecione um responsável...
               </option>
-              {listaUsuarios.map((u) => (
+              {listaUsuarios.map((u: Usuario) => (
                 <option key={u.id} value={u.id}>
                   {u.nome} {u.email ? `(${u.email})` : ''}
                 </option>
@@ -749,8 +757,11 @@ function EditProgramaPopup({
             onChange={(e) => {
               const id = e.target.value;
               if (!id) return;
-              const usuario = listaUsuarios.find((u) => u.id === id);
-              if (usuario && !formParticipantes.some((u) => u.id === id)) {
+              const usuario = listaUsuarios.find((u: Usuario) => u.id === id);
+              if (
+                usuario &&
+                !formParticipantes.some((u: Usuario) => u.id === id)
+              ) {
                 setFormParticipantes([...formParticipantes, usuario]);
               }
               e.target.value = '';
@@ -761,7 +772,7 @@ function EditProgramaPopup({
             <option value="" disabled>
               Adicionar participante...
             </option>
-            {listaUsuarios.map((u) => (
+            {listaUsuarios.map((u: Usuario) => (
               <option key={u.id} value={u.id}>
                 {u.nome} {u.email ? `(${u.email})` : ''}
               </option>

@@ -5,7 +5,8 @@ import { IsBoolean } from 'class-validator';
 export class UpdateUserStatusDto {
   @ApiProperty({
     example: true,
-    description: 'Define se o usuário está ativo (true) ou inativo (false)',
+    description:
+      'true libera o acesso (exige tipo de conta definido); false bloqueia o login',
   })
   @Transform(({ value }: { value: unknown }): boolean => {
     if (typeof value === 'boolean') return value;
@@ -21,8 +22,7 @@ export class UpdateUserStatusDto {
     return Boolean(value);
   })
   @IsBoolean({
-    message:
-      'O status deve ser um booleano (true para ativo, false para inativo).',
+    message: 'ativo deve ser true ou false.',
   })
   ativo!: boolean;
 }

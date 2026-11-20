@@ -3,8 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
-import { apiFetch, mensagemDeErro, urlDoArquivo } from './api/cliente';
-import { SENHA_OCULTA } from './api/mapeadores';
+import { apiFetch, mensagemDeErro } from './api/cliente';
+import { SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
+import {
+  enviarFotoUsuario,
+  pedirSenhaAtual,
+  trocarPropriaSenha,
+} from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 const svgPaths = Svg;
 
@@ -45,7 +50,11 @@ function Pic() {
         <img
           alt=""
           className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-          src={UsuarioAtual.imagem || Imagens.DefaultPFP}
+          src={
+            UsuarioAtual.imagem
+              ? urlDaImagem(UsuarioAtual.imagem)
+              : Imagens.DefaultPFP
+          }
         />
       </div>
     </div>
@@ -223,50 +232,44 @@ function OptExtras({
   };
 
   return (
-    <div
-      className="content-stretch flex flex-col gap-[20px] items-center justify-center relative shrink-0 w-auto"
-      data-name="optExtras"
-    >
+    <div className="flex flex-col items-center justify-between flex-1 w-full">
+      {/* Opções do usuário */}
+      <div className="flex flex-col items-center gap-8 w-full -translate-y-14">
+        {/* Gerenciar usuários */}
+        <a
+          href="/usuarios"
+          className="text-center font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
+          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+        >
+          {UsuarioAtual.tipo == 'ADM'
+            ? 'Gerenciar Usuários'
+            : 'Usuários Cadastrados'}
+        </a>
+
+        {/* Editar perfil */}
+        <a
+          onClick={() => abrirEditModal(leUser)}
+          className="text-center font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
+          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+        >
+          Editar perfil
+        </a>
+      </div>
+
+      {/* Botão de logout */}
       <a
-        onClick={() => {
-          abrirEditModal(leUser);
-        }}
-        className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] cursor-pointer font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap items-center justify-center"
-        style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-      >
-        {`Editar perfil`}
-      </a>
-      <a
-        href="/usuarios"
-        className="[text-underline-position:from-font] decoration-from-font decoration-solid font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] align-center min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] underline w-[min-content] whitespace-nowrap items-center justify-center"
-        style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-      >
-        {UsuarioAtual.tipo == 'ADM'
-          ? `Gerenciar Usuários`
-          : `Usuários Cadastrados`}
-      </a>
-      {/*<p className="[word-break:break-word] font-['Google_Sans_Flex:Bold',sans-serif] font-bold leading-[normal] min-w-full not-italic relative shrink-0 text-[#664666] text-[20px] w-[min-content]" style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}>
-        Acessibilidade
-      </p>*/}
-      <a
-        href="login"
+        href="/login"
         onClick={sair}
-        className="h-[34px] relative shrink-0 w-[35px]"
+        className="h-[34px] w-[35px] relative shrink-0 mt-auto mb-10"
         data-name="btnDeslogar"
       >
-        <div
-          className="absolute inset-[9.38%_6.25%_9.38%_9.38%]"
-          data-name="Vector"
-        >
+        <div className="absolute inset-[9.38%_6.25%_9.38%_9.38%]">
           <svg
             className="absolute block inset-0 size-full"
             fill="none"
-            height="27.625"
-            preserveAspectRatio="none"
             viewBox="0 0 29.5298 27.625"
-            width="29.5298"
           >
-            <path d={svgPaths.p23a46200} fill="#A13680" id="Vector" />
+            <path d={svgPaths.p23a46200} fill="#A13680" />
           </svg>
         </div>
       </a>
@@ -292,43 +295,45 @@ export function UserbarPopupUser({
     setModalEdicao(true);
   };
 
+  // Próprio perfil (qualquer tipo de conta): nome e e-mail em PATCH /users/profile,
+  // senha em PATCH /users/profile/password e foto em PATCH /users/profile/photo.
+  // E-mail e senha pedem a senha atual.
   const handleSalvarUsuario = async (
     dadosUsuario: Usuario,
-    arquivoImagem?: File | null,
+    arquivoImagem: File | null,
   ) => {
     try {
-      if (dadosUsuario.nome !== UsuarioAtual.nome) {
-        // PATCH /users/:id: hoje só o administrador pode alterar o próprio nome
-        await apiFetch(`/users/${UsuarioAtual.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ name: dadosUsuario.nome }),
-        });
-        UsuarioAtual.nome = dadosUsuario.nome;
-        atualizarUsuarioSessao({ nome: dadosUsuario.nome });
-      }
-
       if (arquivoImagem) {
-        const formulario = new FormData();
-        formulario.append('photo', arquivoImagem);
-        const resposta = await apiFetch<{ message: string; fotoUrl: string }>(
-          '/users/profile/photo',
-          {
-            method: 'PATCH',
-            body: formulario,
-          },
-        );
-        UsuarioAtual.imagem = urlDoArquivo(resposta.fotoUrl);
-        atualizarUsuarioSessao({ fotoUrl: resposta.fotoUrl });
+        await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
       }
 
-      const semEndpoint = [
-        dadosUsuario.email !== UsuarioAtual.email && 'e-mail',
-        dadosUsuario.senha !== SENHA_OCULTA && 'senha',
-      ].filter(Boolean);
-      if (semEndpoint.length > 0) {
-        alert(
-          `Ainda não é possível alterar ${semEndpoint.join(', ')} por esta tela; esses campos não foram salvos.`,
-        );
+      const alteracoes: Record<string, string> = {};
+      if (dadosUsuario.nome !== UsuarioAtual.nome)
+        alteracoes.name = dadosUsuario.nome;
+      if (dadosUsuario.email !== UsuarioAtual.email) {
+        const senhaAtual = pedirSenhaAtual('trocar o e-mail');
+        if (!senhaAtual) {
+          alert('E-mail não alterado: a senha atual não foi informada.');
+          return;
+        }
+        alteracoes.email = dadosUsuario.email;
+        alteracoes.currentPassword = senhaAtual;
+      }
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch('/users/profile', {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        });
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
+      }
+
+      if (dadosUsuario.senha !== SENHA_OCULTA) {
+        await trocarPropriaSenha(dadosUsuario.senha);
       }
 
       setUsuario({ ...UsuarioAtual });
@@ -337,6 +342,7 @@ export function UserbarPopupUser({
       setModalEdicao(false);
     } catch (erro) {
       alert('Não foi possível salvar o perfil: ' + mensagemDeErro(erro));
+      setUsuario({ ...UsuarioAtual });
     }
   };
 
@@ -355,7 +361,9 @@ export function UserbarPopupUser({
             <Seta />
           </button>
 
-          <UserInfo />
+          <div className="-translate-y-8">
+            <UserInfo />
+          </div>
           {/*<Fields />*/}
           <OptExtras leUser={SeuUsuario} abrirEditModal={abrirEditModal} />
         </div>

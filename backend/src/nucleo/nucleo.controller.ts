@@ -79,6 +79,7 @@ export class NucleoController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
+  @ApiBearerAuth('JWT-auth')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateNucleoDto: UpdateNucleoDto,

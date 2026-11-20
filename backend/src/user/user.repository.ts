@@ -36,10 +36,10 @@ export class UserRepository {
     });
   }
 
-  updateName(id: string, nome: string) {
+  updateDados(id: string, data: { nome?: string; email?: string }) {
     return this.prisma.user.updateMany({
       where: { id, deletedAt: null },
-      data: { nome },
+      data,
     });
   }
 
@@ -92,16 +92,24 @@ export class UserRepository {
   }
 
   // Exclusão lógica: preserva o histórico e a rastreabilidade (RN07)
-  // Exclusão lógica e remoção dos vínculos com núcleos na mesma transação: um
-  // usuário excluído não pode continuar impedindo a exclusão do núcleo.
-  // Devolve os núcleos desvinculados para a auditoria.
+  // Exclusão lógica e remoção dos vínculos (núcleos e programas) na mesma
+  // transação: um usuário excluído não pode continuar impedindo a exclusão do
+  // núcleo nem aparecer como responsável ou participante de programa.
+  // Devolve o que foi desvinculado, para a auditoria.
   softDelete(id: string) {
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.user.updateMany({
         where: { id, deletedAt: null },
         data: { deletedAt: new Date(), ativo: false },
       });
-      if (count === 0) return { count, nucleoIds: [] as string[] };
+      if (count === 0) {
+        return {
+          count,
+          nucleoIds: [] as string[],
+          programasParticipante: [] as string[],
+          programasResponsavel: [] as string[],
+        };
+      }
 
       const vinculos = await tx.userNucleo.findMany({
         where: { userId: id },
@@ -109,7 +117,27 @@ export class UserRepository {
       });
       await tx.userNucleo.deleteMany({ where: { userId: id } });
 
-      return { count, nucleoIds: vinculos.map((v) => v.nucleoId) };
+      // Também sai dos programas: deixa de ser participante e responsável
+      const participacoes = await tx.programaParticipante.findMany({
+        where: { userId: id },
+        select: { programaId: true },
+      });
+      await tx.programaParticipante.deleteMany({ where: { userId: id } });
+      const responsavelPor = await tx.programa.findMany({
+        where: { responsavelId: id },
+        select: { id: true },
+      });
+      await tx.programa.updateMany({
+        where: { responsavelId: id },
+        data: { responsavelId: null },
+      });
+
+      return {
+        count,
+        nucleoIds: vinculos.map((v) => v.nucleoId),
+        programasParticipante: participacoes.map((p) => p.programaId),
+        programasResponsavel: responsavelPor.map((p) => p.id),
+      };
     });
   }
 

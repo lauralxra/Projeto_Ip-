@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { type Nucleo } from './dados/nucleos';
 import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
+import { urlDaImagem } from './api/mapeadores';
 
 // Núcleos que o usuário logado enxerga (para o administrador, todos), vindos da API
 const nucleosDisponiveis = () => UsuarioAtual.nucleos;
@@ -132,7 +133,8 @@ type userItems = {
   tipo: string;
   nucleos?: Nucleo[];
   status: number;
-  onSubmit: (usuario: Usuario, arquivoImagem?: File | null) => void | Promise<void>;
+  // O arquivo da foto escolhida (se houver) vai junto, para quem salva poder enviá-lo à API
+  onSubmit: (usuario: Usuario, arquivoImagem: File | null) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -158,7 +160,7 @@ export function TelaUsuarioUserPopup({
   const [formStatus, setFormStatus] = useState<number>(status ?? 1);
 
   const [imagemPreview, setImagemPreview] = useState<string | null>(
-    imagem || null,
+    urlDaImagem(imagem) ?? null,
   );
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 

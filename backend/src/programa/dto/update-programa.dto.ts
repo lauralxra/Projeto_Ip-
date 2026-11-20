@@ -1,14 +1,19 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { aparar } from './create-programa.dto';
+import { aparar, MAX_PARTICIPANTES } from './create-programa.dto';
 
 // @IsOptional também aceita null: descricao e nucleoId podem ser limpos com null
 
@@ -40,12 +45,37 @@ export class UpdateProgramaDto {
   @IsUUID('4', { message: 'nucleoId deve ser um UUID válido.' })
   nucleoId?: string | null;
 
-  @ApiPropertyOptional({
-    nullable: true,
-    description:
-      'ID do usuário responsável pelo programa. null desvincula o responsável.',
-  })
+  @ApiPropertyOptional({ description: 'Usuário responsável pelo programa.' })
   @IsOptional()
   @IsUUID('4', { message: 'responsavelId deve ser um UUID válido.' })
   responsavelId?: string | null;
+
+  @ApiPropertyOptional({
+    example: '2026-03-01',
+    description: 'Data de início do programa (AAAA-MM-DD).',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dataInicio deve estar no formato AAAA-MM-DD.',
+  })
+  @IsISO8601({ strict: true }, { message: 'dataInicio não é uma data válida.' })
+  dataInicio?: string | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Substitui a lista de participantes; [] remove todos. null limpa responsável e data.',
+    maxItems: MAX_PARTICIPANTES,
+  })
+  @IsOptional()
+  @IsArray({ message: 'participanteIds deve ser uma lista.' })
+  @ArrayMaxSize(MAX_PARTICIPANTES, {
+    message: `Informe no máximo ${MAX_PARTICIPANTES} participantes.`,
+  })
+  @ArrayUnique({ message: 'participanteIds não pode ter IDs repetidos.' })
+  @IsUUID('4', {
+    each: true,
+    message: 'Cada participante deve ser um UUID válido.',
+  })
+  participanteIds?: string[];
 }

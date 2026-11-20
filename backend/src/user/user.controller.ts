@@ -15,10 +15,15 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { UserService } from './user.service';
-import { opcoesUploadImagem, urlDoUpload } from '../common/upload-imagem';
+import {
+  opcoesUploadImagem,
+  removerUpload,
+  urlDoUpload,
+} from '../common/upload-imagem';
+import { isUUID } from 'class-validator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
@@ -35,6 +40,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-auth')
@@ -82,6 +89,14 @@ export class UserController {
 
   @Patch('profile/photo')
   @UseGuards(JwtAuthGuard)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['photo'],
+      properties: { photo: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(FileInterceptor('photo', opcoesUploadImagem('photos')))
   updatePhoto(
     @UploadedFile() file: Express.Multer.File,
@@ -94,6 +109,34 @@ export class UserController {
 
     const fotoUrl = urlDoUpload('photos', file.filename);
     return this.userService.updatePhoto(req.user.id, fotoUrl, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  // Próprio perfil, para qualquer perfil de acesso. Trocar o e-mail exige a senha atual
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  updateProfile(
+    @Body() dto: UpdateProfileDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.atualizarPerfil(req.user.id, dto, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  @Patch('profile/password')
+  @UseGuards(JwtAuthGuard)
+  @ChangePasswordSwagger()
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.changePassword(req.user.id, dto, {
       id: req.user.id,
       ip,
     });
@@ -116,7 +159,8 @@ export class UserController {
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.userService.updateName(id, updateUserDto.name, {
+    // A Administração edita nome e e-mail de qualquer usuário
+    return this.userService.atualizarDados(id, updateUserDto, {
       id: req.user.id,
       ip,
     });
@@ -136,7 +180,6 @@ export class UserController {
       ip,
     });
   }
-
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
@@ -166,18 +209,54 @@ export class UserController {
       ip,
     });
   }
-  @Patch('profile/password')
-  @UseGuards(JwtAuthGuard)
-  @ChangePasswordSwagger()
-  changePassword(
-    @Body() dto: ChangePasswordDto,
+
+  @Patch(':id/password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResetPasswordDto,
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.userService.changePassword(req.user.id, dto, {
+    return this.userService.redefinirSenha(id, dto.newPassword, {
       id: req.user.id,
       ip,
     });
+  }
+
+  // Foto de outro usuário, enviada pela Administração (multipart, campo "photo")
+  @Patch(':id/photo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  @UseInterceptors(FileInterceptor('photo', opcoesUploadImagem('photos')))
+  async updateUserPhoto(
+    // O interceptor grava o arquivo antes dos pipes: o id é validado aqui
+    // para descartar o arquivo quando for inválido
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado.');
+    }
+
+    const fotoUrl = urlDoUpload('photos', file.filename);
+    if (!isUUID(id)) {
+      removerUpload(fotoUrl);
+      throw new BadRequestException('Identificador de usuário inválido.');
+    }
+
+    try {
+      return await this.userService.updatePhoto(id, fotoUrl, {
+        id: req.user.id,
+        ip,
+      });
+    } catch (error) {
+      removerUpload(fotoUrl);
+      throw error;
+    }
   }
 
   @Delete(':id')

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { Imagens } from './config/assets';
@@ -87,19 +87,42 @@ export default function TelaLogin() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[580px]">
-        <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight font-semibold tracking-tight">
+        <div className="lg:col-span-6 text-white space-y-6 px-4 md:px-8 lg:translate-y-8">
+          <h1 className="font-playfair text-6xl md:text-5xl lg:text-5xl font-bold leading-[0.98] tracking-[-0.03em]">
             Indicadores Institucionais <br className="hidden sm:inline" />
             em um só lugar
           </h1>
+
           <p className="text-white/90 text-sm md:text-base leading-relaxed max-w-lg font-light">
             Centralize metas, resultados e séries históricas dos núcleos de
             Inovação, Parcerias, Empreendedorismo e Internacionalização, com
             dashboards, filtros cruzados e rastreabilidade.
           </p>
           <div className="pt-12 sm:pt-24 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-white/80 font-medium">
-            <span>Instituto IPÊ</span> - <span>UFRPE</span> -{' '}
-            <span>Termos</span> - <span>Contate-nos</span>
+            <a
+              href="https://ipe.ufrpe.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              Instituto IPÊ
+            </a>
+            -
+            <a
+              href="https://www.ufrpe.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              UFRPE
+            </a>
+            -
+            <a
+              href="#contate-nos"
+              className="hover:text-white transition-colors"
+            >
+              Contate-nos
+            </a>
           </div>
         </div>
 
@@ -119,7 +142,7 @@ export default function TelaLogin() {
             <h2 className="text-2xl sm:text-3xl font-semibold text-slate-800 tracking-tight">
               Bem-vindo(a) de Volta!
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-6">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-4">
               Insira suas informações para logar na plataforma IPÊ - Indicadores
             </p>
 
@@ -172,18 +195,11 @@ export default function TelaLogin() {
 
               <div className="flex justify-between items-center text-xs pt-1">
                 <a
-                  href="#esqueci-senha"
+                  href="/recuperar-senha"
                   className="text-slate-500 hover:text-[#9d3878] font-medium transition-colors"
                 >
                   Esqueci minha senha
                 </a>
-
-                <Link
-                  to="/cadastro"
-                  className="text-[#9d3878] font-semibold hover:underline"
-                >
-                  Criar conta
-                </Link>
               </div>
 
               <button

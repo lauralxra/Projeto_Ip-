@@ -8,9 +8,10 @@ export interface UsuarioSessao {
   id: string;
   nome: string;
   email: string;
-  fotoUrl?: string | null;
   perfil: string;
   ativo?: boolean;
+  // Caminho da foto na API (/uploads/...), quando houver
+  fotoUrl?: string | null;
 }
 
 // Lê o "exp" do JWT só para decidir a navegação; quem valida o token de verdade é o backend
