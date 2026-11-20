@@ -862,9 +862,10 @@ export default function TelaProgramas({
 
             <div className="bg-[#f2eff4] border border-[#832b62]/20 rounded-2xl p-4 text-xs text-[#3b142f] leading-relaxed mb-6">
               O programa sairá da listagem de programas ativos e passará a
-              constar em <strong>Programas Arquivados</strong>. Os indicadores
-              vinculados permanecerão cadastrados no sistema, porém sem vínculo
-              ativo com este programa.
+              constar em <strong>Programas Arquivados</strong>. Ele não poderá
+              receber novos indicadores nem importações, mas os indicadores já
+              vinculados e o histórico continuam preservados. Você pode
+              reativá-lo depois.
             </div>
 
             <div className="flex items-center gap-3">

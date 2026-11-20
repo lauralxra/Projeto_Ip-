@@ -471,15 +471,12 @@ describe('ProgramaService', () => {
       );
     });
 
-    it('arquiva programa ativo e remove os vínculos dos indicadores mantendo-os cadastrados (CT-031.01)', async () => {
+    it('arquiva programa ativo mantendo o vínculo dos indicadores (CT-031.01)', async () => {
       prisma.programa.findFirst.mockResolvedValue(programaAtual);
-      prisma.indicador.updateMany.mockResolvedValue({ count: 2 });
 
       await expect(service.arquivar(PROGRAMA_ID, autor)).resolves.toEqual({
         message: 'Programa arquivado com sucesso.',
-        indicadoresDesvinculados: 2,
       });
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(argumento(prisma.programa.updateMany)).toEqual({
         where: {
           id: PROGRAMA_ID,
@@ -488,53 +485,35 @@ describe('ProgramaService', () => {
         },
         data: { status: StatusRegistro.ARQUIVADO },
       });
-      expect(argumento(prisma.indicador.updateMany)).toEqual({
-        where: { programaId: PROGRAMA_ID, deletedAt: null },
-        data: { programaId: null },
-      });
+      // O histórico por programa (Dashboard) depende do vínculo: não pode ser apagado
+      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
       expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({
           acao: AcaoAuditoria.ARQUIVAR,
           dadosAntigos: { status: StatusRegistro.ATIVO },
-          dadosNovos: {
-            status: StatusRegistro.ARQUIVADO,
-            indicadoresDesvinculados: 2,
-          },
+          dadosNovos: { status: StatusRegistro.ARQUIVADO },
         }),
       );
     });
 
-    it('arquiva programa sem indicadores vinculados normalmente (CT-031.05)', async () => {
-      prisma.programa.findFirst.mockResolvedValue(programaAtual);
-      prisma.indicador.updateMany.mockResolvedValue({ count: 0 });
+    it('reativar um programa arquivado não altera os vínculos dos indicadores', async () => {
+      prisma.programa.findFirst.mockResolvedValue({
+        ...programaAtual,
+        status: StatusRegistro.ARQUIVADO,
+      });
 
-      await expect(service.arquivar(PROGRAMA_ID, autor)).resolves.toEqual({
-        message: 'Programa arquivado com sucesso.',
-        indicadoresDesvinculados: 0,
-      });
-      expect(argumento(prisma.indicador.updateMany)).toEqual({
-        where: { programaId: PROGRAMA_ID, deletedAt: null },
-        data: { programaId: null },
-      });
-      expect(audit.registrarAcao).toHaveBeenCalledWith(
-        expect.objectContaining({
-          acao: AcaoAuditoria.ARQUIVAR,
-          dadosNovos: {
-            status: StatusRegistro.ARQUIVADO,
-            indicadoresDesvinculados: 0,
-          },
-        }),
-      );
+      await service.reativar(PROGRAMA_ID, autor);
+
+      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
     });
 
-    it('não audita nem desvincula indicadores quando outra requisição alterou o status antes', async () => {
+    it('não audita quando outra requisição alterou o status antes', async () => {
       prisma.programa.findFirst.mockResolvedValue(programaAtual);
       prisma.programa.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.arquivar(PROGRAMA_ID, autor)).rejects.toThrow(
         ConflictException,
       );
-      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
       expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
