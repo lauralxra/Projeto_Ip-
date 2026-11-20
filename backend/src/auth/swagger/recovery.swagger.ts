@@ -74,7 +74,7 @@ export function RecoveryResetSwagger() {
     ApiOperation({
       summary: 'Redefinir senha com o código de recuperação (UC02)',
       description:
-        'Valida o código e as regras da nova senha (RN05, RN06) e, numa única transação, troca a senha, consome o código e registra a auditoria (RN08).',
+        'Valida o código e as regras da nova senha (RN05, RN06) e, numa única transação, troca a senha, consome o código, desbloqueia a conta (zera as tentativas de login), encerra as sessões abertas e registra a auditoria (RN08).',
     }),
     ApiOkResponse({
       schema: { example: { message: 'Senha redefinida com sucesso.' } },

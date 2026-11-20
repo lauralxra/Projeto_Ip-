@@ -261,9 +261,16 @@ export class AuthService {
         throw new BadRequestException(CODIGO_INVALIDO);
       }
 
+      // Quem provou ser dono do e-mail volta a conseguir entrar (zera o bloqueio
+      // por senha errada) e todas as sessões abertas com a senha antiga caem
       const atualizado = await tx.user.update({
         where: { id: userId },
-        data: { senhaHash },
+        data: {
+          senhaHash,
+          tentativas: 0,
+          bloqueioAte: null,
+          sessoesInvalidadasEm: new Date(),
+        },
         select: { id: true, nome: true, email: true },
       });
 
