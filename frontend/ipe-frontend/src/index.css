@@ -10,8 +10,7 @@
   --color-ipe-card: #ffffff;
   --color-ipe-text-dark: #1e293b;
   --color-ipe-text-muted: #64748b;
-  --font-playfair: "Playfair Display", serif;
-   
+  --font-playfair: 'Playfair Display', serif;
 }
 
 body {

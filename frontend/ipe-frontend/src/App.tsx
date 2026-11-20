@@ -25,14 +25,8 @@ export default function App() {
 
         {UsuarioAtual ? '' : <Navigate to="/login" replace />}
 
-        <Route
-          path="/recuperar-senha"
-          element={<TelaRecuperarSenha />}
-        />
-        <Route
-          path="/redefinir-senha"
-          element={<TelaRedefinirSenha />}
-        />
+        <Route path="/recuperar-senha" element={<TelaRecuperarSenha />} />
+        <Route path="/redefinir-senha" element={<TelaRedefinirSenha />} />
 
         <Route path="/dashboard" element={<TelaDashboard />} />
         <Route path="/nucleos" element={<TelaNucleos />} />
