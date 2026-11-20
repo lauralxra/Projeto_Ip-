@@ -227,39 +227,37 @@ function OptExtras({
       <div className="w-full">
         {/* Menu */}
         <div className="flex flex-col gap-2">
-          {/* Usuários */}
-          <a href="/usuarios" className={`${itemMenu} text-[#664666]`}>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
-              <IconUsuarios />
-            </div>
+          {/* Gerenciar usuários (exclusivo do Administrador — UC07) */}
+          {UsuarioAtual.tipo === 'ADM' && (
+            <a href="/usuarios" className={`${itemMenu} text-[#664666]`}>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+                <IconUsuarios />
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold">
-                {UsuarioAtual.tipo === 'ADM'
-                  ? 'Gerenciar usuários'
-                  : 'Usuários cadastrados'}
-              </p>
-              <p className="mt-1 text-xs text-[#99919b]">
-                Visualizar usuários do sistema
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold">Gerenciar usuários</p>
+                <p className="mt-1 text-xs text-[#99919b]">
+                  Cadastrar e definir permissões de usuários
+                </p>
+              </div>
 
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="shrink-0 text-[#b7a8b8]"
-            >
-              <path
-                d="M9 18L15 12L9 6"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="shrink-0 text-[#b7a8b8]"
+              >
+                <path
+                  d="M9 18L15 12L9 6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+          )}
 
           {/* Editar perfil */}
           <button

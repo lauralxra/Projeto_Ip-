@@ -64,6 +64,12 @@ export class NucleoService {
   }
 
   async search(filtros: SearchNucleoDto, usuario: AuthenticatedUser) {
+    if (!usuario?.role) {
+      throw new ForbiddenException(
+        'Você não possui permissão para acessar núcleos.',
+      );
+    }
+
     const { termo, programaId, status, dataInicio, dataFim, ano, trimestre } =
       filtros;
     const { pagina, limite } = filtros;
@@ -128,6 +134,10 @@ export class NucleoService {
   }
 
   async findOne(id: string, usuario: AuthenticatedUser) {
+    if (!usuario?.role) {
+      throw new ForbiddenException('Você não possui acesso a este núcleo.');
+    }
+
     const nucleo = await this.nucleoRepository.findAtivoById(id);
     if (!nucleo) {
       throw new NotFoundException('Núcleo não encontrado.');
