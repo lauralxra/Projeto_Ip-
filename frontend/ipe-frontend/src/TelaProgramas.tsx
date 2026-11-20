@@ -3,6 +3,7 @@ import { MoreVertical, Search, Trash2 } from 'lucide-react';
 import { Svg } from './config/assets';
 import { type Programa } from './dados/programas';
 import { apiFetch, mensagemDeErro } from './api/cliente';
+import { carregarNucleosDoUsuario } from './api/usuarioAtual';
 import {
   nucleoDaApi,
   usuarioDaApi,
@@ -222,6 +223,9 @@ function ProgramaObj({
 export default function TelaProgramas() {
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Usuario[]>([]);
+  const [nucleosAtivos, setNucleosAtivos] = useState<Nucleo[]>(() =>
+    UsuarioAtual.nucleos.filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
+  );
 
   // O administrador vê também programas inativos e arquivados, para poder reativá-los;
   // os demais perfis recebem só os ativos
@@ -248,6 +252,17 @@ export default function TelaProgramas() {
 
   useEffect(() => {
     carregarProgramas();
+
+    // UC026 (RN02): sempre recarrega núcleos ATIVOS do banco para novos cadastros
+    carregarNucleosDoUsuario()
+      .then((itens) =>
+        setNucleosAtivos(
+          itens
+            .map(nucleoDaApi)
+            .filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
+        ),
+      )
+      .catch((erro) => console.error('Erro ao carregar núcleos ativos:', erro));
 
     if (UsuarioAtual.tipo === 'ADM') {
       apiFetch<UsuarioApi[]>('/users')
@@ -479,6 +494,7 @@ export default function TelaProgramas() {
             responsavel={undefined}
             participantes={[]}
             usuarios={usuariosDisponiveis}
+            nucleosDisponiveis={nucleosAtivos}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalCriacao(false)}
           />
@@ -498,6 +514,7 @@ export default function TelaProgramas() {
             responsavel={programaSelecionado.responsavel}
             participantes={programaSelecionado.participantes}
             usuarios={usuariosDisponiveis}
+            nucleosDisponiveis={nucleosAtivos}
             onSubmit={handleSalvarPrograma}
             onClose={() => setModalEdicao(false)}
           />
@@ -554,6 +571,8 @@ type programItems = {
   participantes: Usuario[];
   // Usuários reais (GET /users) para responsável e participantes
   usuarios: Usuario[];
+  // Apenas núcleos ativos (RN02 / UC026) para vinculação em novos programas
+  nucleosDisponiveis: Nucleo[];
   onSubmit: (programa: Programa) => void;
   onClose: () => void;
 };
@@ -569,11 +588,18 @@ function EditProgramaPopup({
   responsavel,
   participantes,
   usuarios,
+  nucleosDisponiveis,
   onSubmit,
   onClose,
 }: programItems) {
   const listaUsuarios =
     usuarios && usuarios.length > 0 ? usuarios : UsuariosCadastrados;
+  // Em edição, preserva o núcleo já vinculado mesmo se foi desativado depois;
+  // em novos cadastros, exibe estritamente núcleos ativos (CT-026.04)
+  const opcoesNucleo =
+    id && nucleo && !nucleosDisponiveis.some((n) => n.id === nucleo.id)
+      ? [...nucleosDisponiveis, nucleo]
+      : nucleosDisponiveis;
   const [formNome, setFormNome] = useState(nome || '');
   const [formNucleo, setFormNucleo] = useState<Nucleo | undefined>(nucleo);
   const [formDescricao, setFormDescricao] = useState(descricao || '');
@@ -699,7 +725,7 @@ function EditProgramaPopup({
             <select
               value={formNucleo?.id || ''}
               onChange={(e) => {
-                const n = UsuarioAtual.nucleos.find(
+                const n = opcoesNucleo.find(
                   (item) => item.id === e.target.value,
                 );
                 setFormNucleo(n);
@@ -710,7 +736,7 @@ function EditProgramaPopup({
               <option value="" disabled>
                 Selecione um núcleo...
               </option>
-              {UsuarioAtual.nucleos.map((n) => (
+              {opcoesNucleo.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.nome} ({n.sigla})
                 </option>

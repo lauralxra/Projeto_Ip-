@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, StatusAprovacao, StatusRegistro } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const nucleoSelect = {
@@ -160,5 +160,58 @@ export class NucleoRepository {
       data: { status: 'INATIVO' },
     });
     return count > 0;
+  }
+
+  // UC026 (RN03): reativa núcleo inativo ou arquivado sem perder histórico
+  async reactivate(id: string) {
+    const { count } = await this.prisma.nucleo.updateMany({
+      where: { id, deletedAt: null, status: { not: StatusRegistro.ATIVO } },
+      data: { status: StatusRegistro.ATIVO },
+    });
+    return count > 0;
+  }
+
+  // UC026 (RN04 / FE-026.01): identifica indicadores com medições em preenchimento ou em revisão
+  async contarPendencias(nucleoId: string) {
+    const statusPendentes: StatusAprovacao[] = [
+      StatusAprovacao.EM_PREENCHIMENTO,
+      StatusAprovacao.ENVIADO_REVISAO,
+    ];
+
+    const [totalIndicadoresPendentes, totalRegistrosPendentes] =
+      await this.prisma.$transaction([
+        this.prisma.indicador.count({
+          where: {
+            nucleoId,
+            deletedAt: null,
+            status: StatusRegistro.ATIVO,
+            registros: {
+              some: {
+                deletedAt: null,
+                status: StatusRegistro.ATIVO,
+                statusAprovacao: { in: statusPendentes },
+              },
+            },
+          },
+        }),
+        this.prisma.indicadorRegistro.count({
+          where: {
+            deletedAt: null,
+            status: StatusRegistro.ATIVO,
+            statusAprovacao: { in: statusPendentes },
+            indicador: {
+              nucleoId,
+              deletedAt: null,
+              status: StatusRegistro.ATIVO,
+            },
+          },
+        }),
+      ]);
+
+    return {
+      possuiPendencias: totalIndicadoresPendentes > 0,
+      totalIndicadoresPendentes,
+      totalRegistrosPendentes,
+    };
   }
 }
