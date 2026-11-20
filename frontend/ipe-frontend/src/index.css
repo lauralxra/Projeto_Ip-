@@ -1,5 +1,5 @@
-@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap');
+@import 'tailwindcss';
 
 @theme {
   --color-ipe-primary: #9d3878;
