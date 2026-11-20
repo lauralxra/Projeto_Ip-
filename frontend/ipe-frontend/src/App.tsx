@@ -1,6 +1,9 @@
 //import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import TelaLogin from './TelaLogin';
+import TelaRecuperarSenha from './TelaRecuperarSenha';
+import TelaRedefinirSenha from './TelaRedefinirSenha';
+//import TelaCadastro from './TelaCadastro';
 import TelaCadastro from './TelaCadastro';
 import TelaDashboard from './TelaDashboard';
 import TelaNucleos from './TelaNucleos';
@@ -20,15 +23,23 @@ export default function App() {
         <Route path="/login" element={<TelaLogin />} />
         <Route path="/cadastro" element={<TelaCadastro />} />
 
-        {/* Rotas internas: exigem sessão válida */}
-        <Route element={<RotaProtegida />}>
-          <Route path="/dashboard" element={<TelaDashboard />} />
-          <Route path="/nucleos" element={<TelaNucleos />} />
-          <Route path="/programas" element={<TelaProgramas />} />
-          <Route path="/indicadores" element={<TelaIndicadores />} />
-          <Route path="/historico" element={<TelaHistorico />} />
-          <Route path="/usuarios" element={<TelaUsuarios />} />
-        </Route>
+        {UsuarioAtual ? '' : <Navigate to="/login" replace />}
+
+        <Route
+          path="/recuperar-senha"
+          element={<TelaRecuperarSenha />}
+        />
+        <Route
+          path="/redefinir-senha"
+          element={<TelaRedefinirSenha />}
+        />
+
+        <Route path="/dashboard" element={<TelaDashboard />} />
+        <Route path="/nucleos" element={<TelaNucleos />} />
+        <Route path="/programas" element={<TelaProgramas />} />
+        <Route path="/indicadores" element={<TelaIndicadores />} />
+        <Route path="/historico" element={<TelaHistorico />} />
+        <Route path="/usuarios" element={<TelaUsuarios />} />
 
         {/* caso a URL não exista */}
         <Route path="*" element={<Navigate to="/login" replace />} />

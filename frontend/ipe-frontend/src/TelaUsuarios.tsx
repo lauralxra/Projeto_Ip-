@@ -10,13 +10,13 @@ import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { apiFetch, mensagemDeErro } from './api/cliente';
 import {
   perfilDoTipo,
-  fotoDaApi,
   SENHA_OCULTA,
   usuarioDaApi,
   urlDaImagem,
   type UsuarioApi,
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
+import { enviarFotoUsuario, trocarPropriaSenha } from './api/usuarios';
 
 const mesmosNucleos = (a: Nucleo[], b: Nucleo[]) =>
   a.length === b.length && a.every((n) => b.some((m) => m.id === n.id));
@@ -307,7 +307,14 @@ export default function TelaUsuarios() {
     setModalEdicao(true);
   };
 
-  const criarUsuario = async (dados: Usuario) => {
+  // Status da tela (1 = Ativo, 0 = Inativo) -> PATCH /users/:id/status
+  const aplicarStatus = (id: string, status: number) =>
+    apiFetch(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ativo: status === 1 }),
+    });
+
+  const criarUsuario = async (dados: Usuario, arquivoImagem: File | null) => {
     const criado = await apiFetch<{ id: string }>('/users', {
       method: 'POST',
       body: JSON.stringify({
@@ -325,6 +332,9 @@ export default function TelaUsuarios() {
         body: JSON.stringify({ nucleoIds: dados.nucleos.map((n) => n.id) }),
       });
     }
+    // Usuários cadastrados pela Administração já nascem ativos
+    if (dados.status !== 1) await aplicarStatus(criado.id, dados.status);
+    if (arquivoImagem) await enviarFotoUsuario(criado.id, arquivoImagem);
   };
 
   // Envia só o que mudou; cada campo tem seu endpoint
@@ -333,20 +343,28 @@ export default function TelaUsuarios() {
     original: Usuario,
     arquivoImagem: File | null,
   ) => {
-    const avisos: string[] = [];
+    const proprio = dados.id === UsuarioAtual.id;
 
-    if (dados.nome !== original.nome) {
-      // PATCH /users/:id só permite ao administrador alterar o próprio nome
+    // Nome e e-mail: a Administração edita qualquer usuário
+    const alteracoes: Record<string, string> = {};
+    if (dados.nome !== original.nome) alteracoes.name = dados.nome;
+    if (dados.email !== original.email) alteracoes.email = dados.email;
+    if (Object.keys(alteracoes).length > 0) {
       await apiFetch(`/users/${dados.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: dados.nome }),
+        body: JSON.stringify(alteracoes),
       });
-      if (dados.id === UsuarioAtual.id) {
-        UsuarioAtual.nome = dados.nome;
-        atualizarUsuarioSessao({ nome: dados.nome });
+      if (proprio) {
+        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
+        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        atualizarUsuarioSessao({
+          ...(alteracoes.name && { nome: alteracoes.name }),
+          ...(alteracoes.email && { email: alteracoes.email }),
+        });
       }
     }
 
+    // Tipo de conta e núcleos antes do status: ativar exige tipo de conta
     const tipoMudou = dados.tipo !== original.tipo;
     const nucleosMudaram = !mesmosNucleos(dados.nucleos, original.nucleos);
     if (tipoMudou || nucleosMudaram) {
@@ -359,27 +377,26 @@ export default function TelaUsuarios() {
       });
     }
 
-    if (dados.email !== original.email) avisos.push('e-mail');
-    if (dados.senha !== SENHA_OCULTA) avisos.push('senha');
-    if (dados.status !== original.status) avisos.push('status');
-    // A API só troca a foto do próprio usuário (PATCH /users/profile/photo)
-    if (arquivoImagem && dados.id === UsuarioAtual.id) {
-      const formulario = new FormData();
-      formulario.append('photo', arquivoImagem);
-      const { fotoUrl } = await apiFetch<{ fotoUrl: string }>(
-        '/users/profile/photo',
-        { method: 'PATCH', body: formulario },
-      );
-      UsuarioAtual.imagem = fotoDaApi(fotoUrl);
-      atualizarUsuarioSessao({ fotoUrl });
-    } else if (arquivoImagem) {
-      avisos.push('foto');
+    if (dados.status !== original.status) {
+      await aplicarStatus(dados.id, dados.status);
     }
-    if (avisos.length > 0) {
-      alert(
-        `Ainda não há endpoint para alterar ${avisos.join(', ')} de um usuário; esses campos não foram salvos.`,
-      );
+
+    // Senha: a Administração redefine a de outro usuário; a própria exige a senha atual
+    if (dados.senha !== SENHA_OCULTA) {
+      if (proprio) {
+        await trocarPropriaSenha(dados.senha);
+      } else {
+        await apiFetch(`/users/${dados.id}/password`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            newPassword: dados.senha,
+            confirmNewPassword: dados.senha,
+          }),
+        });
+      }
     }
+
+    if (arquivoImagem) await enviarFotoUsuario(dados.id, arquivoImagem);
   };
 
   const handleSalvarUsuario = async (
@@ -393,7 +410,7 @@ export default function TelaUsuarios() {
         await editarUsuario(dadosUsuario, original, arquivoImagem);
         setModalEdicao(false);
       } else {
-        await criarUsuario(dadosUsuario);
+        await criarUsuario(dadosUsuario, arquivoImagem);
         setModalCriacao(false);
       }
       setUserSelecionado(undefined);

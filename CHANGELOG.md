@@ -1,3 +1,30 @@
+# [1.1.0-dev.18](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.17...v1.1.0-dev.18) (2026-11-18)
+
+
+### Bug Fixes
+
+* **deploy:** add prod docker-compose, nginx config and fix upload swagger ([cea931f](https://github.com/lauralxra/Projeto_Ip-/commit/cea931f731da0ab003fbbb79bb811f5d148ce6a5))
+
+# [1.1.0-dev.17](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.16...v1.1.0-dev.17) (2026-11-18)
+
+
+### Features
+
+* **indicadores:** implement indicator edit ([0ae229b](https://github.com/lauralxra/Projeto_Ip-/commit/0ae229b87629bc817b124b9aa6515bf8d9141a06))
+* **nucleos:** implement nucleus edit ([5aac99e](https://github.com/lauralxra/Projeto_Ip-/commit/5aac99e2c7bc560d4326181ee5fdaabccd15752d))
+* **programas:** store responsible user, start date and participants ([268c269](https://github.com/lauralxra/Projeto_Ip-/commit/268c2694186989b57c7c0e4f93937c2584a57274))
+* **users:** edit email, status, password and photo of users and own profile ([bfb5f39](https://github.com/lauralxra/Projeto_Ip-/commit/bfb5f39cd40794ea4648f3274fc9d89d48404c4f))
+
+# [1.1.0-dev.16](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.15...v1.1.0-dev.16) (2026-11-18)
+
+
+### Features
+
+* **auth:** return the profile photo path on login ([fe6cd30](https://github.com/lauralxra/Projeto_Ip-/commit/fe6cd30edfde9090ef5c2a2ff31d6042d21d37bc))
+* **frontend:** create, edit, change status and delete programs through the api ([1fce10d](https://github.com/lauralxra/Projeto_Ip-/commit/1fce10de9831411ccba8c173d638d1fbffe399e5))
+* **frontend:** save indicator approval through the api ([7a8b713](https://github.com/lauralxra/Projeto_Ip-/commit/7a8b7135b407e599610c1615e687041cbfc1e903))
+* **frontend:** show user photos and upload the profile photo ([8e53764](https://github.com/lauralxra/Projeto_Ip-/commit/8e53764a10a11717113c55b4e3e98d928844ba00))
+
 # [1.1.0-dev.15](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.14...v1.1.0-dev.15) (2026-11-18)
 
 

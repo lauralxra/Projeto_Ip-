@@ -119,43 +119,32 @@ export default function TelaNucleos() {
     e.preventDefault();
     if (!nucleoSelecionado) return;
 
-    // A imagem tem endpoint próprio e é salva no banco
-    if (arquivoImagem) {
-      try {
-        await enviarImagem(nucleoSelecionado.id, arquivoImagem);
-      } catch (erro) {
-        alert('Não foi possível salvar a imagem: ' + mensagemDeErro(erro));
-        return;
+    // Nome, sigla e descrição (PATCH /nucleos/:id): envia só o que mudou
+    const alteracoes: Record<string, string> = {};
+    if (nomeForm.trim() !== nucleoSelecionado.nome)
+      alteracoes.nome = nomeForm.trim();
+    if (siglaForm.trim() !== nucleoSelecionado.sigla)
+      alteracoes.sigla = siglaForm.trim();
+    if (descricaoForm.trim() !== nucleoSelecionado.descricao)
+      alteracoes.descricao = descricaoForm.trim();
+
+    try {
+      if (Object.keys(alteracoes).length > 0) {
+        await apiFetch(`/nucleos/${nucleoSelecionado.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        });
       }
-    }
-
-    const textoMudou =
-      nomeForm !== nucleoSelecionado.nome ||
-      siglaForm !== nucleoSelecionado.sigla ||
-      descricaoForm !== nucleoSelecionado.descricao;
-
-    setNucleos(
-      nucleos.map((n) =>
-        n.id === nucleoSelecionado.id
-          ? {
-              ...n,
-              nome: nomeForm,
-              sigla: siglaForm,
-              descricao: descricaoForm,
-              logoTexto: siglaForm,
-              icone: imagemPreview || '',
-            }
-          : n,
-      ),
-    );
-    setModalEditarAberto(false);
-
-    // PATCH /nucleos/:id (nome, sigla, descrição) ainda é um esboço no backend
-    if (textoMudou) {
-      alert(
-        'Nome, sigla e descrição ainda não podem ser editados pela API: essas alterações valem só até recarregar a página.' +
-          (arquivoImagem ? ' A imagem foi salva.' : ''),
-      );
+      // A imagem tem endpoint próprio
+      if (arquivoImagem) {
+        await enviarImagem(nucleoSelecionado.id, arquivoImagem);
+      }
+      setModalEditarAberto(false);
+    } catch (erro) {
+      // Ex.: 409 quando nome ou sigla já pertencem a outro núcleo
+      alert('Não foi possível salvar o núcleo: ' + mensagemDeErro(erro));
+    } finally {
+      await carregarNucleos();
     }
   };
 
