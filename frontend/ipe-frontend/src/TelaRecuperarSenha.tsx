@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LockKeyhole } from 'lucide-react';
@@ -15,14 +14,16 @@ export default function TelaRecuperarSenha() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6">
-
       <div className="bg-white rounded-[32px] p-8 sm:p-10 md:p-12 shadow-2xl w-full max-w-md border border-white/20">
-
         {/* Ícone de cadeado */}
         <div className="flex justify-center mb-6">
-        <div className="w-16 h-16 rounded-full bg-[#fce8f3] flex items-center justify-center">
-            <LockKeyhole size={30} className="text-[#9d3878]" strokeWidth={1.8} />
-        </div>
+          <div className="w-16 h-16 rounded-full bg-[#fce8f3] flex items-center justify-center">
+            <LockKeyhole
+              size={30}
+              className="text-[#9d3878]"
+              strokeWidth={1.8}
+            />
+          </div>
         </div>
 
         {/* Título e descrição */}
@@ -31,13 +32,12 @@ export default function TelaRecuperarSenha() {
         </h2>
 
         <p className="text-xs sm:text-sm text-slate-500 mt-2 mb-6 leading-relaxed">
-          Não se preocupe! Informe seu e-mail cadastrado na plataforma
-          e enviaremos as instruções para redefinir sua senha.
+          Não se preocupe! Informe seu e-mail cadastrado na plataforma e
+          enviaremos as instruções para redefinir sua senha.
         </p>
 
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="space-y-5">
-
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               E-mail
@@ -59,7 +59,6 @@ export default function TelaRecuperarSenha() {
           >
             Enviar e-mail
           </button>
-
         </form>
 
         {/* Voltar ao login */}
@@ -71,7 +70,6 @@ export default function TelaRecuperarSenha() {
             Voltar para o login
           </Link>
         </div>
-
       </div>
     </div>
   );

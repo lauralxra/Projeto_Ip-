@@ -23,6 +23,8 @@ export default function App() {
         <Route path="/login" element={<TelaLogin />} />
         <Route path="/cadastro" element={<TelaCadastro />} />
 
+        {UsuarioAtual ? '' : <Navigate to="/login" replace />}
+
         <Route path="/recuperar-senha" element={<TelaRecuperarSenha />} />
         <Route path="/redefinir-senha" element={<TelaRedefinirSenha />} />
 

@@ -99,35 +99,31 @@ export default function TelaLogin() {
             dashboards, filtros cruzados e rastreabilidade.
           </p>
           <div className="pt-12 sm:pt-24 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-white/80 font-medium">
-              <a
-                href="https://ipe.ufrpe.br/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors"
-              >
-                Instituto IPÊ
-              </a>
-
-              -
-
-              <a
-                href="https://www.ufrpe.br/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors"
-              >
-                UFRPE
-              </a>
-
-              -
-
-              <a
-                href="#contate-nos"
-                className="hover:text-white transition-colors"
-              >
-                Contate-nos
-              </a>
-            </div>
+            <a
+              href="https://ipe.ufrpe.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              Instituto IPÊ
+            </a>
+            -
+            <a
+              href="https://www.ufrpe.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              UFRPE
+            </a>
+            -
+            <a
+              href="#contate-nos"
+              className="hover:text-white transition-colors"
+            >
+              Contate-nos
+            </a>
+          </div>
         </div>
 
         {/* Card de Login */}

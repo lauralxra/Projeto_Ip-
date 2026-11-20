@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { LockKeyhole } from 'lucide-react';
@@ -47,9 +46,7 @@ export default function TelaRedefinirSenha() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#d38caf] via-[#b66692] to-[#8d3d6e] flex items-center justify-center p-6">
-
       <div className="bg-white rounded-[32px] p-8 sm:p-10 md:p-12 shadow-2xl w-full max-w-md border border-white/20">
-
         {/* Ícone de cadeado */}
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 rounded-full bg-[#fce8f3] flex items-center justify-center">
@@ -68,13 +65,13 @@ export default function TelaRedefinirSenha() {
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-500 mt-2 mb-7 leading-relaxed">
-            Crie uma nova senha para sua conta e confirme-a para concluir a redefinição.
+            Crie uma nova senha para sua conta e confirme-a para concluir a
+            redefinição.
           </p>
         </div>
 
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="space-y-5">
-
           {/* Nova senha */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -124,9 +121,7 @@ export default function TelaRedefinirSenha() {
             <p
               role="status"
               className={`text-xs text-center font-medium ${
-                tipoMensagem === 'sucesso'
-                  ? 'text-green-600'
-                  : 'text-red-500'
+                tipoMensagem === 'sucesso' ? 'text-green-600' : 'text-red-500'
               }`}
             >
               {mensagem}
@@ -151,7 +146,6 @@ export default function TelaRedefinirSenha() {
             Voltar para o login
           </Link>
         </div>
-
       </div>
     </div>
   );

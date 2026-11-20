@@ -210,7 +210,6 @@ export function Fields() {
   );
 }
 
-
 function OptExtras({
   leUser,
   abrirEditModal,
@@ -234,10 +233,8 @@ function OptExtras({
 
   return (
     <div className="flex flex-col items-center justify-between flex-1 w-full">
-
       {/* Opções do usuário */}
       <div className="flex flex-col items-center gap-8 w-full -translate-y-14">
-
         {/* Gerenciar usuários */}
         <a
           href="/usuarios"
@@ -257,7 +254,6 @@ function OptExtras({
         >
           Editar perfil
         </a>
-
       </div>
 
       {/* Botão de logout */}
@@ -277,11 +273,9 @@ function OptExtras({
           </svg>
         </div>
       </a>
-
     </div>
   );
 }
-
 
 export function UserbarPopupUser({
   onClose,
@@ -363,7 +357,7 @@ export function UserbarPopupUser({
             <Seta />
           </button>
 
-         <div className="-translate-y-8">
+          <div className="-translate-y-8">
             <UserInfo />
           </div>
           {/*<Fields />*/}
