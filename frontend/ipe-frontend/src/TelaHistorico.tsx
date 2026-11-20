@@ -136,6 +136,18 @@ function formatarTituloAcao(acao: string, entidade: string) {
 }
 
 function formatarDescricao(log: AuditLogItem) {
+  const antigos = (log.dadosAntigos || {}) as Record<string, unknown>;
+  const novos = (log.dadosNovos || {}) as Record<string, unknown>;
+
+  if (
+    log.entidade === 'User' &&
+    typeof antigos.nome === 'string' &&
+    typeof novos.nome === 'string' &&
+    antigos.nome !== novos.nome
+  ) {
+    return `Usuário: "${antigos.nome}" → "${novos.nome}"`;
+  }
+
   const dados = (log.dadosNovos || log.dadosAntigos || {}) as Record<
     string,
     unknown
@@ -289,8 +301,14 @@ export default function TelaHistorico() {
 
     carregarDados();
 
+    const aoAtualizarUsuario = () => {
+      carregarDados();
+    };
+    window.addEventListener('usuario-atualizado', aoAtualizarUsuario);
+
     return () => {
       cancelado = true;
+      window.removeEventListener('usuario-atualizado', aoAtualizarUsuario);
     };
   }, []);
 

@@ -2,25 +2,38 @@ import {
   IsEmail,
   IsNotEmpty,
   IsString,
+  Matches,
   MinLength,
   MaxLength,
   IsByteLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  MENSAGEM_NOME_INVALIDO,
+  REGEX_NOME_USUARIO,
+  sanitizarNomeUsuario,
+  TAMANHO_MAX_NOME_USUARIO,
+  TAMANHO_MIN_NOME_USUARIO,
+} from '../../common/validators/nome-usuario.validator';
 
 export class RegisterDto {
   @ApiProperty({
     example: 'Maria da Silva',
     description: 'Nome completo do usuário para identificação institucional',
-    maxLength: 150,
+    minLength: TAMANHO_MIN_NOME_USUARIO,
+    maxLength: TAMANHO_MAX_NOME_USUARIO,
   })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @IsString()
+  @Transform(({ value }: { value: unknown }) => sanitizarNomeUsuario(value))
+  @IsString({ message: 'O nome deve ser um texto.' })
   @IsNotEmpty({ message: 'O nome não pode estar vazio.' })
-  @MaxLength(150)
+  @MinLength(TAMANHO_MIN_NOME_USUARIO, {
+    message: `O nome deve ter no mínimo ${TAMANHO_MIN_NOME_USUARIO} caracteres.`,
+  })
+  @MaxLength(TAMANHO_MAX_NOME_USUARIO, {
+    message: `O nome deve ter no máximo ${TAMANHO_MAX_NOME_USUARIO} caracteres.`,
+  })
+  @Matches(REGEX_NOME_USUARIO, { message: MENSAGEM_NOME_INVALIDO })
   name!: string;
 
   @ApiProperty({

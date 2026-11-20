@@ -18,6 +18,10 @@ import {
   type UsuarioApi,
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
+import {
+  sanitizarNomeUsuario,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 import { enviarFotoUsuario, trocarPropriaSenha } from './api/usuarios';
 
 const mesmosNucleos = (a: Nucleo[], b: Nucleo[]) =>
@@ -253,6 +257,13 @@ export default function TelaUsuarios() {
 
   useEffect(() => {
     carregarUsuarios();
+    const aoAtualizarUsuario = () => {
+      carregarUsuarios();
+    };
+    window.addEventListener('usuario-atualizado', aoAtualizarUsuario);
+    return () => {
+      window.removeEventListener('usuario-atualizado', aoAtualizarUsuario);
+    };
   }, []);
 
   const [formNome, setFormNome] = useState('');
@@ -308,10 +319,14 @@ export default function TelaUsuarios() {
     });
 
   const criarUsuario = async (dados: Usuario, arquivoImagem: File | null) => {
+    const erroNome = validarNomeUsuario(dados.nome);
+    if (erroNome) throw new Error(erroNome);
+    const nomeSanitizado = sanitizarNomeUsuario(dados.nome);
+
     const criado = await apiFetch<{ id: string }>('/users', {
       method: 'POST',
       body: JSON.stringify({
-        name: dados.nome,
+        name: nomeSanitizado,
         email: dados.email,
         password: dados.senha,
         confirmPassword: dados.senha,
@@ -338,21 +353,30 @@ export default function TelaUsuarios() {
   ) => {
     const proprio = dados.id === UsuarioAtual.id;
 
+    const erroNome = validarNomeUsuario(dados.nome);
+    if (erroNome) throw new Error(erroNome);
+    const nomeSanitizado = sanitizarNomeUsuario(dados.nome);
+
     // Nome e e-mail: a Administração edita qualquer usuário
     const alteracoes: Record<string, string> = {};
-    if (dados.nome !== original.nome) alteracoes.name = dados.nome;
+    if (nomeSanitizado !== original.nome) alteracoes.name = nomeSanitizado;
     if (dados.email !== original.email) alteracoes.email = dados.email;
     if (Object.keys(alteracoes).length > 0) {
-      await apiFetch(`/users/${dados.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(alteracoes),
-      });
+      const atualizado = await apiFetch<{ nome?: string; email?: string }>(
+        `/users/${dados.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(alteracoes),
+        },
+      );
       if (proprio) {
-        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
-        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        const nomePersistido = atualizado?.nome ?? alteracoes.name;
+        const emailPersistido = atualizado?.email ?? alteracoes.email;
+        if (nomePersistido) UsuarioAtual.nome = nomePersistido;
+        if (emailPersistido) UsuarioAtual.email = emailPersistido;
         atualizarUsuarioSessao({
-          ...(alteracoes.name && { nome: alteracoes.name }),
-          ...(alteracoes.email && { email: alteracoes.email }),
+          ...(nomePersistido && { nome: nomePersistido }),
+          ...(emailPersistido && { email: emailPersistido }),
         });
         window.dispatchEvent(new Event('usuario-atualizado'));
       }

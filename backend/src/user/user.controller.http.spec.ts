@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   INestApplication,
   UnauthorizedException,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
@@ -175,5 +176,73 @@ describe('Rotas de /users', () => {
       .expect(403);
 
     expect(userService.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /users/profile (UC04 — validação HTTP de nome)', () => {
+  let app: INestApplication<App>;
+  let userService: { atualizarPerfil: jest.Mock };
+
+  beforeEach(async () => {
+    userService = {
+      atualizarPerfil: jest.fn().mockResolvedValue({
+        id: 'usuario-autenticado',
+        nome: 'Maria da Silva',
+      }),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UserController],
+      providers: [
+        { provide: UserService, useValue: userService },
+        { provide: NucleoService, useValue: {} },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useClass(FakeJwtGuard)
+      .compile();
+
+    app = module.createNestApplication({ logger: false });
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('rejeita com 400 scripts maliciosos e caracteres inválidos no nome', async () => {
+    await request(app.getHttpServer())
+      .patch('/users/profile')
+      .set('x-test-role', Role.DIRETORES_NUCLEOS)
+      .send({ name: '<script>alert("xss")</script>' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .patch('/users/profile')
+      .set('x-test-role', Role.DIRETORES_NUCLEOS)
+      .send({ name: 'Maria123!@#' })
+      .expect(400);
+
+    expect(userService.atualizarPerfil).not.toHaveBeenCalled();
+  });
+
+  it('sanitiza espaços excedentes e aceita nome válido', async () => {
+    await request(app.getHttpServer())
+      .patch('/users/profile')
+      .set('x-test-role', Role.DIRETORES_NUCLEOS)
+      .send({ name: '  Maria   da   Silva  ' })
+      .expect(200);
+
+    expect(userService.atualizarPerfil).toHaveBeenCalledWith(
+      'usuario-autenticado',
+      expect.objectContaining({ name: 'Maria da Silva' }),
+      expect.objectContaining({ id: 'usuario-autenticado' }),
+    );
   });
 });

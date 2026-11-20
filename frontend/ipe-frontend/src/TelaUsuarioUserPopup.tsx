@@ -3,6 +3,13 @@ import { Imagens, Svg } from './config/assets';
 import { type Nucleo } from './dados/nucleos';
 import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
 import { urlDaImagem } from './api/mapeadores';
+import {
+  contemCaracteresProibidosNome,
+  MENSAGEM_NOME_INVALIDO,
+  sanitizarNomeUsuario,
+  TAMANHO_MAX_NOME_USUARIO,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 
 // Núcleos que o usuário logado enxerga
 const nucleosDisponiveis = () => UsuarioAtual.nucleos;
@@ -175,6 +182,8 @@ export function TelaUsuarioUserPopup({
   onClose,
 }: userItems) {
   const [formNome, setFormNome] = useState(nome || '');
+  const [erroNome, setErroNome] = useState<string | null>(null);
+  const [tentouEnviar, setTentouEnviar] = useState(false);
   const [formMail, setFormMail] = useState(email || '');
   const [formSenha, setFormSenha] = useState(senha || '');
   const [formTipo, setFormTipo] = useState<string>(tipo || 'DN');
@@ -186,6 +195,21 @@ export function TelaUsuarioUserPopup({
   );
 
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
+
+  const handleAlterarNome = (novoValor: string) => {
+    setFormNome(novoValor);
+
+    if (contemCaracteresProibidosNome(novoValor)) {
+      setErroNome(MENSAGEM_NOME_INVALIDO);
+      return;
+    }
+
+    if (tentouEnviar) {
+      setErroNome(validarNomeUsuario(novoValor));
+    } else if (erroNome) {
+      setErroNome(null);
+    }
+  };
 
   const handleMudarImagem = (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
@@ -200,11 +224,22 @@ export function TelaUsuarioUserPopup({
 
   const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setTentouEnviar(true);
+
+    const erroValidacao = validarNomeUsuario(formNome);
+    if (erroValidacao) {
+      setErroNome(erroValidacao);
+      return;
+    }
+
+    const nomeSanitizado = sanitizarNomeUsuario(formNome);
+    setErroNome(null);
+    setFormNome(nomeSanitizado);
 
     onSubmit(
       {
         id: id || Date.now().toString(),
-        nome: formNome,
+        nome: nomeSanitizado,
         email: formMail,
         senha: formSenha,
         tipo: formTipo as TipoDeConta,
@@ -285,16 +320,38 @@ export function TelaUsuarioUserPopup({
           <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
             {/* Nome */}
             <div className="flex w-full min-w-0 flex-col gap-1.5">
-              <label className={estiloLabel}>Nome</label>
+              <label className={estiloLabel} htmlFor="campo-nome-usuario">
+                Nome
+              </label>
 
               <input
+                id="campo-nome-usuario"
                 type="text"
                 placeholder="Insira um nome..."
                 required
+                autoComplete="name"
+                maxLength={TAMANHO_MAX_NOME_USUARIO}
+                aria-invalid={Boolean(erroNome)}
+                aria-describedby={erroNome ? 'erro-nome-usuario' : undefined}
                 value={formNome}
-                onChange={(e) => setFormNome(e.target.value)}
-                className={estiloCampo}
+                onChange={(e) => handleAlterarNome(e.target.value)}
+                onBlur={() => {
+                  if (formNome) setErroNome(validarNomeUsuario(formNome));
+                }}
+                className={`${estiloCampo} ${
+                  erroNome ? 'ring-2 ring-[#7a1f2b] bg-[#f8d7da]/25' : ''
+                }`}
               />
+
+              {erroNome && (
+                <p
+                  id="erro-nome-usuario"
+                  role="alert"
+                  className="text-xs font-medium text-[#7a1f2b]"
+                >
+                  {erroNome}
+                </p>
+              )}
             </div>
 
             {/* E-mail */}

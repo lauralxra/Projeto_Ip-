@@ -12,6 +12,10 @@ import {
   trocarPropriaSenha,
 } from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
+import {
+  sanitizarNomeUsuario,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 
 const svgPaths = Svg;
 
@@ -346,10 +350,17 @@ export function UserbarPopupUser({
         await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
       }
 
+      const erroNome = validarNomeUsuario(dadosUsuario.nome);
+      if (erroNome) {
+        alert(erroNome);
+        return;
+      }
+
+      const nomeSanitizado = sanitizarNomeUsuario(dadosUsuario.nome);
       const alteracoes: Record<string, string> = {};
 
-      if (dadosUsuario.nome !== UsuarioAtual.nome) {
-        alteracoes.name = dadosUsuario.nome;
+      if (nomeSanitizado !== UsuarioAtual.nome) {
+        alteracoes.name = nomeSanitizado;
       }
 
       if (dadosUsuario.email !== UsuarioAtual.email) {
@@ -365,17 +376,23 @@ export function UserbarPopupUser({
       }
 
       if (Object.keys(alteracoes).length > 0) {
-        await apiFetch('/users/profile', {
-          method: 'PATCH',
-          body: JSON.stringify(alteracoes),
-        });
+        const atualizado = await apiFetch<{ nome?: string; email?: string }>(
+          '/users/profile',
+          {
+            method: 'PATCH',
+            body: JSON.stringify(alteracoes),
+          },
+        );
 
-        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
-        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        const nomePersistido = atualizado?.nome ?? alteracoes.name;
+        const emailPersistido = atualizado?.email ?? alteracoes.email;
+
+        if (nomePersistido) UsuarioAtual.nome = nomePersistido;
+        if (emailPersistido) UsuarioAtual.email = emailPersistido;
 
         atualizarUsuarioSessao({
-          ...(alteracoes.name && { nome: alteracoes.name }),
-          ...(alteracoes.email && { email: alteracoes.email }),
+          ...(nomePersistido && { nome: nomePersistido }),
+          ...(emailPersistido && { email: emailPersistido }),
         });
       }
 
