@@ -5,6 +5,7 @@ export interface Nucleo {
   nome: string;
   sigla: string;
   descricao: string;
+  status?: 'ATIVO' | 'INATIVO' | 'ARQUIVADO';
   corBg: string;
   corIcone: string;
   logoTexto?: string;

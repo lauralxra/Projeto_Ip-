@@ -53,6 +53,7 @@ type MudancaStatus = {
   status: StatusRegistro;
   acao: AcaoAuditoria;
   mensagem: string;
+  desvincularIndicadores?: boolean;
 };
 
 const DESATIVAR: MudancaStatus = {
@@ -64,6 +65,7 @@ const ARQUIVAR: MudancaStatus = {
   status: StatusRegistro.ARQUIVADO,
   acao: AcaoAuditoria.ARQUIVAR,
   mensagem: 'Programa arquivado com sucesso.',
+  desvincularIndicadores: true,
 };
 const REATIVAR: MudancaStatus = {
   status: StatusRegistro.ATIVO,
@@ -384,16 +386,41 @@ export class ProgramaService {
       );
     }
 
-    // Só altera se o status ainda for o lido acima: evita auditar duas vezes
-    // em requisições concorrentes
-    const { count } = await this.prisma.programa.updateMany({
-      where: { id, deletedAt: null, status: atual.status },
-      data: { status: mudanca.status },
-    });
-    if (count === 0) {
-      throw new ConflictException(
-        'O programa foi alterado por outra operação. Tente novamente.',
-      );
+    let indicadoresDesvinculados: number | undefined;
+
+    if (mudanca.desvincularIndicadores) {
+      // UC031 (CT-031.01 / CT-031.05): arquivar move o programa para ARQUIVADO
+      // e desfaz o vínculo dos indicadores associados, preservando os indicadores no sistema
+      indicadoresDesvinculados = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.programa.updateMany({
+          where: { id, deletedAt: null, status: atual.status },
+          data: { status: mudanca.status },
+        });
+        if (count === 0) {
+          throw new ConflictException(
+            'O programa foi alterado por outra operação. Tente novamente.',
+          );
+        }
+
+        const { count: desvinculados } = await tx.indicador.updateMany({
+          where: { programaId: id, deletedAt: null },
+          data: { programaId: null },
+        });
+
+        return desvinculados;
+      });
+    } else {
+      // Só altera se o status ainda for o lido acima: evita auditar duas vezes
+      // em requisições concorrentes
+      const { count } = await this.prisma.programa.updateMany({
+        where: { id, deletedAt: null, status: atual.status },
+        data: { status: mudanca.status },
+      });
+      if (count === 0) {
+        throw new ConflictException(
+          'O programa foi alterado por outra operação. Tente novamente.',
+        );
+      }
     }
 
     await this.audit.registrarAcao({
@@ -402,9 +429,16 @@ export class ProgramaService {
       entidade: 'Programa',
       entidadeId: id,
       dadosAntigos: { status: atual.status },
-      dadosNovos: { status: mudanca.status },
+      dadosNovos:
+        indicadoresDesvinculados === undefined
+          ? { status: mudanca.status }
+          : { status: mudanca.status, indicadoresDesvinculados },
       ip: autor.ip,
     });
+
+    if (indicadoresDesvinculados !== undefined) {
+      return { message: mudanca.mensagem, indicadoresDesvinculados };
+    }
 
     return { message: mudanca.mensagem };
   }

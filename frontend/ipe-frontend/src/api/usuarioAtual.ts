@@ -36,7 +36,10 @@ export function definirNucleosDoUsuario(nucleos: NucleoApi[]) {
   UsuarioAtual.nucleos = nucleos.map(nucleoDaApi);
 }
 
-// GET /nucleos devolve todos para ADM/EC e só os vinculados para DN/EG (RN02)
+// GET /nucleos devolve todos para ADM/EC e só os vinculados para DN/EG (RN02).
+// Inclui núcleos inativos/arquivados: a lista da sessão também alimenta Dashboard,
+// Histórico e a visibilidade de programas/indicadores, onde o histórico deve
+// continuar acessível (UC026). Seletores de novos cadastros filtram por status.
 export async function carregarNucleosDoUsuario() {
   const { itens } = await apiFetch<{ itens: NucleoApi[] }>(
     '/nucleos?limite=100',

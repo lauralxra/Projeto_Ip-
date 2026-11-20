@@ -36,6 +36,8 @@ describe('NucleoController (HTTP)', () => {
     create: jest.Mock;
     remove: jest.Mock;
     deactivate: jest.Mock;
+    reactivate: jest.Mock;
+    verificarPendencias: jest.Mock;
     search: jest.Mock;
     findOne: jest.Mock;
   };
@@ -46,6 +48,15 @@ describe('NucleoController (HTTP)', () => {
       create: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
       remove: jest.fn().mockResolvedValue(undefined),
       deactivate: jest.fn().mockResolvedValue(undefined),
+      reactivate: jest.fn().mockResolvedValue({
+        message: 'Núcleo reativado com sucesso.',
+        status: 'ATIVO',
+      }),
+      verificarPendencias: jest.fn().mockResolvedValue({
+        possuiPendencias: false,
+        totalIndicadoresPendentes: 0,
+        totalRegistrosPendentes: 0,
+      }),
       search: jest.fn().mockResolvedValue({ itens: [], total: 0 }),
       findOne: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
     };
@@ -251,6 +262,57 @@ describe('NucleoController (HTTP)', () => {
         .set('x-test-role', Role.ADMINISTRADOR)
         .expect(400);
       expect(nucleoService.deactivate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /nucleos/:id/pendencias e PATCH /nucleos/:id/reativar (UC026)', () => {
+    const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    it('ADMINISTRADOR consulta pendências e recebe 200', async () => {
+      await request(app.getHttpServer())
+        .get(`/nucleos/${id}/pendencias`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(200)
+        .expect({
+          possuiPendencias: false,
+          totalIndicadoresPendentes: 0,
+          totalRegistrosPendentes: 0,
+        });
+    });
+
+    it.each([
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])('perfil %s recebe 403 ao consultar pendências', async (role) => {
+      await request(app.getHttpServer())
+        .get(`/nucleos/${id}/pendencias`)
+        .set('x-test-role', role)
+        .expect(403);
+      expect(nucleoService.verificarPendencias).not.toHaveBeenCalled();
+    });
+
+    it('ADMINISTRADOR reativa o núcleo e recebe 200', async () => {
+      await request(app.getHttpServer())
+        .patch(`/nucleos/${id}/reativar`)
+        .set('x-test-role', Role.ADMINISTRADOR)
+        .expect(200);
+      expect(nucleoService.reactivate).toHaveBeenCalledWith(
+        id,
+        expect.objectContaining({ id: 'autor-uuid' }),
+      );
+    });
+
+    it.each([
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])('perfil %s recebe 403 ao reativar', async (role) => {
+      await request(app.getHttpServer())
+        .patch(`/nucleos/${id}/reativar`)
+        .set('x-test-role', role)
+        .expect(403);
+      expect(nucleoService.reactivate).not.toHaveBeenCalled();
     });
   });
 
