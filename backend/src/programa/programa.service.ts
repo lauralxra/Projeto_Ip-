@@ -21,6 +21,11 @@ const PERFIS_ACESSO_GLOBAL: Role[] = [
   Role.EQUIPE_COMUNICACAO,
 ];
 
+const ehSiglaInstitucional = (sigla?: string | null) => {
+  const normalizada = (sigla ?? '').trim().toUpperCase();
+  return normalizada === 'IPÊ' || normalizada === 'IPE';
+};
+
 const SELECT_PROGRAMA = {
   id: true,
   nome: true,
@@ -83,11 +88,18 @@ export class ProgramaService {
     const responsavelId = dto.responsavelId ?? null;
     const participanteIds = dto.participanteIds ?? [];
 
-    if (nucleoId) await this.garantirNucleoAtivo(nucleoId);
+    const nucleo = nucleoId ? await this.garantirNucleoAtivo(nucleoId) : null;
     await this.garantirUsuariosAtivos([
       ...(responsavelId ? [responsavelId] : []),
       ...participanteIds,
     ]);
+    if (responsavelId) {
+      await this.garantirResponsavelDoNucleo(
+        responsavelId,
+        nucleoId,
+        nucleo?.sigla,
+      );
+    }
     await this.garantirNomeDisponivel(dto.nome, nucleoId);
 
     const programa = await this.prisma.programa.create({
@@ -228,8 +240,10 @@ export class ProgramaService {
       throw new BadRequestException('Nenhuma alteração informada.');
     }
 
+    let nucleoSigla: string | null | undefined;
     if (mudancas.nucleoId && nucleoId) {
-      await this.garantirNucleoAtivo(nucleoId);
+      const nucleo = await this.garantirNucleoAtivo(nucleoId);
+      nucleoSigla = nucleo.sigla;
     }
     if (mudancas.nome || mudancas.nucleoId) {
       await this.garantirNomeDisponivel(nome, nucleoId, id);
@@ -239,6 +253,20 @@ export class ProgramaService {
       ...(mudancas.responsavelId && responsavelId ? [responsavelId] : []),
       ...participanteIds.filter((u) => !participantesAtuais.includes(u)),
     ]);
+    if ((mudancas.responsavelId || mudancas.nucleoId) && responsavelId) {
+      if (nucleoId && nucleoSigla === undefined) {
+        const nucleoAtual = await this.prisma.nucleo.findFirst({
+          where: { id: nucleoId, deletedAt: null },
+          select: { sigla: true },
+        });
+        nucleoSigla = nucleoAtual?.sigla ?? null;
+      }
+      await this.garantirResponsavelDoNucleo(
+        responsavelId,
+        nucleoId,
+        nucleoSigla,
+      );
+    }
 
     // Programa e participantes mudam juntos
     const atualizado = await this.prisma.$transaction(async (tx) => {
@@ -451,10 +479,50 @@ export class ProgramaService {
     }
   }
 
+  // UC27: o responsável pelo programa deve pertencer ao núcleo selecionado
+  // (ou possuir perfil institucional/vínculo com IPÊ em programas institucionais)
+  private async garantirResponsavelDoNucleo(
+    responsavelId: string,
+    nucleoId: string | null,
+    nucleoSigla?: string | null,
+  ) {
+    const usuario = await this.prisma.user.findFirst({
+      where: { id: responsavelId, ativo: true, deletedAt: null },
+      select: {
+        id: true,
+        perfil: true,
+        nucleos: { select: { nucleoId: true } },
+      },
+    });
+
+    if (!usuario) {
+      throw new BadRequestException(
+        'Responsável ou participante não existe ou está inativo.',
+      );
+    }
+
+    const vinculadoAoNucleo = Boolean(
+      nucleoId && usuario.nucleos.some((v) => v.nucleoId === nucleoId),
+    );
+    const ehInstitucional = !nucleoId || ehSiglaInstitucional(nucleoSigla);
+    const perfilInstitucional =
+      usuario.perfil !== null && PERFIS_ACESSO_GLOBAL.includes(usuario.perfil);
+
+    const elegivel = ehInstitucional
+      ? vinculadoAoNucleo || perfilInstitucional
+      : vinculadoAoNucleo;
+
+    if (!elegivel) {
+      throw new BadRequestException(
+        'O responsável selecionado não está vinculado ao núcleo informado para o programa.',
+      );
+    }
+  }
+
   private async garantirNucleoAtivo(nucleoId: string) {
     const nucleo = await this.prisma.nucleo.findFirst({
       where: { id: nucleoId, deletedAt: null },
-      select: { status: true },
+      select: { status: true, sigla: true },
     });
 
     if (!nucleo) {
@@ -465,6 +533,8 @@ export class ProgramaService {
         'Não é possível vincular o programa a um núcleo inativo.',
       );
     }
+
+    return nucleo;
   }
 
   // Espelha o índice único programas_nucleo_nome_ativo_key (nome sem diferenciar
