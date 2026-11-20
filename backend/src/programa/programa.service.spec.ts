@@ -51,6 +51,7 @@ describe('ProgramaService', () => {
       groupBy: jest.Mock;
     };
     nucleo: { findFirst: jest.Mock };
+    indicador: { updateMany: jest.Mock };
     programaParticipante: { deleteMany: jest.Mock; createMany: jest.Mock };
     user: { count: jest.Mock };
     $transaction: jest.Mock;
@@ -72,6 +73,9 @@ describe('ProgramaService', () => {
         findFirst: jest
           .fn()
           .mockResolvedValue({ status: StatusRegistro.ATIVO }),
+      },
+      indicador: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       programaParticipante: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -251,6 +255,22 @@ describe('ProgramaService', () => {
       await expect(
         service.findAll({ status: StatusRegistro.INATIVO }, diretor),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('restringe consulta de programas arquivados apenas ao administrador (CT-031.04)', async () => {
+      for (const role of [
+        Role.DIRETORES_NUCLEOS,
+        Role.EQUIPE_COMUNICACAO,
+        Role.EQUIPE_GESTAO,
+      ]) {
+        await expect(
+          service.findAll(
+            { status: StatusRegistro.ARQUIVADO },
+            { id: 'user-nao-adm', role },
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      }
+      expect(prisma.programa.findMany).not.toHaveBeenCalled();
     });
 
     it('aplica os filtros de nome e núcleo', async () => {
@@ -451,13 +471,70 @@ describe('ProgramaService', () => {
       );
     });
 
-    it('não audita quando outra requisição alterou o status antes', async () => {
+    it('arquiva programa ativo e remove os vínculos dos indicadores mantendo-os cadastrados (CT-031.01)', async () => {
+      prisma.programa.findFirst.mockResolvedValue(programaAtual);
+      prisma.indicador.updateMany.mockResolvedValue({ count: 2 });
+
+      await expect(service.arquivar(PROGRAMA_ID, autor)).resolves.toEqual({
+        message: 'Programa arquivado com sucesso.',
+        indicadoresDesvinculados: 2,
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(argumento(prisma.programa.updateMany)).toEqual({
+        where: {
+          id: PROGRAMA_ID,
+          deletedAt: null,
+          status: StatusRegistro.ATIVO,
+        },
+        data: { status: StatusRegistro.ARQUIVADO },
+      });
+      expect(argumento(prisma.indicador.updateMany)).toEqual({
+        where: { programaId: PROGRAMA_ID, deletedAt: null },
+        data: { programaId: null },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ARQUIVAR,
+          dadosAntigos: { status: StatusRegistro.ATIVO },
+          dadosNovos: {
+            status: StatusRegistro.ARQUIVADO,
+            indicadoresDesvinculados: 2,
+          },
+        }),
+      );
+    });
+
+    it('arquiva programa sem indicadores vinculados normalmente (CT-031.05)', async () => {
+      prisma.programa.findFirst.mockResolvedValue(programaAtual);
+      prisma.indicador.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.arquivar(PROGRAMA_ID, autor)).resolves.toEqual({
+        message: 'Programa arquivado com sucesso.',
+        indicadoresDesvinculados: 0,
+      });
+      expect(argumento(prisma.indicador.updateMany)).toEqual({
+        where: { programaId: PROGRAMA_ID, deletedAt: null },
+        data: { programaId: null },
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ARQUIVAR,
+          dadosNovos: {
+            status: StatusRegistro.ARQUIVADO,
+            indicadoresDesvinculados: 0,
+          },
+        }),
+      );
+    });
+
+    it('não audita nem desvincula indicadores quando outra requisição alterou o status antes', async () => {
       prisma.programa.findFirst.mockResolvedValue(programaAtual);
       prisma.programa.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.arquivar(PROGRAMA_ID, autor)).rejects.toThrow(
         ConflictException,
       );
+      expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
       expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });

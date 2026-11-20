@@ -366,9 +366,7 @@ describe('NucleoService', () => {
       repository.findAtivoById.mockResolvedValue(nucleoInativo);
       repository.reactivate.mockResolvedValue(true);
 
-      await expect(
-        service.reactivate('nucleo-uuid', autor),
-      ).resolves.toEqual({
+      await expect(service.reactivate('nucleo-uuid', autor)).resolves.toEqual({
         message: 'Núcleo reativado com sucesso.',
         status: StatusRegistro.ATIVO,
       });
