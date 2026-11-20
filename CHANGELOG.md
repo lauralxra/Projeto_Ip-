@@ -1,3 +1,11 @@
+# [1.1.0-dev.25](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.24...v1.1.0-dev.25) (2026-11-20)
+
+
+### Bug Fixes
+
+* **nucleos:** restringir mudanca de status as rotas desativar e reativar ([c88892a](https://github.com/lauralxra/Projeto_Ip-/commit/c88892a189b24f9e36fb9f1184847a13883ba7b8))
+* **programas:** manter vinculo dos indicadores ao arquivar programa ([8f13616](https://github.com/lauralxra/Projeto_Ip-/commit/8f1361660ae5bd6aab6039aad5bc73c562ce1ac2))
+
 # [1.1.0-dev.24](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.23...v1.1.0-dev.24) (2026-11-20)
 
 
