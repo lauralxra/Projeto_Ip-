@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module';
+import { MailModule } from '../mail/mail.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -10,6 +11,7 @@ import { RolesGuard } from './roles.guard';
 @Module({
   imports: [
     AuditModule,
+    MailModule,
     JwtModule.registerAsync({
       useFactory: (): JwtModuleOptions => {
         const secret = process.env.JWT_SECRET;

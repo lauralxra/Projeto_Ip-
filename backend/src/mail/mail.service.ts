@@ -133,6 +133,30 @@ export class MailService implements OnModuleInit {
     });
   }
 
+  // UC02: código de recuperação de senha. O código é gerado pelo sistema (só dígitos),
+  // então não precisa ser escapado
+  async sendPasswordReset(to: string, codigo: string): Promise<void> {
+    await this.sendMail({
+      to,
+      subject: 'Código de recuperação de senha - Plataforma IPÊ',
+      html: `
+        <p>Recebemos uma solicitação para redefinir a senha da sua conta na Plataforma de Indicadores do IPÊ.</p>
+        <p>Seu código de verificação é:</p>
+        <p style="font-size:24px;font-weight:bold;letter-spacing:4px">${codigo}</p>
+        <p>O código é válido por <strong>15 minutos</strong> e só pode ser usado uma vez.</p>
+        <p>Se você não solicitou a recuperação, ignore este e-mail: sua senha continua a mesma.</p>
+        <p>Este é um e-mail automático, não responda.</p>
+      `,
+      text: [
+        'Recebemos uma solicitação para redefinir a senha da sua conta na Plataforma de Indicadores do IPÊ.',
+        `Seu código de verificação é: ${codigo}`,
+        'O código é válido por 15 minutos e só pode ser usado uma vez.',
+        'Se você não solicitou a recuperação, ignore este e-mail: sua senha continua a mesma.',
+        'Este é um e-mail automático, não responda.',
+      ].join('\n'),
+    });
+  }
+
   // Notificação da plataforma (avisos e lembretes de prazo). Título e mensagem vêm do
   // administrador, então são escapados antes de entrar no HTML.
   async sendNotificacao(

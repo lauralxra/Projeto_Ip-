@@ -1,9 +1,14 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { AcaoAuditoria } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -13,6 +18,9 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interface/jwt-payload.interface';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_ROUNDS } from '../common/security.constants';
+import { MailService } from '../mail/mail.service';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ValidateCodeDto } from './dto/validate-code.dto';
 
 // Mesma mensagem para e-mail inexistente, senha errada e conta bloqueada:
 // não revela quais e-mails existem nem confirma a senha durante o bloqueio
@@ -27,6 +35,14 @@ export interface MetaRequisicao {
 // Hash fictício: mantém o tempo de resposta igual quando o e-mail não existe
 const DUMMY_HASH = bcrypt.hashSync('senha-ficticia', BCRYPT_ROUNDS);
 
+// UC02 - recuperação de senha
+const RECUPERACAO_VALIDADE_MINUTOS = 15;
+const RECUPERACAO_MAX_TENTATIVAS = 5;
+const RECUPERACAO_MENSAGEM =
+  'Se o e-mail estiver cadastrado, você receberá o código.';
+// Mesma resposta para e-mail inexistente, sem código, código errado ou expirado
+const CODIGO_INVALIDO = 'Código inválido ou expirado.';
+
 // Nunca expõe senhaHash
 const publicUserSelect = {
   id: true,
@@ -40,10 +56,13 @@ const publicUserSelect = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -158,6 +177,156 @@ export class AuthService {
     });
 
     return { message: 'Sessão encerrada com sucesso' };
+  }
+
+  // UC02 passo 1 (e reenvio, RN07): gera um novo código e invalida os anteriores.
+  // A resposta é sempre a mesma, exista ou não a conta, para não revelar e-mails cadastrados.
+  async solicitarRecuperacao(email: string) {
+    // RN01/RN02: só contas ativas e não excluídas recebem código
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null, ativo: true },
+      select: { id: true, email: true },
+    });
+
+    // Código de 6 dígitos com gerador criptográfico (zeros à esquerda são válidos)
+    const codigo = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    // O hash é calculado mesmo sem conta, para o tempo de resposta não denunciar o e-mail
+    const codigoHash = await bcrypt.hash(codigo, BCRYPT_ROUNDS);
+
+    if (!user) {
+      return { message: RECUPERACAO_MENSAGEM };
+    }
+
+    const expiraEm = new Date(
+      Date.now() + RECUPERACAO_VALIDADE_MINUTOS * 60 * 1000,
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usado: false },
+        data: { usado: true },
+      }),
+      this.prisma.passwordResetToken.create({
+        data: { userId: user.id, codigoHash, expiraEm },
+      }),
+    ]);
+
+    // Sem await: a espera pelo SMTP denunciaria que o e-mail existe.
+    // Falha no envio fica só no log; o usuário pode pedir o reenvio.
+    this.mail.sendPasswordReset(user.email, codigo).catch((error: unknown) => {
+      this.logger.warn(
+        `Código de recuperação gerado, mas o e-mail não foi enviado: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+
+    return { message: RECUPERACAO_MENSAGEM };
+  }
+
+  // UC02 passo 2: confere o código sem consumi-lo
+  async validarCodigoRecuperacao({ email, codigo }: ValidateCodeDto) {
+    await this.verificarCodigo(email, codigo);
+    return { valido: true };
+  }
+
+  // UC02 passo 3: troca a senha e consome o código na mesma transação (RN08)
+  async redefinirSenha(dto: ResetPasswordDto, ip: string) {
+    // RN05/RN06 (complexidade e confirmação) já foram validadas no DTO
+    const { userId, tokenId } = await this.verificarCodigo(
+      dto.email,
+      dto.codigo,
+    );
+
+    const senhaHash = await bcrypt.hash(dto.novaSenha, BCRYPT_ROUNDS);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Consome o código condicionalmente: duas requisições simultâneas não usam o mesmo código
+      const { count } = await tx.passwordResetToken.updateMany({
+        where: { id: tokenId, usado: false, expiraEm: { gt: new Date() } },
+        data: { usado: true },
+      });
+      if (count === 0) {
+        throw new BadRequestException(CODIGO_INVALIDO);
+      }
+
+      const atualizado = await tx.user.update({
+        where: { id: userId },
+        data: { senhaHash },
+        select: { id: true, nome: true, email: true },
+      });
+
+      // Nunca grava senha nem hash na auditoria
+      await this.audit.registrarAcao(
+        {
+          userId,
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'User',
+          entidadeId: userId,
+          dadosNovos: { senha: 'redefinida', via: 'recuperacao_de_senha' },
+          ip,
+        },
+        tx,
+      );
+
+      return atualizado;
+    });
+
+    // Aviso de segurança fora da transação: falha no e-mail não desfaz a troca de senha
+    this.mail
+      .sendPasswordChanged({ email: user.email, nome: user.nome })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Senha redefinida, mas o aviso por e-mail não foi enviado: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
+
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+
+  // Confere o código do token mais recente não usado. A tentativa é reservada antes
+  // da comparação (incremento condicional), para requisições paralelas não
+  // ultrapassarem o limite de RECUPERACAO_MAX_TENTATIVAS.
+  private async verificarCodigo(email: string, codigo: string) {
+    const token = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        usado: false,
+        user: { email, deletedAt: null, ativo: true },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, userId: true, codigoHash: true, expiraEm: true },
+    });
+
+    if (!token) {
+      // Compara com um hash fictício para manter o tempo de resposta
+      await bcrypt.compare(codigo, DUMMY_HASH);
+      throw new BadRequestException(CODIGO_INVALIDO);
+    }
+
+    // RN04: código expirado
+    if (token.expiraEm <= new Date()) {
+      throw new BadRequestException(CODIGO_INVALIDO);
+    }
+
+    const { count } = await this.prisma.passwordResetToken.updateMany({
+      where: { id: token.id, tentativas: { lt: RECUPERACAO_MAX_TENTATIVAS } },
+      data: { tentativas: { increment: 1 } },
+    });
+    if (count === 0) {
+      throw new HttpException(
+        'Número máximo de tentativas excedido. Solicite um novo código.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const codigoValido = await bcrypt.compare(codigo, token.codigoHash);
+    if (!codigoValido) {
+      throw new BadRequestException(CODIGO_INVALIDO);
+    }
+
+    return { userId: token.userId, tokenId: token.id };
   }
 
   // Conta a tentativa errada e bloqueia a conta ao atingir o limite.
