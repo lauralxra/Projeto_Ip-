@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
@@ -11,6 +11,7 @@ import {
   Archive,
   CheckCircle2,
   MoreVertical,
+  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -20,6 +21,107 @@ import { UsuarioAtual } from './dados/usuarios';
 import { apiFetch, mensagemDeErro } from './api/cliente';
 import { nucleoDaApi, type NucleoApi } from './api/mapeadores';
 import { definirNucleosDoUsuario } from './api/usuarioAtual';
+
+function MenuAcoesNucleo({
+  ehAtivo,
+  onEditar,
+  onDesativar,
+  onReativar,
+  onExcluir,
+}: {
+  ehAtivo: boolean;
+  onEditar: () => void;
+  onDesativar: () => void;
+  onReativar: () => void;
+  onExcluir: () => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickFora(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setAberto(false);
+      }
+    }
+    if (aberto) {
+      document.addEventListener('mousedown', handleClickFora);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickFora);
+    };
+  }, [aberto]);
+
+  return (
+    <div className="relative inline-block text-left" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setAberto(!aberto)}
+        className="p-1 text-[#3c3b3b] hover:text-[#832b62] hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+        title="Opções do núcleo"
+        aria-label="Opções do núcleo"
+      >
+        <MoreVertical size={18} />
+      </button>
+
+      {aberto && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <button
+            type="button"
+            onClick={() => {
+              setAberto(false);
+              onEditar();
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+          >
+            <Pencil size={14} className="text-slate-600" />
+            <span>Editar Núcleo</span>
+          </button>
+
+          {ehAtivo ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                onDesativar();
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer text-left"
+            >
+              <Archive size={14} className="text-amber-600" />
+              <span>Desativar / Arquivar</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                onReativar();
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+            >
+              <RotateCcw size={14} className="text-emerald-600" />
+              <span>Reativar Núcleo</span>
+            </button>
+          )}
+
+          <div className="my-1 border-t border-slate-100" />
+
+          <button
+            type="button"
+            onClick={() => {
+              setAberto(false);
+              onExcluir();
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
+          >
+            <Trash2 size={14} className="text-rose-600" />
+            <span>Excluir Núcleo</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TelaNucleos() {
   const [nucleos, setNucleos] = useState<Nucleo[]>([]);
@@ -415,46 +517,16 @@ export default function TelaNucleos() {
                     : 'bg-[#f2eff4]/75 border-[#832b62]/20'
                 }`}
               >
-                {/* Ícones de Ações no Canto Superior Direito (RN01: apenas Administradora) */}
+                {/* Menu de Ações no Canto Superior Direito (RN01: apenas Administradora) */}
                 {UsuarioAtual.tipo == 'ADM' ? (
-                  <div className="absolute top-4 right-4 flex flex-col gap-1.5 items-center">
-                    <button
-                      type="button"
-                      onClick={() => abrirEditarModal(nucleo)}
-                      className="p-1 text-[#3c3b3b] hover:text-[#832b62] transition-colors cursor-pointer"
-                      title="Editar"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                    {ehAtivo ? (
-                      <button
-                        type="button"
-                        onClick={() => abrirDesativarModal(nucleo)}
-                        className="p-1 text-[#3c3b3b] hover:text-[#832b62] transition-colors cursor-pointer"
-                        title="Desativar/Arquivar"
-                        aria-label="Desativar/Arquivar"
-                      >
-                        <Archive size={16} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleReativarNucleo(nucleo)}
-                        className="p-1 text-[#3c3b3b] hover:text-[#832b62] transition-colors cursor-pointer"
-                        title="Reativar Núcleo"
-                        aria-label="Reativar Núcleo"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => abrirDeletarModal(nucleo)}
-                      className="p-1 text-[#3c3b3b] hover:text-red-600 transition-colors cursor-pointer"
-                      title="Deletar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  <div className="absolute top-3.5 right-3.5 z-10">
+                    <MenuAcoesNucleo
+                      ehAtivo={ehAtivo}
+                      onEditar={() => abrirEditarModal(nucleo)}
+                      onDesativar={() => abrirDesativarModal(nucleo)}
+                      onReativar={() => handleReativarNucleo(nucleo)}
+                      onExcluir={() => abrirDeletarModal(nucleo)}
+                    />
                   </div>
                 ) : (
                   ''
@@ -755,7 +827,8 @@ export default function TelaNucleos() {
               </p>
               <p>
                 • <strong>Fora do ciclo ativo:</strong> o núcleo não poderá mais
-                ser selecionado em novos programas, indicadores ou preenchimentos.
+                ser selecionado em novos programas, indicadores ou
+                preenchimentos.
               </p>
               <p>
                 • <strong>Ação reversível:</strong> você poderá reativar o
