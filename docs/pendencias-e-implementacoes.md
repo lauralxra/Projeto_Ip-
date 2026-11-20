@@ -12,8 +12,8 @@
 Este documento consolida a auditoria completa realizada na branch `fix/correcao-erros` em comparação com o levantamento de Casos de Teste (CTs) mapeado pela equipe de QA.
 
 - **Total de Itens Auditados:** 13 blocos funcionais (CT-003 a CT-051)
-- **Status "Concluído / Validado" no Código:** 10 itens (**77%**)
-- **Pendências Reais de Frontend (Backend já 100% pronto):** 2 itens (**15%**)
+- **Status "Concluído / Validado" no Código:** 12 itens (**92%**)
+- **Pendências Reais de Frontend:** 0 itens (UC026 e UC031 concluídos)
 - **Melhoria de Usabilidade / Refinamento de UX:** 1 item (**8%**)
 
 ---
@@ -28,8 +28,8 @@ Este documento consolida a auditoria completa realizada na branch `fix/correcao-
 | **CT-013.01 a CT-013.05** | Encerrar Sessão (Logout)                 |            `ok`             |                **Concluído**                 | Funcional no backend (`POST /api/auth/logout`) e frontend (limpeza de JWT/cookies e redirecionamento para `/login`).                                              |
 | **CT-014 e CT-015**       | Visualizar e Enviar Notificações         |      `* (sendo feita)`      |           **Concluído (PR #350)**            | Totalmente integrado. `UserbarPopupNotificacao.tsx` consome `GET`, `POST` e `PATCH` de leitura, e `UserBar.tsx` exibe badge contador em tempo real.               |
 | **CT-017.01 a CT-017.05** | Filtrar Dashboard                        |            `ok`             |                **Concluído**                 | Filtros de Ano, Trimestre, Núcleo e Programa funcionais; suporte a visualização focada por indicador específico (`indicadorId`).                                  |
-| **CT-025.01 a CT-025.05** | Desativar / Arquivar Núcleo              |    `* (só apaga de vez)`    |              **PENDÊNCIA REAL**              | **Backend pronto** (`PATCH /api/nucleos/:id/desativar`). Falta implementar o botão de desativação na `TelaNucleos.tsx`.                                           |
-| **CT-031.01 a CT-031.05** | Arquivar / Desativar Programa            |       `* (só exclui)`       |              **PENDÊNCIA REAL**              | **Backend pronto** (`PATCH /api/programas/:id/arquivar` e `/desativar`). Falta adicionar as ações de arquivamento na `TelaProgramas.tsx`.                         |
+| **CT-025.01 a CT-025.05** | Desativar / Arquivar Núcleo              |    `* (só apaga de vez)`    |                **Concluído**                 | Menu de ações na `TelaNucleos.tsx` com desativar (confirmação + alerta de pendências), reativar, filtro de status e badge (UC026).                                |
+| **CT-031.01 a CT-031.05** | Arquivar / Desativar Programa            |       `* (só exclui)`       |                **Concluído**                 | Menu de ações na `TelaProgramas.tsx` com arquivar/reativar e aba `/programas/arquivados` restrita ao ADM (UC031).                                                 |
 | **CT-038.1 a CT-038.5**   | Revisar e Aprovar / Devolver Indicadores |    `* (está dando erro)`    |                **Concluído**                 | Endpoints `PATCH /api/registros/:id/aprovar` e `/devolver` funcionam. O erro reportado ocorria ao testar sem perfil Administrador (CT-038.5).                     |
 | **CT-039.1 a CT-039.4**   | Justificativa na Devolução               |    `* (arrumar no back)`    |                **Concluído**                 | O backend já exige justificativa via `DevolverRegistroDto` (`@IsNotEmpty`), grava no banco (`justificativaDevolucao`) e audita a ação.                            |
 | **CT-041.01 a CT-041.05** | Arquivar / Desativar Indicador           |       `* (só exclui)`       |                **Concluído**                 | Implementado no frontend (`TelaIndicadores.tsx`) com modais de confirmação chamando `PATCH /indicadores/:id/arquivar` e `/desativar`.                             |
@@ -90,27 +90,7 @@ Este documento consolida a auditoria completa realizada na branch `fix/correcao-
 
 ## 4. Detalhamento das PENDÊNCIAS REAIS a Implementar
 
-### Pendência 1: Desativar / Arquivar Núcleo no Frontend ([UC025] / CT-025)
-
-- **Situação Atual:**
-  - O backend possui o endpoint `PATCH /api/nucleos/:id/desativar` pronto, funcional e auditado.
-  - No frontend (`TelaNucleos.tsx`), existe somente o botão de exclusão que aciona `DELETE /api/nucleos/:id`.
-- **Impacto:** O usuário só consegue excluir definitivamente o núcleo, sem a alternativa de apenas desativá-lo temporariamente.
-- **Ação Necessária:**
-  1. Adicionar botão "Desativar" no card/modal do núcleo em `TelaNucleos.tsx`.
-  2. Conectar a chamada ao endpoint `PATCH /api/nucleos/:id/desativar`.
-  3. Adicionar filtro visual para exibir núcleos ativos/inativos.
-
-### Pendência 2: Arquivar / Desativar Programa no Frontend ([UC031] / CT-031)
-
-- **Situação Atual:**
-  - O backend possui `PATCH /api/programas/:id/arquivar` e `PATCH /api/programas/:id/desativar`.
-  - No frontend (`TelaProgramas.tsx`), os cards possuem apenas o botão de lixeira chamando `DELETE /api/programas/:id`.
-  - Na linha 307 de `TelaProgramas.tsx`, a opção "Arquivado" é expressamente ignorada (`if (para === 'Arquivado') return`).
-- **Impacto:** A gestão não consegue arquivar programas que já foram concluídos, restando apenas a opção drástica de exclusão.
-- **Ação Necessária:**
-  1. Adicionar as opções "Arquivar" e "Desativar" no menu de ações do card de programa.
-  2. Implementar modal de confirmação chamando as rotas da API.
+> Atualização 20/11/2026: as antigas pendências 1 (Desativar/Arquivar Núcleo — UC026) e 2 (Arquivar/Desativar Programa — UC031) foram implementadas na branch `fix/correcao-erros`. Resta apenas o refinamento abaixo.
 
 ### Pendência 3 (Refinamento de UX): Atalho de Remoção de Meta no Card ([UC051] / CT-051)
 
@@ -124,8 +104,8 @@ Este documento consolida a auditoria completa realizada na branch `fix/correcao-
 
 ## 5. Próximos Passos na Branch `fix/correcao-erros`
 
-1. [ ] Implementar ação de **Desativar Núcleo** na interface de `TelaNucleos.tsx`.
-2. [ ] Implementar ações de **Arquivar e Desativar Programa** na interface de `TelaProgramas.tsx`.
+1. [x] Implementar ação de **Desativar Núcleo** na interface de `TelaNucleos.tsx`.
+2. [x] Implementar ações de **Arquivar e Desativar Programa** na interface de `TelaProgramas.tsx`.
 3. [ ] (Opcional) Adicionar clique direto na tag de meta para remoção rápida em `TelaIndicadores.tsx`.
-4. [ ] Executar bateria de validação de build (`npm run build`) e testes unitários (`npm test`).
+4. [x] Executar bateria de validação de build (`npm run build`) e testes unitários (`npm test`).
 5. [ ] Submeter Pull Request para a branch `dev` com as correções de QA consolidadas.
