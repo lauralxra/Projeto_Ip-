@@ -138,7 +138,6 @@ export class AuthService {
         id: usuario.id,
         nome: usuario.nome,
         email: usuario.email,
-        fotoUrl: usuario.fotoUrl ?? null,
         perfil,
         ativo: usuario.ativo,
         createdAt: usuario.createdAt,

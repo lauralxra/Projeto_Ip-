@@ -202,8 +202,6 @@ export class NucleoService {
       data.descricao = updateNucleoDto.descricao;
     if (updateNucleoDto.corHex !== undefined)
       data.corHex = updateNucleoDto.corHex;
-    if (updateNucleoDto.imagemUrl !== undefined)
-      data.imagemUrl = updateNucleoDto.imagemUrl;
 
     const atualizado = await this.nucleoRepository.update(id, data);
 
