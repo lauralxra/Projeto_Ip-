@@ -1,12 +1,16 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsByteLength,
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
@@ -76,4 +80,19 @@ export class CreateUserDto {
   })
   @IsEnum(Role, { message: 'Perfil de acesso inválido.' })
   role!: Role;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['1c8f2c0f-7b62-4f90-8b40-3d2e5f607b81'],
+    description:
+      'IDs dos núcleos ativos vinculados (obrigatório para Diretor de Núcleo e Equipe de Gestão)',
+  })
+  @IsOptional()
+  @IsArray({ message: 'nucleoIds deve ser uma lista.' })
+  @ArrayUnique({ message: 'Não informe núcleos duplicados.' })
+  @IsUUID('all', {
+    each: true,
+    message: 'Cada nucleoId deve ser um UUID válido.',
+  })
+  nucleoIds?: string[];
 }

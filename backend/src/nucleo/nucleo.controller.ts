@@ -60,14 +60,26 @@ export class NucleoController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.ADMINISTRADOR,
+    Role.DIRETORES_NUCLEOS,
+    Role.EQUIPE_GESTAO,
+    Role.EQUIPE_COMUNICACAO,
+  )
   @SearchNucleoSwagger()
   search(@Query() filtros: SearchNucleoDto, @Req() req: AuthenticatedRequest) {
     return this.nucleoService.search(filtros, req.user);
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.ADMINISTRADOR,
+    Role.DIRETORES_NUCLEOS,
+    Role.EQUIPE_GESTAO,
+    Role.EQUIPE_COMUNICACAO,
+  )
   @FindOneNucleoSwagger()
   findOne(
     @Param('id', ParseUUIDPipe) id: string,

@@ -30,15 +30,20 @@ describe('UserService', () => {
     updatePassword: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
-  let prisma: { user: { findFirst: jest.Mock } };
+  let prisma: {
+    user: { findFirst: jest.Mock };
+    nucleo: { count: jest.Mock };
+  };
   let notificacao: { notificarSenhaAlterada: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
+  const NUCLEO_UUID = '1c8f2c0f-7b62-4f90-8b40-3d2e5f607b81';
   const dto = {
     name: 'Maria',
     email: 'maria@exemplo.com',
     password: 'Senha1234',
     confirmPassword: 'Senha1234',
     role: Role.EQUIPE_GESTAO,
+    nucleoIds: [NUCLEO_UUID],
   };
   const createdAt = new Date('2026-10-25T12:00:00.000Z');
 
@@ -46,6 +51,11 @@ describe('UserService', () => {
     prisma = {
       user: {
         findFirst: jest.fn().mockResolvedValue(null),
+      },
+      nucleo: {
+        count: jest.fn((args: { where: { id: { in: string[] } } }) =>
+          Promise.resolve(args.where.id.in.length),
+        ),
       },
     };
     repository = {
@@ -119,9 +129,39 @@ describe('UserService', () => {
           perfil: Role.EQUIPE_GESTAO,
           ativo: true,
           createdAt: createdAt.toISOString(),
+          nucleos: [NUCLEO_UUID],
         },
         ip: '203.0.113.7',
       });
+    });
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'recusa criar conta %s sem núcleo obrigatório (UC012)',
+      async (role) => {
+        await expect(
+          service.create({ ...dto, role, nucleoIds: [] }, autor),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(repository.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'recusa vincular núcleos específicos ao criar perfil global %s (UC08/UC012)',
+      async (role) => {
+        await expect(
+          service.create({ ...dto, role, nucleoIds: [NUCLEO_UUID] }, autor),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(repository.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('recusa criar conta vinculada a núcleo inexistente ou inativo', async () => {
+      prisma.nucleo.count.mockResolvedValueOnce(0);
+
+      await expect(service.create(dto, autor)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repository.create).not.toHaveBeenCalled();
     });
 
     it('recusa e-mail já cadastrado com 409 sem criar nem auditar', async () => {
@@ -524,6 +564,49 @@ describe('UserService', () => {
         'usuario-uuid',
         Role.ADMINISTRADOR,
       );
+    });
+
+    it('impede o administrador de alterar o próprio tipo de conta ou permissões (UC07/UC08)', async () => {
+      await expect(
+        service.updatePermissions(
+          autor.id,
+          { role: Role.EQUIPE_GESTAO, nucleoIds: [NUCLEO_UUID] },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('recusa vincular núcleos específicos a perfil ADMINISTRADOR ou EQUIPE_COMUNICACAO', async () => {
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.EQUIPE_COMUNICACAO, nucleoIds: [NUCLEO_UUID] },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+    });
+
+    it('limpa vínculos antigos de núcleos ao mudar DN/EG para perfil global', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-antigo' },
+      ]);
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { role: Role.ADMINISTRADOR },
+        autor,
+      );
+
+      expect(repository.updatePermissions).toHaveBeenCalledWith(
+        'usuario-uuid',
+        Role.ADMINISTRADOR,
+      );
+      expect(repository.syncNucleos).toHaveBeenCalledWith('usuario-uuid', []);
     });
 
     it('retorna 404 para usuário inexistente ou excluído', async () => {
