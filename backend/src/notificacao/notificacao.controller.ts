@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Ip,
   Param,
@@ -61,5 +62,27 @@ export class NotificacaoController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.notificacaoService.marcarComoLida(id, req.user.id);
+  }
+
+  // Rotas estáticas antes de ':id' para não capturar 'admin' como UUID
+  @Delete('admin/:id')
+  @Roles(Role.ADMINISTRADOR)
+  excluirComoAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.notificacaoService.excluirComoAdmin(id, req.user.id, ip);
+  }
+
+  // UC014: qualquer perfil autenticado exclui a notificação da própria caixa;
+  // o serviço valida permissão para impedir exclusão de notificações de terceiros
+  @Delete(':id')
+  excluir(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.notificacaoService.excluir(id, req.user, ip);
   }
 }

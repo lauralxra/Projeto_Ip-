@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -17,6 +18,7 @@ import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { CreateNotificacaoDto } from './dto/create-notificacao.dto';
 import { ListNotificacaoDto } from './dto/list-notificacao.dto';
+import type { AuthenticatedUser } from '../auth/interface/request.interface';
 
 export interface DestinatarioAvisoSeguranca {
   email: string;
@@ -442,5 +444,124 @@ export class NotificacaoService {
     ]);
 
     return { itens, total, pagina, limite };
+  }
+
+  // UC014: remove a notificação da caixa do usuário autenticado.
+  // Se a notificação existir mas não pertencer ao usuário:
+  // - perfis não administradores recebem 403 Forbidden;
+  // - o administrador pode removê-la globalmente.
+  async excluir(
+    notificacaoId: string,
+    usuario: AuthenticatedUser,
+    ip: string,
+  ) {
+    const notificacao = await this.prisma.notificacao.findUnique({
+      where: { id: notificacaoId },
+      select: { id: true, titulo: true, tipo: true, nucleoId: true },
+    });
+
+    if (!notificacao) {
+      throw new NotFoundException('Notificação não encontrada.');
+    }
+
+    const chave = {
+      notificacaoId_userId: { notificacaoId, userId: usuario.id },
+    };
+    const vinculo = await this.prisma.notificacaoUsuario.findUnique({
+      where: chave,
+      select: { isRead: true },
+    });
+
+    if (!vinculo) {
+      if (usuario.role === Role.ADMINISTRADOR) {
+        return this.excluirComoAdmin(notificacaoId, usuario.id, ip);
+      }
+      throw new ForbiddenException(
+        'Você não tem permissão para excluir esta notificação.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.notificacaoUsuario.deleteMany({
+        where: { notificacaoId, userId: usuario.id },
+      });
+
+      if (count === 0) {
+        throw new NotFoundException('Notificação não encontrada.');
+      }
+
+      await this.audit.registrarAcao(
+        {
+          userId: usuario.id,
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidade: 'Notificacao',
+          entidadeId: notificacaoId,
+          dadosAntigos: {
+            titulo: notificacao.titulo,
+            tipo: notificacao.tipo,
+            isRead: vinculo.isRead,
+            escopo: 'usuario',
+          },
+          dadosNovos: { excluidaParaUsuario: true },
+          ip,
+        },
+        tx,
+      );
+    });
+
+    return { message: 'Notificação excluída com sucesso.' };
+  }
+
+  // UC014 (Administração): remove a notificação definitivamente para todos os destinatários
+  async excluirComoAdmin(
+    notificacaoId: string,
+    adminId: string,
+    ip: string,
+  ) {
+    const notificacao = await this.prisma.notificacao.findUnique({
+      where: { id: notificacaoId },
+      select: {
+        id: true,
+        titulo: true,
+        tipo: true,
+        nucleoId: true,
+        _count: { select: { destinatarios: true } },
+      },
+    });
+
+    if (!notificacao) {
+      throw new NotFoundException('Notificação não encontrada.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.notificacao.deleteMany({
+        where: { id: notificacaoId },
+      });
+
+      if (count === 0) {
+        throw new NotFoundException('Notificação não encontrada.');
+      }
+
+      await this.audit.registrarAcao(
+        {
+          userId: adminId,
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidade: 'Notificacao',
+          entidadeId: notificacaoId,
+          dadosAntigos: {
+            titulo: notificacao.titulo,
+            tipo: notificacao.tipo,
+            nucleoId: notificacao.nucleoId,
+            totalDestinatarios: notificacao._count.destinatarios,
+            escopo: 'global',
+          },
+          dadosNovos: { excluida: true },
+          ip,
+        },
+        tx,
+      );
+    });
+
+    return { message: 'Notificação excluída com sucesso.' };
   }
 }

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { CheckCircle2, Trash2, X } from 'lucide-react';
 import { apiFetch, mensagemDeErro } from './api/cliente';
 import { UsuarioAtual } from './dados/usuarios';
 import type { PerfilApi } from './api/mapeadores';
@@ -70,6 +72,24 @@ export function UserbarPopupNotificacao({
   } | null>(null);
 
   const [criandoNotificacao, setCriandoNotificacao] = useState(false);
+
+  // UC014 — Exclusão de notificações (própria caixa ou global para ADM)
+  const [notificacaoParaExcluir, setNotificacaoParaExcluir] = useState<{
+    id: string;
+    titulo: string;
+    escopo: 'recebida' | 'enviada';
+  } | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [feedbackLista, setFeedbackLista] = useState<{
+    tipo: 'sucesso' | 'erro';
+    texto: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!feedbackLista) return;
+    const timer = setTimeout(() => setFeedbackLista(null), 4000);
+    return () => clearTimeout(timer);
+  }, [feedbackLista]);
 
   // Campos do formulário de criação
   const [titulo, setTitulo] = useState('');
@@ -294,6 +314,53 @@ export function UserbarPopupNotificacao({
       onNotificacoesMudaram?.();
     } catch (erro) {
       console.error('Erro ao marcar todas como lidas:', erro);
+    }
+  };
+
+  // UC014: excluir notificação (própria caixa para todos os perfis; global na aba Enviadas do ADM)
+  const confirmarExclusao = async () => {
+    if (!notificacaoParaExcluir) return;
+
+    const { id, escopo } = notificacaoParaExcluir;
+    setExcluindo(true);
+    setFeedbackLista(null);
+
+    try {
+      const endpoint =
+        escopo === 'enviada'
+          ? `/notificacoes/admin/${id}`
+          : `/notificacoes/${id}`;
+
+      await apiFetch(endpoint, { method: 'DELETE' });
+
+      if (escopo === 'enviada') {
+        setNotificacoesEnviadas((prev) => prev.filter((n) => n.id !== id));
+        setNotificacoes((prev) => prev.filter((n) => n.notificacao.id !== id));
+      } else {
+        setNotificacoes((prev) => prev.filter((n) => n.notificacao.id !== id));
+        if (isAdm) {
+          apiFetch<{ itens: NotificacaoAdmin[] }>('/notificacoes/admin?limite=50')
+            .then((resAdmin) => setNotificacoesEnviadas(resAdmin.itens || []))
+            .catch(() => undefined);
+        }
+      }
+
+      setNotificacaoParaExcluir(null);
+      setFeedbackLista({
+        tipo: 'sucesso',
+        texto: 'Notificação excluída com sucesso.',
+      });
+
+      window.dispatchEvent(new CustomEvent('notificacoes-atualizadas'));
+      onNotificacoesMudaram?.();
+    } catch (erro) {
+      setNotificacaoParaExcluir(null);
+      setFeedbackLista({
+        tipo: 'erro',
+        texto: mensagemDeErro(erro),
+      });
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -584,6 +651,35 @@ export function UserbarPopupNotificacao({
           </form>
         ) : (
           <>
+            {feedbackLista && (
+              <div
+                role="status"
+                className={`w-full mb-3 px-3 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between gap-2 border ${
+                  feedbackLista.tipo === 'sucesso'
+                    ? 'bg-[#f2eff4] border-[#832b62]/25 text-[#3b142f]'
+                    : 'bg-[#f8d7da] border-[#7a1f2b]/25 text-[#7a1f2b]'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {feedbackLista.tipo === 'sucesso' && (
+                    <CheckCircle2
+                      size={15}
+                      className="text-[#832b62] shrink-0"
+                    />
+                  )}
+                  <span className="break-words">{feedbackLista.texto}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFeedbackLista(null)}
+                  className="shrink-0 p-0.5 rounded hover:bg-black/5 cursor-pointer"
+                  aria-label="Fechar aviso"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {/* Lista de Notificações Recebidas */}
             {abaAtiva === 'recebidas' && (
               <div className="flex flex-col w-full gap-[12px] overflow-y-auto flex-1 pr-1">
@@ -634,14 +730,6 @@ export function UserbarPopupNotificacao({
                             : 'bg-[#FFF9FC] border-[#E8D4E3] shadow-xs'
                         }`}
                       >
-                        {/* Ponto indicador de não lida */}
-                        {!item.isRead && (
-                          <span
-                            className="absolute top-[12px] right-[12px] size-[8px] rounded-full bg-[#A13680]"
-                            title="Não lida"
-                          />
-                        )}
-
                         {/* Ícone */}
                         <div
                           className={`flex items-center justify-center size-[38px] shrink-0 rounded-full ${
@@ -665,13 +753,38 @@ export function UserbarPopupNotificacao({
                         </div>
 
                         {/* Conteúdo */}
-                        <div className="flex flex-col flex-1 min-w-0 gap-[4px] pr-2">
-                          <div className="flex items-center gap-[6px] flex-wrap">
-                            <span
-                              className={`text-[10px] px-[6px] py-[1px] rounded-md border font-medium ${badge.classe}`}
+                        <div className="flex flex-col flex-1 min-w-0 gap-[4px]">
+                          <div className="flex items-center justify-between gap-[6px]">
+                            <div className="flex items-center gap-[6px] flex-wrap">
+                              <span
+                                className={`text-[10px] px-[6px] py-[1px] rounded-md border font-medium ${badge.classe}`}
+                              >
+                                {badge.texto}
+                              </span>
+                              {!item.isRead && (
+                                <span
+                                  className="size-[8px] rounded-full bg-[#A13680] shrink-0"
+                                  title="Não lida"
+                                />
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotificacaoParaExcluir({
+                                  id: item.notificacao.id,
+                                  titulo: item.notificacao.titulo,
+                                  escopo: 'recebida',
+                                });
+                              }}
+                              className="p-1.5 rounded-lg text-[#3c3b3b] hover:text-[#7a1f2b] hover:bg-[#f8d7da]/60 transition-colors cursor-pointer shrink-0"
+                              title="Excluir notificação"
+                              aria-label={`Excluir notificação ${item.notificacao.titulo}`}
                             >
-                              {badge.texto}
-                            </span>
+                              <Trash2 size={15} />
+                            </button>
                           </div>
 
                           <h2
@@ -758,15 +871,32 @@ export function UserbarPopupNotificacao({
                         </div>
 
                         <div className="flex flex-col flex-1 min-w-0 gap-[4px]">
-                          <div className="flex items-center gap-[6px] flex-wrap justify-between">
+                          <div className="flex items-center gap-[6px] justify-between">
                             <span
                               className={`text-[10px] px-[6px] py-[1px] rounded-md border font-medium ${badge.classe}`}
                             >
                               {badge.texto}
                             </span>
-                            <span className="text-[11px] font-medium text-[#664466] bg-[#F7F2F7] px-2 py-0.5 rounded-full">
-                              {totalDest} destinatário(s)
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[11px] font-medium text-[#664466] bg-[#F7F2F7] px-2 py-0.5 rounded-full">
+                                {totalDest} destinatário(s)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setNotificacaoParaExcluir({
+                                    id: item.id,
+                                    titulo: item.titulo,
+                                    escopo: 'enviada',
+                                  })
+                                }
+                                className="p-1.5 rounded-lg text-[#3c3b3b] hover:text-[#7a1f2b] hover:bg-[#f8d7da]/60 transition-colors cursor-pointer"
+                                title="Excluir notificação para todos os destinatários"
+                                aria-label={`Excluir notificação enviada ${item.titulo}`}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </div>
 
                           <h2 className="text-[#A13680] text-[14px] font-medium break-words">
@@ -831,6 +961,66 @@ export function UserbarPopupNotificacao({
         aria-hidden="true"
         className="absolute inset-0 border-l border-[#D0D0D0] pointer-events-none"
       />
+
+      {/* Modal de confirmação de exclusão (UC014) */}
+      {notificacaoParaExcluir &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => !excluindo && setNotificacaoParaExcluir(null)}
+          >
+            <div
+              className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                disabled={excluindo}
+                onClick={() => setNotificacaoParaExcluir(null)}
+                aria-label="Fechar modal"
+                className="absolute top-5 right-5 text-slate-400 hover:text-[#3b142f] p-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="mx-auto mb-3 size-12 rounded-full bg-[#f2eff4] flex items-center justify-center text-[#832b62]">
+                <Trash2 size={22} />
+              </div>
+
+              <h2 className="text-xl font-bold text-slate-900 mb-2">
+                Excluir notificação?
+              </h2>
+              <p className="text-xs font-semibold text-[#832b62] mb-2 break-words">
+                {notificacaoParaExcluir.titulo}
+              </p>
+              <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+                {notificacaoParaExcluir.escopo === 'enviada'
+                  ? 'Esta notificação será removida definitivamente para todos os destinatários.'
+                  : 'Esta notificação será removida da sua caixa de entrada.'}
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={excluindo}
+                  onClick={() => setNotificacaoParaExcluir(null)}
+                  className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={excluindo}
+                  onClick={confirmarExclusao}
+                  className="flex-1 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {excluindo ? 'Excluindo...' : 'Excluir'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
