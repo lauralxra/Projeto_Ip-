@@ -7,7 +7,7 @@ describe('AuditService', () => {
   let service: AuditService;
   let prisma: {
     loginLog: { create: jest.Mock };
-    auditLog: { create: jest.Mock };
+    auditLog: { create: jest.Mock; findMany: jest.Mock };
   };
 
   beforeEach(async () => {
