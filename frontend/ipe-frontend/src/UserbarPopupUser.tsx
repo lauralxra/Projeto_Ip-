@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
@@ -11,52 +12,45 @@ import {
   trocarPropriaSenha,
 } from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
+
 const svgPaths = Svg;
+
+/* =========================
+   Seta de retorno
+========================= */
 
 function Seta() {
   return (
-    <div
-      className="content-stretch flex flex-col items-center justify-center max-h-[29px] max-w-[30px] min-h-[29px] min-w-[30px] overflow-clip relative shrink-0 w-full"
-      data-name="Arrow forward ios"
-    >
-      <div
-        className="absolute bottom-[8.33%] left-[25.96%] right-1/4 top-[8.33%]"
-        data-name="Group"
-      >
-        <svg
-          className="absolute block inset-0 size-full"
-          fill="none"
-          height="24.1667"
-          preserveAspectRatio="none"
-          viewBox="0 0 14.7125 24.1667"
-          width="14.7125"
-        >
-          <g id="Group">
-            <path d={svgPaths.p28880070} fill="#A13680" id="Vector" />
-          </g>
-        </svg>
-      </div>
+    <div className="flex size-9 items-center justify-center transition-colors hover:bg-[#f5edf5]">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M15 18L9 12L15 6"
+          stroke="#A13680"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }
 
+/* =========================
+   Foto de perfil
+========================= */
+
 function Pic() {
   return (
-    <div
-      className="col-1 max-h-[80px] max-w-[80px] min-h-[80px] min-w-[80px] ml-0 mt-0 relative row-1 size-[80px]"
-      data-name="pic"
-    >
-      <div className="relative rounded-[100px] size-full">
-        <img
-          alt=""
-          className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[100px] size-full"
-          src={
-            UsuarioAtual.imagem
-              ? urlDaImagem(UsuarioAtual.imagem)
-              : Imagens.DefaultPFP
-          }
-        />
-      </div>
+    <div className="size-[92px] overflow-hidden rounded-full border-[3px] border-white shadow-md ring-1 ring-[#eaddea]">
+      <img
+        alt="Foto de perfil"
+        className="size-full object-cover"
+        src={
+          UsuarioAtual.imagem
+            ? urlDaImagem(UsuarioAtual.imagem)
+            : Imagens.DefaultPFP
+        }
+      />
     </div>
   );
 }
@@ -64,21 +58,11 @@ function Pic() {
 export function AddPic() {
   return (
     <div
-      className="col-1 max-h-[22px] max-w-[22px] min-h-[22px] min-w-[22px] ml-[54px] mt-[61.62px] relative row-1 size-[22px]"
+      className="absolute bottom-0 right-0 flex size-7 items-center justify-center rounded-full bg-[#664666] shadow-md"
       data-name="addPic"
     >
-      <svg
-        className="absolute block inset-0 size-full"
-        fill="none"
-        height="22"
-        preserveAspectRatio="none"
-        viewBox="0 0 22 22"
-        width="22"
-      >
-        <g id="addPic">
-          <rect fill="#664666" height="22" rx="11" width="22" />
-          <path d={svgPaths.p3b2f3a00} fill="white" id="Vector" />
-        </g>
+      <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
+        <path d={svgPaths.p3b2f3a00} fill="white" />
       </svg>
     </div>
   );
@@ -86,129 +70,125 @@ export function AddPic() {
 
 function Pfp() {
   return (
-    <div
-      className="grid-cols-[max-content] grid-rows-[max-content] inline-grid max-h-[83.615234375px] max-w-[80px] min-h-[83.615234375px] min-w-[80px] place-items-start relative shrink-0"
-      data-name="pfp"
-    >
+    <div className="relative flex items-center justify-center">
       <Pic />
-      {/*<AddPic />*/}
     </div>
   );
 }
+
+/* =========================
+   Informações do usuário
+========================= */
 
 function UserInfo() {
   return (
-    <div
-      className="content-stretch flex flex-col gap-[6px] items-center leading-[0] relative shrink-0 w-[244px]"
-      data-name="userInfo"
-    >
+    <div className="flex w-full flex-col items-center gap-2">
       <Pfp />
-      <div
-        className="[word-break:break-word] flex flex-col font-sans font-normal justify-center min-w-full not-italic relative shrink-0 text-[#a13680] text-[24px] text-center w-[min-content]"
-        style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-      >
-        <p className="leading-[normal]">{UsuarioAtual.nome}</p>
-      </div>
-      <div
-        className="[word-break:break-word] flex flex-col font-sans font-normal justify-center min-w-full not-italic relative shrink-0 text-[#aeaeb2] text-[15px] text-center w-[min-content]"
-        style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-      >
-        <p className="leading-[normal]">{UsuarioAtual.tipo}</p>
+
+      <div className="mt-2 max-w-full px-3 text-center">
+        <h2 className="break-words text-[22px] font-semibold leading-tight text-[#664666]">
+          {UsuarioAtual.nome}
+        </h2>
+
+        <span className="mt-2 inline-flex items-center rounded-full bg-[#f5edf5] px-3 py-1 text-xs font-medium tracking-wide text-[#A13680]">
+          {UsuarioAtual.tipo}
+        </span>
       </div>
     </div>
   );
 }
 
-function BtnEdit() {
+/* =========================
+   Ícones do menu
+========================= */
+
+function IconUsuarios() {
   return (
-    <div
-      className="bg-[#664666] content-stretch flex items-center justify-center min-h-[27px] min-w-[27px] overflow-clip py-[5px] relative rounded-[34px] shrink-0"
-      data-name="btnEdit"
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0"
     >
-      <svg
-        className="absolute block inset-x-1 inset-y-1 size-full"
-        fill="none"
-        height="9.2"
-        preserveAspectRatio="none"
-        viewBox="0 0 25 25"
-        width="9.2"
-      >
-        <g id="Group">
-          <path
-            d={svgPaths.pcfb69f0}
-            fill="white"
-            id="Vector"
-            style={{ transformOrigin: 'center' }}
-          />
-        </g>
-      </svg>
-    </div>
+      <path
+        d="M16 21V19C16 17.3431 14.6569 16 13 16H5C3.34315 16 2 17.3431 2 19V21"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M18 8C19.6569 8 21 9.34315 21 11C21 12.6569 19.6569 14 18 14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M18 16C20.2091 16 22 17.7909 22 20V21"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
-export function Fields() {
-  const [formMail, setNomeMail] = useState('TeuEmail@ufrpe.br');
-  const [formSenha, setNomeSenha] = useState('senhapa@12345');
-
+function IconPerfil() {
   return (
-    <div
-      className="content-stretch flex flex-col gap-[20px] items-start overflow-clip relative shrink-0 w-full"
-      data-name="Fields"
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0"
     >
-      {/* Mail */}
-      <div
-        className="content-stretch flex flex-col items-start relative shrink-0 w-full"
-        data-name="Mail"
-      >
-        <label
-          className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-        >
-          Email
-        </label>
-
-        <div className="bg-[#f2f2f7] content-stretch flex items-center justify-between overflow-clip px-[9px] py-[5px] relative rounded-[10px] shrink-0 w-full">
-          <input
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
-            style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-            type="text"
-            placeholder="Insira um Email..."
-            value={formMail}
-            onChange={(e) => setNomeMail(e.target.value)}
-            readOnly
-          />
-          <BtnEdit />
-        </div>
-      </div>
-
-      {/* Senha */}
-      <div
-        className="content-stretch flex flex-col items-start relative shrink-0 w-full"
-        data-name="Senha"
-      >
-        <label
-          className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[#664666] text-[20px] w-full"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-        >
-          Senha
-        </label>
-
-        <div className="bg-[#f2f2f7] content-stretch flex items-center justify-between overflow-clip px-[9px] py-[5px] relative rounded-[10px] shrink-0 w-full">
-          <input
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-normal justify-center leading-[0] min-w-px not-italic relative text-[#8e8e93] text-[14px]"
-            style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-            type="password"
-            placeholder="Insira uma senha..."
-            value={formSenha}
-            onChange={(e) => setNomeSenha(e.target.value)}
-            readOnly
-          />
-          <BtnEdit />
-        </div>
-      </div>
-    </div>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5 20C5 16.6863 8.13401 14 12 14C15.866 14 19 16.6863 19 20"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
+
+function IconSair() {
+  return (
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0"
+    >
+      <path
+        d="M10 17L15 12L10 7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 12H3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 3H19C20.1046 3 21 3.89543 21 5V19C21 20.1046 20.1046 21 19 21H12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/* =========================
+   Opções do usuário
+========================= */
 
 function OptExtras({
   leUser,
@@ -219,63 +199,119 @@ function OptExtras({
 }) {
   const navigate = useNavigate();
 
-  // Registra o logout na auditoria; a sessão local é encerrada mesmo se a API falhar
+  // Registra o logout na auditoria; a sessão local é encerrada
+  // mesmo se a API falhar.
   const sair = async (e: React.MouseEvent) => {
     e.preventDefault();
+
     try {
       await apiFetch('/auth/logout', { method: 'POST' });
     } catch (erro) {
       console.error('Erro ao encerrar a sessão na API:', erro);
     }
+
     encerrarSessaoLocal();
     navigate('/login', { replace: true });
   };
 
-  return (
-    <div className="flex flex-col items-center justify-between flex-1 w-full">
-      {/* Opções do usuário */}
-      <div className="flex flex-col items-center gap-8 w-full -translate-y-14">
-        {/* Gerenciar usuários */}
-        <a
-          href="/usuarios"
-          className="text-center font-sans font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-        >
-          {UsuarioAtual.tipo == 'ADM'
-            ? 'Gerenciar Usuários'
-            : 'Usuários Cadastrados'}
-        </a>
+  const itemMenu =
+    'flex w-full items-center gap-3 rounded-xl px-4 py-4 text-left transition-all duration-200 hover:bg-[#f8f2f8] active:scale-[0.98]';
 
-        {/* Editar perfil */}
-        <a
-          onClick={() => abrirEditModal(leUser)}
-          className="text-center font-sans font-bold text-[#664666] text-[20px] no-underline hover:text-[#A13680] transition-colors duration-200 whitespace-nowrap cursor-pointer"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-        >
-          Editar perfil
-        </a>
+  return (
+    <div className="flex w-full flex-1 flex-col justify-between">
+      <div className="w-full">
+        {/* Menu */}
+        <div className="flex flex-col gap-2">
+          {/* Usuários */}
+          <a href="/usuarios" className={`${itemMenu} text-[#664666]`}>
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+              <IconUsuarios />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold">
+                {UsuarioAtual.tipo === 'ADM'
+                  ? 'Gerenciar usuários'
+                  : 'Usuários cadastrados'}
+              </p>
+              <p className="mt-1 text-xs text-[#99919b]">
+                Visualizar usuários do sistema
+              </p>
+            </div>
+
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="shrink-0 text-[#b7a8b8]"
+            >
+              <path
+                d="M9 18L15 12L9 6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
+
+          {/* Editar perfil */}
+          <button
+            type="button"
+            onClick={() => abrirEditModal(leUser)}
+            className={`${itemMenu} text-[#664666]`}
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+              <IconPerfil />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold">Editar perfil</p>
+              <p className="mt-1 text-xs text-[#99919b]">
+                Atualizar informações pessoais
+              </p>
+            </div>
+
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="shrink-0 text-[#b7a8b8]"
+            >
+              <path
+                d="M9 18L15 12L9 6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* Botão de logout */}
-      <a
-        href="/login"
-        onClick={sair}
-        className="h-[34px] w-[35px] relative shrink-0 mt-auto mb-10"
-        data-name="btnDeslogar"
-      >
-        <div className="absolute inset-[9.38%_6.25%_9.38%_9.38%]">
-          <svg
-            className="absolute block inset-0 size-full"
-            fill="none"
-            viewBox="0 0 29.5298 27.625"
-          >
-            <path d={svgPaths.p23a46200} fill="#A13680" />
-          </svg>
-        </div>
-      </a>
+      {/* Logout */}
+      <div className="mt-auto flex w-full justify-center pt-6">
+        <a
+          href="/login"
+          onClick={sair}
+          aria-label="Sair da conta"
+          title="Sair da conta"
+          className="flex size-11 items-center justify-center rounded-xl text-[#A13680] transition-all duration-200 hover:bg-[#fff1f5] hover:scale-105 active:scale-95"
+          data-name="btnDeslogar"
+        >
+          <IconSair />
+        </a>
+      </div>
     </div>
   );
 }
+
+/* =========================
+   Popup de perfil
+========================= */
 
 export function UserbarPopupUser({
   onClose,
@@ -290,13 +326,16 @@ export function UserbarPopupUser({
   const [usuarioSelecionado, setUserSelecionado] = useState<Usuario>();
 
   const [modalEdicao, setModalEdicao] = useState(false);
+
   const abrirEditModal = (user: Usuario) => {
     setUserSelecionado(user);
     setModalEdicao(true);
   };
 
-  // Próprio perfil (qualquer tipo de conta): nome e e-mail em PATCH /users/profile,
-  // senha em PATCH /users/profile/password e foto em PATCH /users/profile/photo.
+  // Próprio perfil (qualquer tipo de conta):
+  // nome e e-mail em PATCH /users/profile,
+  // senha em PATCH /users/profile/password
+  // e foto em PATCH /users/profile/photo.
   // E-mail e senha pedem a senha atual.
   const handleSalvarUsuario = async (
     dadosUsuario: Usuario,
@@ -308,24 +347,32 @@ export function UserbarPopupUser({
       }
 
       const alteracoes: Record<string, string> = {};
-      if (dadosUsuario.nome !== UsuarioAtual.nome)
+
+      if (dadosUsuario.nome !== UsuarioAtual.nome) {
         alteracoes.name = dadosUsuario.nome;
+      }
+
       if (dadosUsuario.email !== UsuarioAtual.email) {
         const senhaAtual = pedirSenhaAtual('trocar o e-mail');
+
         if (!senhaAtual) {
           alert('E-mail não alterado: a senha atual não foi informada.');
           return;
         }
+
         alteracoes.email = dadosUsuario.email;
         alteracoes.currentPassword = senhaAtual;
       }
+
       if (Object.keys(alteracoes).length > 0) {
         await apiFetch('/users/profile', {
           method: 'PATCH',
           body: JSON.stringify(alteracoes),
         });
+
         if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
         if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+
         atualizarUsuarioSessao({
           ...(alteracoes.name && { nome: alteracoes.name }),
           ...(alteracoes.email && { email: alteracoes.email }),
@@ -338,6 +385,7 @@ export function UserbarPopupUser({
 
       setUsuario({ ...UsuarioAtual });
       onUsuarioAtualizado?.();
+
       window.dispatchEvent(new Event('usuario-atualizado'));
       setModalEdicao(false);
     } catch (erro) {
@@ -348,49 +396,61 @@ export function UserbarPopupUser({
 
   return (
     <div
-      className={`bg-white relative size-full max-w-[360px] transform transition-transform duration-300 ease-in-out ${isClosing ? 'translate-x-full' : 'translate-x-0'}`}
+      className={`relative size-full max-w-[360px] overflow-hidden border border-[#eee7ef] bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
+        isClosing ? 'translate-x-full' : 'translate-x-0'
+      }`}
     >
-      <div className="flex flex-col items-center min-h-[inherit] min-w-[inherit] size-full">
-        <div className="content-stretch flex flex-col gap-[69px] items-center min-h-[inherit] min-w-[inherit] px-[14px] py-[27px] relative size-full">
-          {/* BackArrow */}
-          <button
-            onClick={onClose}
-            className="content-stretch flex flex-col items-start overflow-clip relative shrink-0 w-full cursor-pointer"
-            data-name="backArrow"
-          >
-            <Seta />
-          </button>
+      <div className="flex size-full flex-col px-5 py-5">
+        {/* Cabeçalho */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Voltar"
+          className="flex w-full items-center rounded-lg text-left transition-colors hover:text-[#A13680]"
+          data-name="backArrow"
+        >
+          <Seta />
+        </button>
 
-          <div className="-translate-y-8">
-            <UserInfo />
-          </div>
-          {/*<Fields />*/}
+        {/* Perfil */}
+        <div className="mt-8 flex flex-col items-center">
+          <UserInfo />
+        </div>
+
+        {/* Menu */}
+        <div className="mt-10 flex flex-1 flex-col">
           <OptExtras leUser={SeuUsuario} abrirEditModal={abrirEditModal} />
         </div>
       </div>
-      <div
-        aria-hidden
-        className="absolute border border-[#d0d0d0] border-solid inset-0 pointer-events-none"
-      />
 
-      {/* cadastro */}
-      {modalEdicao && (
-        <div className="fixed top-0 right-0 w-screen h-screen z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <TelaUsuarioUserPopup
-            header="Editando perfil"
-            id={usuarioSelecionado ? usuarioSelecionado.id : ''}
-            nome={usuarioSelecionado?.nome || ''}
-            email={usuarioSelecionado?.email || ''}
-            senha={usuarioSelecionado?.senha || ''}
-            imagem={usuarioSelecionado?.imagem || ''}
-            tipo={usuarioSelecionado?.tipo || ''}
-            nucleos={usuarioSelecionado?.nucleos || undefined}
-            status={usuarioSelecionado?.status || 1}
-            onSubmit={handleSalvarUsuario}
-            onClose={() => setModalEdicao(false)}
-          />
-        </div>
-      )}
+      {/* Modal de edição */}
+      {modalEdicao &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-3 sm:p-5 backdrop-blur-sm"
+            onClick={() => setModalEdicao(false)}
+          >
+            <div
+              className="flex w-full max-w-[min(92vw,620px)] max-h-[90dvh] min-w-0 items-center justify-center overflow-x-hidden overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <TelaUsuarioUserPopup
+                header="Editando perfil"
+                id={usuarioSelecionado ? usuarioSelecionado.id : ''}
+                nome={usuarioSelecionado?.nome || ''}
+                email={usuarioSelecionado?.email || ''}
+                senha={usuarioSelecionado?.senha || ''}
+                imagem={usuarioSelecionado?.imagem || ''}
+                tipo={usuarioSelecionado?.tipo || ''}
+                nucleos={usuarioSelecionado?.nucleos || undefined}
+                status={usuarioSelecionado?.status || 1}
+                onSubmit={handleSalvarUsuario}
+                onClose={() => setModalEdicao(false)}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
