@@ -14,7 +14,11 @@ import { User } from './UserBar';
 import { CustomDropdown } from './CustomDropdown';
 import { NucleosCadastrados, type Nucleo } from './dados/nucleos';
 import { BtnCriar } from './BtnCriar';
-import { UsuarioAtual, type Usuario } from './dados/usuarios';
+import {
+  UsuarioAtual,
+  UsuariosCadastrados,
+  type Usuario,
+} from './dados/usuarios';
 import 'react-datepicker/dist/react-datepicker.css';
 
 type StatusApi = 'ATIVO' | 'INATIVO' | 'ARQUIVADO';
@@ -28,8 +32,9 @@ interface ProgramaApi {
   nucleo?: NucleoApi | null;
   // AAAA-MM-DD (devolvido como ISO à meia-noite UTC)
   dataInicio?: string | null;
-  responsavel?: { id: string; nome: string } | null;
-  participantes?: { user: { id: string; nome: string } }[];
+  responsavelId?: string | null;
+  responsavel?: { id: string; nome: string; email?: string } | null;
+  participantes?: { user: { id: string; nome: string; email?: string } }[];
 }
 
 const STATUS_DA_TELA: Record<StatusApi, string> = {
@@ -80,7 +85,6 @@ const idsDosParticipantes = (programa: Programa) =>
   programa.participantes.map((u) => u.id);
 const mesmosIds = (a: string[], b: string[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
-
 function ProgramaObj({
   programaEmSi,
   editFunc,
@@ -94,12 +98,12 @@ function ProgramaObj({
 
   return (
     <div
-      className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-[16px] items-start min-h-[120px] px-[18px] py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
+      className="bg-white border-2 border-[#3b142f] border-solid content-stretch flex gap-3.5 sm:gap-4 items-start min-h-[110px] px-3.5 sm:px-[18px] py-3 sm:py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full"
       data-name="Programa"
     >
       {/* Logo do Programa */}
       <div
-        className={`h-[75px] w-[75px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
+        className={`size-[55px] sm:size-[70px] relative ${nucleo.corBg} ${nucleo.corIcone} flex items-center justify-center rounded-full overflow-clip shrink-0 border border-slate-200`}
         data-name="Img"
       >
         {nucleo.icone ? (
@@ -111,13 +115,13 @@ function ProgramaObj({
             />
           </div>
         ) : (
-          <span className="font-bold text-[12px] tracking-wider">
+          <span className="font-bold text-[11px] sm:text-[12px] tracking-wider">
             {nucleo.logoTexto}
           </span>
         )}
       </div>
 
-      <div className="content-stretch flex flex-1 flex-col gap-[6px] relative pr-6">
+      <div className="content-stretch flex flex-1 flex-col gap-[6px] relative pr-7 sm:pr-8 min-w-0">
         {UsuarioAtual.tipo == 'ADM' ? (
           <>
             {/* edicao */}
@@ -131,7 +135,7 @@ function ProgramaObj({
 
             {/* deletamento */}
             <button
-              className="absolute right-0 size-[20px] top-8 cursor-pointer"
+              className="absolute right-0 size-[20px] top-7 cursor-pointer"
               data-name="akar-icons:more-vertical-fill"
               onClick={() => delFunc(programaEmSi)}
             >
@@ -143,21 +147,21 @@ function ProgramaObj({
         )}
 
         {/* nome */}
-        <p className="font-['Google_Sans_Flex:SemiBold',sans-serif] font-semibold text-[#040404] text-[16px] leading-tight">
+        <p className="font-sans font-semibold text-[#040404] text-[15px] sm:text-[16px] leading-tight break-words">
           {programaEmSi.nome}
         </p>
 
         {/* sigla */}
-        <p className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[#664666] text-[12px]">
+        <p className="font-sans font-bold text-[#664666] text-[12px]">
           {nucleo.sigla}
         </p>
 
         {/* desceição */}
-        <p className="font-['Google_Sans_Flex:Regular',sans-serif] font-normal text-[#4a4a4a] text-[13px] leading-snug line-clamp-2">
+        <p className="font-sans font-normal text-[#4a4a4a] text-[12px] sm:text-[13px] leading-snug line-clamp-2 break-words">
           {programaEmSi.descricao}
         </p>
 
-        <div className="flex gap-[20px] items-center pt-1 text-[12px] text-[#555]">
+        <div className="flex flex-wrap gap-x-4 sm:gap-x-5 gap-y-1.5 items-center pt-1 text-[12px] text-[#555]">
           {/* data de criação */}
           <div className="flex gap-[6px] items-center">
             <div className="size-[16px] shrink-0">
@@ -197,6 +201,18 @@ function ProgramaObj({
             </div>
             <span>{programaEmSi.participantes.length} Participantes</span>
           </div>
+
+          {/* responsável */}
+          {programaEmSi.responsavel && (
+            <div className="flex gap-[6px] items-center text-slate-700">
+              <span className="font-semibold text-slate-700">
+                Resp:{' '}
+                <span className="font-normal text-slate-600">
+                  {programaEmSi.responsavel.nome}
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -205,8 +221,6 @@ function ProgramaObj({
 
 export default function TelaProgramas() {
   const [programas, setProgramas] = useState<Programa[]>([]);
-
-  // Usuários reais para os campos de responsável e participantes (GET /users é do administrador)
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Usuario[]>([]);
 
   // O administrador vê também programas inativos e arquivados, para poder reativá-los;
@@ -379,19 +393,19 @@ export default function TelaProgramas() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
       {/*================ CONTEÚDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 md:p-8 h-full pt-[60px] ">
-        <div className="flex flex-1 flex-col gap-[20px] items-center pt-[10px] pb-[100px] w-full h-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto pt-4 sm:pt-6 md:pt-10">
+        <div className="flex flex-1 flex-col gap-5 items-center pt-2 sm:pt-4 pb-20 w-full h-full">
           <div className="flex items-center justify-between px-[10px] w-full shrink-0">
-            <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+            <p className="text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
               Programas
             </p>
           </div>
 
-          <div className="flex items-center justify-between px-[10px] py-[5px] shrink-0 w-full gap-4">
-            <div className="relative w-full sm:w-96">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-2 sm:px-[10px] py-[5px] shrink-0 w-full gap-3 sm:gap-4">
+            <div className="relative w-full sm:w-80 md:w-96">
               <input
                 type="text"
                 placeholder="Pesquisar..."
@@ -406,7 +420,7 @@ export default function TelaProgramas() {
             </div>
 
             {/* Botoes */}
-            <div className="flex flex-row items-center gap-[15px]">
+            <div className="flex flex-wrap items-center gap-3">
               <CustomDropdown
                 icon={Svg.UsersMais}
                 label="Núcleos"
@@ -441,7 +455,7 @@ export default function TelaProgramas() {
       </main>
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
@@ -538,9 +552,9 @@ type programItems = {
   status: string;
   responsavel?: Usuario;
   participantes: Usuario[];
-  onSubmit: (programa: Programa) => void;
   // Usuários reais (GET /users) para responsável e participantes
   usuarios: Usuario[];
+  onSubmit: (programa: Programa) => void;
   onClose: () => void;
 };
 
@@ -558,6 +572,8 @@ function EditProgramaPopup({
   onSubmit,
   onClose,
 }: programItems) {
+  const listaUsuarios =
+    usuarios && usuarios.length > 0 ? usuarios : UsuariosCadastrados;
   const [formNome, setFormNome] = useState(nome || '');
   const [formNucleo, setFormNucleo] = useState<Nucleo | undefined>(nucleo);
   const [formDescricao, setFormDescricao] = useState(descricao || '');
@@ -604,12 +620,10 @@ function EditProgramaPopup({
   return (
     <form
       onSubmit={handleFormSubmit}
-      className="bg-white border border-[#a13680] border-solid flex flex-col gap-6 items-center overflow-y-auto max-h-[90vh] px-[50px] py-[30px] relative rounded-[45px] w-full max-w-2xl shadow-2xl"
+      className="bg-white border border-[#a13680] border-solid flex flex-col gap-6 items-center overflow-y-auto max-h-[90vh] px-6 sm:px-[50px] py-[25px] sm:py-[30px] relative rounded-[32px] sm:rounded-[45px] w-full max-w-2xl shadow-2xl"
     >
       <div className="flex items-center justify-between w-full">
-        <h2 className="font-['Google_Sans_Flex:Bold',sans-serif] font-bold text-[28px] text-black">
-          {header}
-        </h2>
+        <h2 className="font-sans font-bold text-[28px] text-black">{header}</h2>
       </div>
 
       {/* Opcoes do Formulário */}
@@ -712,7 +726,9 @@ function EditProgramaPopup({
             <select
               value={formResponsavel?.id || ''}
               onChange={(e) => {
-                const u = usuarios.find((item) => item.id === e.target.value);
+                const u = listaUsuarios.find(
+                  (item: Usuario) => item.id === e.target.value,
+                );
                 setFormResponsavel(u);
               }}
               required
@@ -721,9 +737,9 @@ function EditProgramaPopup({
               <option value="" disabled>
                 Selecione um responsável...
               </option>
-              {usuarios.map((u) => (
+              {listaUsuarios.map((u: Usuario) => (
                 <option key={u.id} value={u.id}>
-                  {u.nome}
+                  {u.nome} {u.email ? `(${u.email})` : ''}
                 </option>
               ))}
             </select>
@@ -739,8 +755,11 @@ function EditProgramaPopup({
             onChange={(e) => {
               const id = e.target.value;
               if (!id) return;
-              const usuario = usuarios.find((u) => u.id === id);
-              if (usuario && !formParticipantes.some((u) => u.id === id)) {
+              const usuario = listaUsuarios.find((u: Usuario) => u.id === id);
+              if (
+                usuario &&
+                !formParticipantes.some((u: Usuario) => u.id === id)
+              ) {
                 setFormParticipantes([...formParticipantes, usuario]);
               }
               e.target.value = '';
@@ -751,9 +770,9 @@ function EditProgramaPopup({
             <option value="" disabled>
               Adicionar participante...
             </option>
-            {usuarios.map((u) => (
+            {listaUsuarios.map((u: Usuario) => (
               <option key={u.id} value={u.id}>
-                {u.nome}
+                {u.nome} {u.email ? `(${u.email})` : ''}
               </option>
             ))}
           </select>

@@ -1,8 +1,20 @@
 import { NucleosCadastrados, type Nucleo } from './nucleos';
 import type { Programa } from './programas';
 
+export interface RegistroIndicador {
+  id: string;
+  ano: number;
+  trimestre: string;
+  valorRealizado: string | number | null;
+  metaAplicada?: string | number | null;
+  statusAprovacao?: string;
+  justificativaDevolucao?: string | null;
+  status?: string;
+}
+
 export interface Indicador {
   id: string;
+  registroId?: string;
   nome: string;
   unidade: string;
   simbolUni?: string;
@@ -15,10 +27,10 @@ export interface Indicador {
   nucleo?: Nucleo;
   programa?: Programa;
   status: string;
-  aprovado: boolean;
-  // Valor trimestral exibido no card (usado pela aprovação)
-  registroId?: string;
   statusAprovacao?: string;
+  justificativaDevolucao?: string | null;
+  aprovado: boolean;
+  registros?: RegistroIndicador[];
 }
 
 export const IndicadoresCadastrados: Indicador[] = [

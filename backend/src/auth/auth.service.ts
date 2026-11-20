@@ -32,6 +32,7 @@ const publicUserSelect = {
   id: true,
   nome: true,
   email: true,
+  fotoUrl: true,
   perfil: true,
   ativo: true,
   createdAt: true,

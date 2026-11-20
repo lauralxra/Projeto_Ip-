@@ -173,63 +173,52 @@ export class NucleoService {
     return { message: 'Imagem do núcleo atualizada com sucesso.', imagemUrl };
   }
 
-  // Edita nome, sigla, descrição e cor; a imagem tem rota própria
-  async update(id: string, dto: UpdateNucleoDto, autor: AutorAcao) {
-    const atual = await this.nucleoRepository.findAtivoById(id);
-    if (!atual) {
+  async update(id: string, updateNucleoDto: UpdateNucleoDto, autor: AutorAcao) {
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
+    if (!nucleo) {
       throw new NotFoundException('Núcleo não encontrado.');
     }
 
-    const novos = {
-      nome: dto.nome ?? atual.nome,
-      sigla: dto.sigla ?? atual.sigla,
-      descricao:
-        dto.descricao === undefined ? atual.descricao : dto.descricao || null,
-      corHex: dto.corHex === undefined ? atual.corHex : dto.corHex || null,
-    };
-
-    const campos = (Object.keys(novos) as (keyof typeof novos)[]).filter(
-      (campo) => novos[campo] !== atual[campo],
-    );
-    if (campos.length === 0) {
-      throw new BadRequestException('Nenhuma alteração informada.');
-    }
-
-    if (campos.includes('nome') || campos.includes('sigla')) {
-      const conflito = await this.nucleoRepository.findConflito(
-        novos.nome,
-        novos.sigla,
+    if (updateNucleoDto.nome || updateNucleoDto.sigla) {
+      const conflito = await this.nucleoRepository.findConflitoOutro(
+        updateNucleoDto.nome,
+        updateNucleoDto.sigla,
         id,
       );
       if (conflito) {
         throw new ConflictException(
-          conflito.nome.toLowerCase() === novos.nome.toLowerCase()
+          updateNucleoDto.nome &&
+            conflito.nome.toLowerCase() === updateNucleoDto.nome.toLowerCase()
             ? 'Já existe um núcleo cadastrado com este nome.'
             : 'Já existe um núcleo cadastrado com esta sigla.',
         );
       }
     }
 
-    const alteracoes = Object.fromEntries(
-      campos.map((campo) => [campo, novos[campo]]),
-    );
-    if (!(await this.nucleoRepository.updateDados(id, alteracoes))) {
-      throw new NotFoundException('Núcleo não encontrado.');
-    }
+    const data: Prisma.NucleoUpdateInput = {};
+    if (updateNucleoDto.nome !== undefined) data.nome = updateNucleoDto.nome;
+    if (updateNucleoDto.sigla !== undefined) data.sigla = updateNucleoDto.sigla;
+    if (updateNucleoDto.descricao !== undefined)
+      data.descricao = updateNucleoDto.descricao;
+    if (updateNucleoDto.corHex !== undefined)
+      data.corHex = updateNucleoDto.corHex;
+
+    const atualizado = await this.nucleoRepository.update(id, data);
 
     await this.audit.registrarAcao({
       userId: autor.id,
       acao: AcaoAuditoria.ATUALIZAR,
       entidade: 'Nucleo',
       entidadeId: id,
-      dadosAntigos: Object.fromEntries(
-        campos.map((campo) => [campo, atual[campo]]),
-      ),
-      dadosNovos: alteracoes,
+      dadosAntigos: { ...nucleo, createdAt: nucleo.createdAt.toISOString() },
+      dadosNovos: {
+        ...atualizado,
+        createdAt: atualizado.createdAt.toISOString(),
+      },
       ip: autor.ip,
     });
 
-    return this.nucleoRepository.findAtivoById(id);
+    return atualizado;
   }
 
   async remove(id: string, autor: AutorAcao) {

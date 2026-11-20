@@ -65,6 +65,78 @@ export function RemoveIndicadorSwagger() {
   );
 }
 
+export function ArquivarIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Arquivar indicador (UC041)',
+      description:
+        'Altera o status do indicador para ARQUIVADO, impedindo novos lançamentos, metas e edições, preservando 100% do histórico e registrando auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador arquivado com sucesso.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração pode arquivar indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'O indicador já está arquivado.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function DesativarIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Desativar indicador (UC041)',
+      description:
+        'Altera o status do indicador para INATIVO, impedindo novos lançamentos, metas e edições, preservando 100% do histórico e registrando auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador desativado com sucesso.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração pode desativar indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'O indicador já está inativo.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function ReativarIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Reativar indicador arquivado ou inativo',
+      description:
+        'Restaura o status do indicador para ATIVO e registra auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador reativado com sucesso.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração pode reativar indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'O indicador já está ativo.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
 export function SalvarRegistroSwagger() {
   return applyDecorators(
     ApiOperation({
@@ -89,6 +161,78 @@ export function SalvarRegistroSwagger() {
     ApiConflictResponse({
       description:
         'O valor já foi enviado para revisão e o núcleo não pode alterá-lo.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function FindOneIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Consultar um indicador (RF04)',
+      description:
+        'Administração e Comunicação consultam qualquer indicador; os demais perfis, apenas os institucionais e os dos seus núcleos. A Comunicação recebe apenas registros aprovados ou publicados.',
+    }),
+    ApiOkResponse({ description: 'Indicador com seus registros.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Indicador de outro núcleo.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function UpdateIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Editar um indicador (RF02)',
+      description:
+        'Altera nome, descrição, unidade de medida e código. A ação é registrada na auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador atualizado e auditado.' }),
+    ApiBadRequestResponse({
+      description: 'Dados inválidos ou nenhum campo informado.',
+      type: AuthErrorResponseDto,
+    }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração edita indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'Já existe um indicador com este código.',
+      type: AuthErrorResponseDto,
+    }),
+  );
+}
+
+export function InativarIndicadorSwagger() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Inativar um indicador (RF11)',
+      description:
+        'Muda o status do indicador para INATIVO sem excluí-lo. A ação é registrada na auditoria.',
+    }),
+    ApiOkResponse({ description: 'Indicador inativado.' }),
+    naoAutenticado,
+    ApiForbiddenResponse({
+      description: 'Apenas a administração inativa indicadores.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiNotFoundResponse({
+      description: 'Indicador não encontrado.',
+      type: AuthErrorResponseDto,
+    }),
+    ApiConflictResponse({
+      description: 'O indicador já está inativo.',
       type: AuthErrorResponseDto,
     }),
   );

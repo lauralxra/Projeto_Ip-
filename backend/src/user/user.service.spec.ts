@@ -21,6 +21,7 @@ describe('UserService', () => {
     findActiveById: jest.Mock;
     updateDados: jest.Mock;
     updateStatus: jest.Mock;
+    updateEmail: jest.Mock;
     updatePermissions: jest.Mock;
     syncNucleos: jest.Mock;
     findNucleosByUserId: jest.Mock;
@@ -29,6 +30,7 @@ describe('UserService', () => {
     updatePassword: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
+  let prisma: { user: { findFirst: jest.Mock } };
   let notificacao: { notificarSenhaAlterada: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
   const dto = {
@@ -41,12 +43,18 @@ describe('UserService', () => {
   const createdAt = new Date('2026-10-25T12:00:00.000Z');
 
   beforeEach(() => {
+    prisma = {
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
     repository = {
       findActiveByEmail: jest.fn(),
       create: jest.fn(),
       findActiveById: jest.fn(),
       updateDados: jest.fn().mockResolvedValue({ count: 1 }),
       updateStatus: jest.fn().mockResolvedValue({ count: 1 }),
+      updateEmail: jest.fn().mockResolvedValue({ count: 1 }),
       updatePermissions: jest.fn().mockResolvedValue({ count: 1 }),
       syncNucleos: jest.fn(),
       findNucleosByUserId: jest.fn().mockResolvedValue([]),
@@ -57,7 +65,7 @@ describe('UserService', () => {
     audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
     notificacao = { notificarSenhaAlterada: jest.fn().mockResolvedValue(true) };
     service = new UserService(
-      {} as PrismaService,
+      prisma as unknown as PrismaService,
       repository as unknown as UserRepository,
       audit as unknown as AuditService,
       notificacao as unknown as NotificacaoService,
@@ -278,6 +286,49 @@ describe('UserService', () => {
       expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
         nome: 'Maria Souza',
       });
+    });
+  });
+
+  describe('updateEmail', () => {
+    const usuario = {
+      id: 'usuario-uuid',
+      nome: 'Maria da Silva',
+      email: 'maria@exemplo.com',
+      perfil: Role.EQUIPE_GESTAO,
+      ativo: true,
+      createdAt,
+    };
+
+    it('atualiza o email do usuário e registra auditoria', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+      repository.updateEmail.mockResolvedValue({ count: 1 });
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      const result = await service.updateEmail(
+        'usuario-uuid',
+        'novo@exemplo.com',
+        autor,
+      );
+
+      expect(repository.updateEmail).toHaveBeenCalledWith(
+        'usuario-uuid',
+        'novo@exemplo.com',
+      );
+      expect(result).toMatchObject({
+        id: 'usuario-uuid',
+        email: 'novo@exemplo.com',
+      });
+      expect(audit.registrarAcao).toHaveBeenCalled();
+    });
+
+    it('retorna 409 se o email já estiver em uso por outro usuário', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+      prisma.user.findFirst.mockResolvedValue({ id: 'outro-uuid' });
+
+      await expect(
+        service.updateEmail('usuario-uuid', 'em.uso@exemplo.com', autor),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repository.updateEmail).not.toHaveBeenCalled();
     });
   });
 

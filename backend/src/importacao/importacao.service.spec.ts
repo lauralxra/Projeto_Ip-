@@ -29,6 +29,11 @@ describe('ImportacaoService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      meta: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
     };
 
     service = new ImportacaoService(prisma);
@@ -225,6 +230,96 @@ describe('ImportacaoService', () => {
           nucleoId: 'nucleo-555',
           programaId: 'programa-999',
           escopo: 'NUCLEO',
+        }),
+      }),
+    );
+
+    expect(resultado.status).toBe(StatusImportacao.CONCLUIDA);
+  });
+
+  it('deve reaproveitar o mesmo indicador para múltiplos trimestres sem duplicar no banco', async () => {
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      perfil: Role.ADMINISTRADOR,
+      nucleos: [],
+    });
+
+    prisma.importacao.create.mockResolvedValue({ id: 'importacao-1' });
+    prisma.importacao.update.mockResolvedValue({
+      id: 'importacao-1',
+      status: StatusImportacao.CONCLUIDA,
+    });
+
+    prisma.nucleo.findFirst.mockResolvedValue({
+      id: 'nucleo-1',
+      nome: 'NEI',
+      status: 'ATIVO',
+      deletedAt: null,
+    });
+    prisma.programa.findFirst.mockResolvedValue({
+      id: 'programa-1',
+      nome: 'Aceleração',
+      nucleoId: 'nucleo-1',
+      status: 'ATIVO',
+      deletedAt: null,
+    });
+    prisma.indicador.findFirst.mockResolvedValue(null);
+    prisma.indicador.create.mockResolvedValue({
+      id: 'indicador-unico',
+      nome: 'Startups Aceleradas',
+      status: 'ATIVO',
+      deletedAt: null,
+      nucleoId: 'nucleo-1',
+      programaId: 'programa-1',
+    });
+    prisma.indicadorRegistro.findFirst.mockResolvedValue(null);
+    prisma.indicadorRegistro.create.mockResolvedValue({ id: 'reg-1' });
+
+    const csvConteudo =
+      'nomeIndicador,nucleo,programa,ano,trimestre,valorRealizado\n' +
+      'Startups Aceleradas,NEI,Aceleração,2024,Q1,10\n' +
+      'Startups Aceleradas,NEI,Aceleração,2024,Q2,20\n' +
+      'Startups Aceleradas,NEI,Aceleração,2024,Q3,30';
+
+    const resultado = await service.importarCsv(
+      'indicadores.csv',
+      csvConteudo,
+      'user-1',
+      Role.ADMINISTRADOR,
+    );
+
+    // O indicador deve ser criado apenas UMA vez!
+    expect(prisma.indicador.create).toHaveBeenCalledTimes(1);
+
+    // Devem ser criados 3 registros associados ao mesmo indicador
+    expect(prisma.indicadorRegistro.create).toHaveBeenCalledTimes(3);
+    expect(prisma.indicadorRegistro.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          indicadorId: 'indicador-unico',
+          ano: 2024,
+          trimestre: 'Q1',
+          valorRealizado: 10,
+        }),
+      }),
+    );
+    expect(prisma.indicadorRegistro.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          indicadorId: 'indicador-unico',
+          ano: 2024,
+          trimestre: 'Q2',
+          valorRealizado: 20,
+        }),
+      }),
+    );
+    expect(prisma.indicadorRegistro.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          indicadorId: 'indicador-unico',
+          ano: 2024,
+          trimestre: 'Q3',
+          valorRealizado: 30,
         }),
       }),
     );

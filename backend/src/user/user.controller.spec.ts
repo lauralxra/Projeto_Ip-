@@ -8,13 +8,24 @@ import { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 describe('UserController', () => {
   let controller: UserController;
-  let userService: { create: jest.Mock; atualizarDados: jest.Mock };
+  let userService: {
+    create: jest.Mock;
+    atualizarDados: jest.Mock;
+    updateStatus: jest.Mock;
+    updateEmail: jest.Mock;
+  };
   let nucleoService: { findAssociados: jest.Mock };
 
   beforeEach(async () => {
     userService = {
       create: jest.fn().mockResolvedValue({ id: 'novo-uuid' }),
       atualizarDados: jest.fn().mockResolvedValue({ id: 'usuario-uuid' }),
+      updateStatus: jest
+        .fn()
+        .mockResolvedValue({ id: 'usuario-uuid', ativo: true }),
+      updateEmail: jest
+        .fn()
+        .mockResolvedValue({ id: 'usuario-uuid', email: 'novo@exemplo.com' }),
     };
     nucleoService = { findAssociados: jest.fn().mockResolvedValue([]) };
     const module: TestingModule = await Test.createTestingModule({
@@ -78,5 +89,43 @@ describe('UserController', () => {
     await controller.findMyNucleos(req);
 
     expect(nucleoService.findAssociados).toHaveBeenCalledWith('diretor-uuid');
+  });
+
+  it('repassa o status e o autor na rota updateStatus', async () => {
+    const req = {
+      user: { id: 'admin-uuid', role: Role.ADMINISTRADOR },
+    } as AuthenticatedRequest;
+
+    await controller.updateStatus(
+      'usuario-uuid',
+      { ativo: true },
+      req,
+      '203.0.113.7',
+    );
+
+    expect(userService.updateStatus).toHaveBeenCalledWith(
+      'usuario-uuid',
+      true,
+      { id: 'admin-uuid', ip: '203.0.113.7' },
+    );
+  });
+
+  it('repassa o email e o autor na rota updateEmail', async () => {
+    const req = {
+      user: { id: 'admin-uuid', role: Role.ADMINISTRADOR },
+    } as AuthenticatedRequest;
+
+    await controller.updateEmail(
+      'usuario-uuid',
+      { email: 'novo@exemplo.com' },
+      req,
+      '203.0.113.7',
+    );
+
+    expect(userService.updateEmail).toHaveBeenCalledWith(
+      'usuario-uuid',
+      'novo@exemplo.com',
+      { id: 'admin-uuid', ip: '203.0.113.7' },
+    );
   });
 });

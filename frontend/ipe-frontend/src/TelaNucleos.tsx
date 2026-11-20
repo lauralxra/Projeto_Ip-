@@ -177,27 +177,27 @@ export default function TelaNucleos() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc]">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       {/* Sidebar */}
-      <NavBar></NavBar>
+      <NavBar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 p-6 md:p-10 h-full overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 md:p-10 w-full h-full overflow-y-auto">
         {/* Cabeçalho */}
-        <header className="flex items-center justify-between gap-4 mb-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+            <h1 className="text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
               Núcleos
             </h1>
-            <p className="font-['Google_Sans_Flex:Light',sans-serif] font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
+            <p className="font-sans font-light relative shrink-0 text-[#8e8e93] w-full text-sm text-slate-500 mt-1">
               Áreas de atuação responsáveis pelo envio periódico dos dados
             </p>
           </div>
         </header>
 
         {/* Barra de Pesquisa + Botão Novo Núcleo */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-          <div className="relative w-full sm:w-96">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="relative w-full sm:w-80 md:w-96">
             <input
               type="text"
               placeholder="Pesquisar..."
@@ -219,11 +219,11 @@ export default function TelaNucleos() {
         </div>
 
         {/* Lista de Núcleos (Cards) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {nucleosFiltrados.map((nucleo) => (
             <div
               key={nucleo.id}
-              className="bg-[#f2eff4] rounded-2xl p-6 relative flex items-center gap-5 border border-slate-200/60 shadow-xs hover:shadow-md transition-shadow"
+              className="bg-[#f2eff4] rounded-2xl p-4 sm:p-6 relative flex items-start sm:items-center gap-4 sm:gap-5 border border-slate-200/60 shadow-xs hover:shadow-md transition-shadow"
             >
               {/* Ícone de Ações no Canto Superior Direito */}
               {UsuarioAtual.tipo == 'ADM' ? (
@@ -249,32 +249,30 @@ export default function TelaNucleos() {
 
               {/* Avatar do Núcleo */}
               <div
-                className={`w-24 h-24 rounded-full ${nucleo.corBg} ${nucleo.corIcone} flex flex-col items-center justify-center shrink-0 border-2 border-white shadow-inner`}
+                className={`size-20 sm:size-24 rounded-full ${nucleo.corBg} ${nucleo.corIcone} flex flex-col items-center justify-center shrink-0 border-2 border-white shadow-inner overflow-hidden`}
               >
                 {nucleo.icone ? (
-                  <div>
-                    <img
-                      alt=""
-                      className="relative h-24 left-0 max-w-none top-[-0.07%] rounded-[100px] w-24"
-                      src={nucleo.icone}
-                    />
-                  </div>
+                  <img
+                    alt={nucleo.nome}
+                    className="size-full object-cover rounded-full"
+                    src={nucleo.icone}
+                  />
                 ) : (
-                  <span className="font-bold tracking-wider">
+                  <span className="font-bold tracking-wider text-xs sm:text-sm">
                     {nucleo.logoTexto}
                   </span>
                 )}
               </div>
 
               {/* Detalhes do Núcleo */}
-              <div className="pr-6">
-                <h3 className="font-bold text-slate-800 text-lg">
+              <div className="pr-6 sm:pr-8 min-w-0 flex-1">
+                <h3 className="font-bold text-slate-800 text-base sm:text-lg break-words leading-tight">
                   {nucleo.nome}
                 </h3>
                 <span className="text-xs font-semibold text-[#832b62] block mb-1">
                   {nucleo.sigla}
                 </span>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed break-words line-clamp-3">
                   {nucleo.descricao}
                 </p>
               </div>
@@ -285,7 +283,7 @@ export default function TelaNucleos() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">

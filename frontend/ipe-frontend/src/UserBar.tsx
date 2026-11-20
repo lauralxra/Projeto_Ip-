@@ -1,16 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { UserbarPopupUser } from './UserbarPopupUser';
 import { UserbarPopupNotificacao } from './UserbarPopupNotificacao';
 import { UsuarioAtual } from './dados/usuarios';
 import { urlDaImagem } from './api/mapeadores';
+import { apiFetch } from './api/cliente';
 
 export function User() {
   const [popupUser, setPopupUser] = useState(false);
   const [popUserIsClosing, setUserClosing] = useState(false);
-
+  const [, setVersaoUsuario] = useState(0);
   const [popupNotif, setPopupNotif] = useState(false);
   const [popupNotifIsClosing, setPopupNotifIsClosing] = useState(false);
+  const [naoLidas, setNaoLidas] = useState(0);
+
+  useEffect(() => {
+    const atualizar = () => setVersaoUsuario((v) => v + 1);
+    window.addEventListener('usuario-atualizado', atualizar);
+    return () => window.removeEventListener('usuario-atualizado', atualizar);
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+
+    const checarNotificacoes = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+        const res = await apiFetch<{ itens: { isRead: boolean }[] }>(
+          '/notificacoes?limite=50',
+        );
+        if (ativo && res?.itens) {
+          const totalNaoLidas = res.itens.filter((i) => !i.isRead).length;
+          setNaoLidas(totalNaoLidas);
+        }
+      } catch {
+        // Ignora caso deslogado ou erro temporário
+      }
+    };
+
+    checarNotificacoes();
+    window.addEventListener('notificacoes-atualizadas', checarNotificacoes);
+    return () => {
+      ativo = false;
+      window.removeEventListener(
+        'notificacoes-atualizadas',
+        checarNotificacoes,
+      );
+    };
+  }, []);
 
   // Fechar popup do perfil
   const fecharUserPopup = () => {
@@ -65,6 +103,15 @@ export function User() {
             </clipPath>
           </defs>
         </svg>
+
+        {naoLidas > 0 && (
+          <span
+            className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[#A13680] rounded-full shadow-sm pointer-events-none"
+            title={`${naoLidas} notificação(ões) não lida(s)`}
+          >
+            {naoLidas > 9 ? '9+' : naoLidas}
+          </span>
+        )}
       </button>
 
       {/* FramePerfil */}
@@ -94,8 +141,9 @@ export function User() {
 
         {/* Nome */}
         <p
-          className="[word-break:break-word] flex-[1_0_0] font-['Google_Sans_Flex:Regular',sans-serif] font-normal leading-[normal] min-w-px not-italic relative text-[#a13680] text-[14px]"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdTH" 100' }}
+          className="truncate max-w-[150px] font-sans font-normal leading-[normal] not-italic relative text-[#a13680] text-[14px]"
+          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+          title={UsuarioAtual.nome}
         >
           {UsuarioAtual.nome}
         </p>
@@ -111,6 +159,7 @@ export function User() {
           <UserbarPopupUser
             onClose={fecharUserPopup}
             isClosing={popUserIsClosing}
+            onUsuarioAtualizado={() => setVersaoUsuario((v) => v + 1)}
           />
         </div>
       )}

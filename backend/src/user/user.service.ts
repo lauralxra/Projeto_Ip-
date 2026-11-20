@@ -253,9 +253,52 @@ export class UserService {
     });
 
     return {
+      id,
+      ativo,
       message: ativo
         ? 'Usuário ativado com sucesso.'
         : 'Usuário desativado com sucesso.',
+    };
+  }
+
+  async updateStatus(id: string, ativo: boolean, autor: AutorAcao) {
+    return this.alterarStatus(id, ativo, autor);
+  }
+
+  async updateEmail(id: string, email: string, autor: AutorAcao) {
+    const usuarioAtual = await this.userRepository.findActiveById(id);
+    if (!usuarioAtual) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const emailNorm = email.trim().toLowerCase();
+    const emUso = await this.prisma.user.findFirst({
+      where: { email: emailNorm, id: { not: id }, deletedAt: null },
+      select: { id: true },
+    });
+    if (emUso) {
+      throw new ConflictException(EMAIL_EM_USO);
+    }
+
+    const { count } = await this.userRepository.updateEmail(id, emailNorm);
+    if (count === 0) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    await this.audit.registrarAcao({
+      userId: autor.id,
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'User',
+      entidadeId: id,
+      dadosAntigos: { email: usuarioAtual.email },
+      dadosNovos: { email: emailNorm },
+      ip: autor.ip,
+    });
+
+    return {
+      id,
+      email: emailNorm,
+      message: 'E-mail do usuário atualizado com sucesso.',
     };
   }
 
@@ -297,7 +340,6 @@ export class UserService {
 
     return { message: 'Senha redefinida com sucesso.' };
   }
-
   async updatePermissions(
     id: string,
     dto: UpdateUserPermissionsDto,

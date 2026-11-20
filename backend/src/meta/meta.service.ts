@@ -332,12 +332,21 @@ export class MetaService {
       select: {
         valorMeta: true,
         descricao: true,
-        indicador: { select: { tipoDado: true } },
+        indicador: { select: { tipoDado: true, status: true } },
       },
     });
 
     if (!atual) {
       throw new NotFoundException('Meta não encontrada.');
+    }
+
+    if (
+      atual.indicador.status &&
+      atual.indicador.status !== StatusRegistro.ATIVO
+    ) {
+      throw new ConflictException(
+        'Não é possível alterar metas de um indicador inativo ou arquivado.',
+      );
     }
 
     const alteracoes: Prisma.MetaUpdateManyMutationInput = {};

@@ -27,7 +27,6 @@ describe('IndicadorService', () => {
       create: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
-      findFirstOrThrow: jest.Mock;
     };
     indicadorRegistro: {
       findFirst: jest.Mock;
@@ -62,7 +61,6 @@ describe('IndicadorService', () => {
         create: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findFirstOrThrow: jest.fn(),
       },
       indicadorRegistro: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -169,6 +167,136 @@ describe('IndicadorService', () => {
           { id: admin.id },
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('findOne', () => {
+    it('retorna o indicador para o administrador', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        registros: [],
+      });
+
+      const resultado = await service.findOne('ind-uuid', admin);
+      expect(resultado).toBeDefined();
+      expect(resultado.id).toBe('ind-uuid');
+    });
+
+    it('retorna 404 quando o indicador não existe', async () => {
+      prisma.indicador.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('ind-uuid', admin)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('bloqueia consulta a indicador de outro núcleo para diretor de núcleo', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Núcleo',
+        escopo: EscopoIndicador.NUCLEO,
+        nucleoId: 'outro-nucleo',
+        registros: [],
+      });
+      prisma.userNucleo.findMany.mockResolvedValue([
+        { nucleoId: 'meu-nucleo' },
+      ]);
+
+      await expect(service.findOne('ind-uuid', diretor)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('inativar', () => {
+    it('inativa indicador ativo e registra auditoria DESATIVAR', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        status: StatusRegistro.ATIVO,
+      });
+      prisma.indicador.update.mockResolvedValue({
+        id: 'ind-uuid',
+        status: StatusRegistro.INATIVO,
+      });
+
+      const res = await service.inativar('ind-uuid', {
+        id: admin.id,
+        ip: '127.0.0.1',
+      });
+      expect(res.status).toBe(StatusRegistro.INATIVO);
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.DESATIVAR,
+          entidade: 'Indicador',
+          entidadeId: 'ind-uuid',
+        }),
+      );
+    });
+
+    it('retorna 404 quando indicador não existe', async () => {
+      prisma.indicador.findFirst.mockResolvedValue(null);
+      await expect(
+        service.inativar('ind-uuid', { id: admin.id }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lança ConflictException quando indicador já está inativo', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        status: StatusRegistro.INATIVO,
+      });
+      await expect(
+        service.inativar('ind-uuid', { id: admin.id }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('update', () => {
+    it('atualiza indicador e remove metas ao passar semMeta: true', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        nucleoId: null,
+        programaId: null,
+      });
+      prisma.indicador.update.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Indicador Teste',
+        escopo: EscopoIndicador.INSTITUCIONAL,
+        nucleoId: null,
+        programaId: null,
+        registros: [],
+      });
+
+      await service.update(
+        'ind-uuid',
+        { semMeta: true },
+        { id: admin.id, ip: '127.0.0.1' },
+      );
+
+      expect(prisma.meta.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { indicadorId: 'ind-uuid', deletedAt: null },
+          data: expect.objectContaining({ status: StatusRegistro.INATIVO }),
+        }),
+      );
+      expect(prisma.indicadorRegistro.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { indicadorId: 'ind-uuid', deletedAt: null },
+          data: { metaAplicada: null },
+        }),
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidadeId: 'ind-uuid',
+          dadosNovos: expect.objectContaining({ semMeta: true }),
+        }),
+      );
     });
   });
 
@@ -391,121 +519,149 @@ describe('IndicadorService', () => {
     });
   });
 
-  describe('update', () => {
-    const atual = {
-      nome: 'Indicador',
-      descricao: null,
-      unidadeMedida: 'Unidade',
-      tipoDado: 'NUMERICO',
-      escopo: EscopoIndicador.NUCLEO,
-      nucleoId: 'nei',
-      programaId: null,
-      codigo: null,
-      status: 'ATIVO',
-    };
-    const dadosDoUpdate = () =>
-      (prisma.indicador.updateMany.mock.calls[0] as [{ data: object }])[0].data;
-
-    beforeEach(() => {
-      prisma.indicador.findFirst.mockResolvedValueOnce(atual);
-      prisma.indicador.updateMany.mockResolvedValue({ count: 1 });
-      prisma.indicador.findFirstOrThrow.mockResolvedValue({ id: 'ind-uuid' });
-      prisma.nucleo.findFirst.mockResolvedValue({ id: 'ninter' });
-      prisma.programa.findFirst.mockResolvedValue({ id: 'prog' });
-    });
-
-    it('altera nome e unidade e audita só o que mudou', async () => {
-      await service.update(
-        'ind-uuid',
-        { nome: 'Novo nome', unidadeMedida: 'Reais', tipoDado: 'MOEDA' },
-        { id: admin.id },
+  describe('UC041 - arquivar, desativar, reativar e filtros de status', () => {
+    it('por padrão findAll retorna apenas indicadores ATIVOS e permite filtrar explicitamente por ARQUIVADO/INATIVO', async () => {
+      await service.findAll(admin);
+      expect(whereRegistros().where).toEqual(
+        expect.objectContaining({ status: StatusRegistro.ATIVO }),
       );
 
-      expect(dadosDoUpdate()).toEqual({
-        nome: 'Novo nome',
-        unidadeMedida: 'Reais',
-        tipoDado: 'MOEDA',
+      prisma.indicador.findMany.mockClear();
+      await service.findAll(admin, { status: StatusRegistro.ARQUIVADO });
+      expect(whereRegistros().where).toEqual(
+        expect.objectContaining({ status: StatusRegistro.ARQUIVADO }),
+      );
+    });
+
+    it('arquiva um indicador ativo preservando registros e metas e registra auditoria', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Startups aceleradas',
+        status: StatusRegistro.ATIVO,
+        nucleoId: 'nei',
       });
+
+      await expect(
+        service.arquivar('ind-uuid', { id: admin.id, ip: '127.0.0.1' }),
+      ).resolves.toEqual({
+        message: 'Indicador arquivado com sucesso.',
+        status: StatusRegistro.ARQUIVADO,
+      });
+
+      expect(prisma.indicador.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'ind-uuid',
+          deletedAt: null,
+          status: StatusRegistro.ATIVO,
+        },
+        data: { status: StatusRegistro.ARQUIVADO },
+      });
+      // Preservação do histórico: nenhum registro nem meta é excluído ou inativado
+      expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
+      expect(prisma.meta.updateMany).not.toHaveBeenCalled();
       expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({
-          acao: AcaoAuditoria.ATUALIZAR,
+          userId: admin.id,
+          acao: AcaoAuditoria.ARQUIVAR,
           entidade: 'Indicador',
+          entidadeId: 'ind-uuid',
           dadosAntigos: {
-            nome: 'Indicador',
-            unidadeMedida: 'Unidade',
-            tipoDado: 'NUMERICO',
+            nome: 'Startups aceleradas',
+            status: StatusRegistro.ATIVO,
+          },
+          dadosNovos: {
+            nome: 'Startups aceleradas',
+            status: StatusRegistro.ARQUIVADO,
           },
         }),
       );
     });
 
-    it('sem núcleo o indicador vira institucional', async () => {
-      await service.update('ind-uuid', { nucleoId: null }, { id: admin.id });
-
-      expect(dadosDoUpdate()).toEqual({
-        escopo: EscopoIndicador.INSTITUCIONAL,
-        nucleoId: null,
+    it('desativa um indicador ativo e registra auditoria DESATIVAR', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Startups aceleradas',
+        status: StatusRegistro.ATIVO,
+        nucleoId: 'nei',
       });
-    });
 
-    it('valida o novo núcleo e a compatibilidade do programa', async () => {
-      await service.update(
-        'ind-uuid',
-        { nucleoId: 'ninter', programaId: 'prog' },
-        { id: admin.id },
-      );
+      await expect(
+        service.desativar('ind-uuid', { id: admin.id, ip: '127.0.0.1' }),
+      ).resolves.toEqual({
+        message: 'Indicador desativado com sucesso.',
+        status: StatusRegistro.INATIVO,
+      });
 
-      expect(prisma.programa.findFirst).toHaveBeenCalledWith(
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            id: 'prog',
-            nucleoId: 'ninter',
-          }) as unknown,
+          acao: AcaoAuditoria.DESATIVAR,
+          dadosNovos: {
+            nome: 'Startups aceleradas',
+            status: StatusRegistro.INATIVO,
+          },
         }),
       );
     });
 
-    it('recusa programa de outro núcleo', async () => {
-      prisma.programa.findFirst.mockResolvedValue(null);
+    it('recusa arquivar indicador que já está arquivado', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Startups aceleradas',
+        status: StatusRegistro.ARQUIVADO,
+        nucleoId: 'nei',
+      });
 
       await expect(
-        service.update('ind-uuid', { programaId: 'prog' }, { id: admin.id }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+        service.arquivar('ind-uuid', { id: admin.id }),
+      ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.indicador.updateMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
 
-    it('inativa o indicador', async () => {
-      await service.update('ind-uuid', { status: 'INATIVO' }, { id: admin.id });
-
-      expect(dadosDoUpdate()).toEqual({ status: 'INATIVO' });
-    });
-
-    it('recusa requisição sem alterações', async () => {
-      await expect(
-        service.update('ind-uuid', { nome: 'Indicador' }, { id: admin.id }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('responde 404 para indicador inexistente', async () => {
-      prisma.indicador.findFirst.mockReset().mockResolvedValue(null);
+    it('bloqueia edição (update) de indicador arquivado ou inativo', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Startups aceleradas',
+        status: StatusRegistro.ARQUIVADO,
+        escopo: EscopoIndicador.NUCLEO,
+        nucleoId: 'nei',
+        programaId: null,
+      });
 
       await expect(
-        service.update('ind-uuid', { nome: 'X' }, { id: admin.id }),
-      ).rejects.toBeInstanceOf(NotFoundException);
-    });
-  });
-
-  describe('findAll com inativos', () => {
-    it('administrador recebe os inativos quando pede', async () => {
-      await service.findAll(admin, true);
-
-      expect(whereRegistros().where).not.toHaveProperty('status');
+        service.update('ind-uuid', { nome: 'Novo nome' }, { id: admin.id }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.indicador.update).not.toHaveBeenCalled();
     });
 
-    it('outros perfis nunca recebem inativos', async () => {
-      await service.findAll(diretor, true);
+    it('reativa um indicador arquivado e registra auditoria RESTAURAR', async () => {
+      prisma.indicador.findFirst.mockResolvedValue({
+        id: 'ind-uuid',
+        nome: 'Startups aceleradas',
+        status: StatusRegistro.ARQUIVADO,
+        nucleoId: 'nei',
+      });
 
-      expect(whereRegistros().where).toMatchObject({ status: 'ATIVO' });
+      await expect(
+        service.reativar('ind-uuid', { id: admin.id }),
+      ).resolves.toEqual({
+        message: 'Indicador reativado com sucesso.',
+        status: StatusRegistro.ATIVO,
+      });
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.RESTAURAR,
+          dadosAntigos: {
+            nome: 'Startups aceleradas',
+            status: StatusRegistro.ARQUIVADO,
+          },
+          dadosNovos: {
+            nome: 'Startups aceleradas',
+            status: StatusRegistro.ATIVO,
+          },
+        }),
+      );
     });
   });
 });

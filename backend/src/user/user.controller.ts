@@ -27,6 +27,8 @@ import { isUUID } from 'class-validator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdateUserEmailDto } from './dto/update-user-email.dto';
 import { CreateUserSwagger } from './swagger/user.post.swagger';
 import { UpdateUserSwagger } from './swagger/user.patch.swagger';
 import { NucleosAssociadosSwagger } from './swagger/user.nucleos.swagger';
@@ -39,7 +41,6 @@ import { Roles } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('user')
@@ -188,7 +189,22 @@ export class UserController {
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
   ) {
-    return this.userService.alterarStatus(id, dto.ativo, {
+    return this.userService.updateStatus(id, dto.ativo, {
+      id: req.user.id,
+      ip,
+    });
+  }
+
+  @Patch(':id/email')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMINISTRADOR)
+  updateEmail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserEmailDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.userService.updateEmail(id, dto.email, {
       id: req.user.id,
       ip,
     });

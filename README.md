@@ -126,3 +126,9 @@ Dashboards e relatórios
 Tomada de decisão baseada em evidências
 
 ```
+
+---
+
+## 👥 Casos de Uso e Entregas
+
+- [Relatório de Casos de Uso e Entregas — Laura de Lima Cavalcante](docs/casos-de-uso-laura.md)

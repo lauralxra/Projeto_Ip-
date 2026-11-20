@@ -67,9 +67,9 @@ export interface UsuarioApi {
   id: string;
   nome: string;
   email: string;
+  fotoUrl?: string | null;
   perfil?: string | null;
   ativo?: boolean;
-  fotoUrl?: string | null;
   nucleos?: { nucleo: NucleoApi }[];
 }
 

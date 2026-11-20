@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EscopoIndicador, TipoDadoIndicador } from '@prisma/client';
+import {
+  EscopoIndicador,
+  StatusRegistro,
+  TipoDadoIndicador,
+} from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsEnum,
@@ -74,4 +78,15 @@ export class CreateIndicadorDto {
   @IsString()
   @MaxLength(50)
   codigo?: string;
+
+  @ApiPropertyOptional({
+    enum: StatusRegistro,
+    default: StatusRegistro.ATIVO,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsOptional()
+  @IsEnum(StatusRegistro, { message: 'Status do indicador inválido.' })
+  status?: StatusRegistro;
 }

@@ -254,18 +254,16 @@ model Programa {
   nome      String         @db.VarChar(150)
   descricao String?
   // nulo = programa institucional (IPÊ)
-  nucleoId  String?        @map("nucleo_id") @db.Uuid
-  // Usuário responsável pelo programa (opcional)
-  responsavelId String?    @map("responsavel_id") @db.Uuid
-  // Data em que o programa começou (só a data, sem horário)
-  dataInicio DateTime?     @map("data_inicio") @db.Date
-  status    StatusRegistro @default(ATIVO)
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  nucleoId      String?        @map("nucleo_id") @db.Uuid
+  responsavelId String?        @map("responsavel_id") @db.Uuid
+  dataInicio    DateTime?      @map("data_inicio") @db.Date
+  status        StatusRegistro @default(ATIVO)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
-  nucleo      Nucleo?     @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
-  responsavel User?       @relation("ProgramaResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  nucleo        Nucleo?        @relation(fields: [nucleoId], references: [id], onDelete: Restrict)
+  responsavel   User?          @relation("ProgramaResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
   participantes ProgramaParticipante[]
   acoes       Acao[]
   indicadores Indicador[]

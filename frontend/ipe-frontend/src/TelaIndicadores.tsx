@@ -1,18 +1,61 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Svg } from './config/assets';
 import { NavBar } from './NavBar';
 import { User } from './UserBar';
 import { BtnCriar } from './BtnCriar';
 import { CustomDropdown } from './CustomDropdown';
-import { CheckCircle2, Circle } from 'lucide-react';
+import {
+  Archive,
+  BarChart3,
+  Clock,
+  History,
+  MoreVertical,
+  Pencil,
+  RotateCcw,
+  Send,
+  Trash2,
+  TrendingUp,
+} from 'lucide-react';
 import type { Programa } from './dados/programas';
 import { type Indicador } from './dados/indicadores';
 import { Search } from 'lucide-react';
 import { UsuarioAtual } from './dados/usuarios';
 import type { Nucleo } from './dados/nucleos';
 import { API_BASE_URL } from './config/api';
-import { apiFetch, mensagemDeErro } from './api/cliente';
+import { apiFetch, ErroApi, mensagemDeErro } from './api/cliente';
 import { buscarTodasMetas, metaDoPeriodo, type MetaApi } from './api/metas';
+
+function infoStatusAprovacao(status?: string) {
+  switch (status) {
+    case 'APROVADO':
+    case 'PUBLICADO':
+      return {
+        rotulo: 'Aprovado',
+        classe: 'bg-[#d5e4d1] text-[#24421e]',
+      };
+    case 'ENVIADO_REVISAO':
+      return {
+        rotulo: 'Em Análise',
+        classe: 'bg-[#fbd3ee]/70 text-[#832b62]',
+      };
+    case 'NECESSITA_CORRECAO':
+      return {
+        rotulo: 'Devolvido para Correção',
+        classe: 'bg-[#f8d7da] text-[#7a1f2b]',
+      };
+    case 'EM_PREENCHIMENTO':
+      return {
+        rotulo: 'Em Preenchimento',
+        classe: 'bg-[#ffdfbf] text-[#5c3310]',
+      };
+    default:
+      return {
+        rotulo: 'Pendente',
+        classe: 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]',
+      };
+  }
+}
 
 function TotalProgresso({ progresso }: { progresso: number }) {
   // Cálculo matemático para preencher o círculo SVG proporcionalmente
@@ -27,25 +70,20 @@ function TotalProgresso({ progresso }: { progresso: number }) {
 
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[12px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px]"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[12px] items-center justify-center min-h-[170px] sm:h-[200px] w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] shadow-xs"
       data-name="TotalProgresso"
     >
-      <p className="font-semibold text-[#3c3b3b] text-[18px] text-center w-full">
+      <p className="font-semibold text-[#3c3b3b] text-[16px] sm:text-[18px] text-center w-full">
         Progresso geral
       </p>
 
       <div
-        className="inline-grid leading-[0] size-[130px] place-items-start relative shrink-0"
+        className="size-[120px] sm:size-[130px] relative shrink-0 flex items-center justify-center"
         data-name="Barra"
       >
         {/* Circulo SVG Dinâmico */}
-        <div className="col-1 size-[130px] row-1">
-          <svg
-            className="absolute block inset-0 size-full -rotate-90"
-            height="130"
-            viewBox="0 0 182 182"
-            width="130"
-          >
+        <div className="absolute inset-0 size-full">
+          <svg className="block size-full -rotate-90" viewBox="0 0 182 182">
             <g id="Group 69">
               {/* Círculo de fundo cinza */}
               <circle
@@ -90,7 +128,7 @@ function TotalProgresso({ progresso }: { progresso: number }) {
         </div>
 
         {/* Porcentagem */}
-        <p className="col-1 font-normal ml-[42px] mt-[52px] absolute align-center justify-center row-1 text-[#3c3b3b] text-[18px]">
+        <p className="relative font-semibold text-[#3c3b3b] text-[16px] sm:text-[18px]">
           {progressoSeguro}%
         </p>
       </div>
@@ -101,12 +139,14 @@ function TotalProgresso({ progresso }: { progresso: number }) {
 function TotalIndicadores({ valor }: { valor: number }) {
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] h-[200px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px] text-[#3c3b3b] text-center"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] min-h-[170px] sm:h-[200px] items-center justify-center w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] text-[#3c3b3b] text-center shadow-xs"
       data-name="TotalIndicadores"
     >
-      <p className="font-semibold text-[18px] w-full">Total de indicadores</p>
-      <div className="flex flex-col font-normal justify-center text-[36px] w-full">
-        <p className="leading-[normal]">{valor}</p>
+      <p className="font-semibold text-[16px] sm:text-[18px] w-full">
+        Total de indicadores
+      </p>
+      <div className="flex flex-col font-normal justify-center text-[32px] sm:text-[36px] w-full">
+        <p className="leading-[normal] font-bold sm:font-normal">{valor}</p>
       </div>
     </div>
   );
@@ -115,12 +155,14 @@ function TotalIndicadores({ valor }: { valor: number }) {
 function TotalParticipantes() {
   return (
     <div
-      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] h-[200px] items-center justify-center min-w-[200px] px-[10px] py-[16px] rounded-[10px] text-[#3c3b3b] text-center"
+      className="border-2 border-[#3b142f] border-solid flex flex-1 flex-col gap-[8px] min-h-[170px] sm:h-[200px] items-center justify-center w-full min-w-0 sm:min-w-[180px] px-3 py-4 rounded-[10px] text-[#3c3b3b] text-center shadow-xs"
       data-name="TotalParticipantes"
     >
-      <p className="font-semibold text-[18px] w-full">Participantes ativos</p>
-      <div className="flex flex-col font-normal justify-center text-[36px] w-full">
-        <p className="leading-[normal]">13</p>
+      <p className="font-semibold text-[16px] sm:text-[18px] w-full">
+        Participantes ativos
+      </p>
+      <div className="flex flex-col font-normal justify-center text-[32px] sm:text-[36px] w-full">
+        <p className="leading-[normal] font-bold sm:font-normal">13</p>
       </div>
     </div>
   );
@@ -142,33 +184,219 @@ function BtnImportIco({ ico, id }: { ico: string; id: string }) {
   );
 }
 
+function MenuAcoesIndicador({
+  indicador,
+  ehAtivo,
+  ehEmAnalise,
+  podeEditarValor,
+  podeEnviarAnalise,
+  editIndic,
+  setIndicVal,
+  arquivarIndic,
+  reativarIndic,
+  enviarRevisaoIndic,
+  delIndic,
+  aprovIndic,
+  abrirHistorico,
+  posicaoMenu = 'baixo',
+}: {
+  indicador: Indicador;
+  ehAtivo: boolean;
+  ehEmAnalise: boolean;
+  podeEditarValor: boolean;
+  podeEnviarAnalise: boolean;
+  editIndic: (arg0: Indicador) => void;
+  setIndicVal: (indic: Indicador) => void;
+  arquivarIndic: (indic: Indicador) => void;
+  reativarIndic: (indic: Indicador) => void;
+  enviarRevisaoIndic: (indic: Indicador) => void;
+  delIndic: (indic: Indicador) => void;
+  aprovIndic: (indic: Indicador) => void;
+  abrirHistorico: (indic: Indicador) => void;
+  posicaoMenu?: 'cima' | 'baixo';
+}) {
+  const [aberto, setAberto] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickFora(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setAberto(false);
+      }
+    }
+    if (aberto) {
+      document.addEventListener('mousedown', handleClickFora);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickFora);
+    };
+  }, [aberto]);
+
+  return (
+    <div className="relative inline-block text-left" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setAberto(!aberto)}
+        className="p-1.5 rounded-lg text-slate-600 hover:text-[#832b62] hover:bg-slate-200/60 transition-colors cursor-pointer"
+        title="Ações do indicador"
+        aria-label="Opções do indicador"
+      >
+        <MoreVertical size={18} />
+      </button>
+
+      {aberto && (
+        <div
+          className={`absolute right-0 ${
+            posicaoMenu === 'cima' ? 'bottom-full mb-1' : 'top-full mt-1'
+          } w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100`}
+        >
+          {/* Ver no Dashboard */}
+          <Link
+            to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
+            onClick={() => setAberto(false)}
+            className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors"
+          >
+            <BarChart3 size={15} className="text-[#832b62]" />
+            <span>Ver no Dashboard</span>
+          </Link>
+
+          {/* Histórico de Medições */}
+          <button
+            type="button"
+            onClick={() => {
+              setAberto(false);
+              abrirHistorico(indicador);
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+          >
+            <History size={15} className="text-[#832b62]" />
+            <span>Histórico de Medições</span>
+          </button>
+
+          {/* Lançar / Corrigir Valor Realizado */}
+          {podeEditarValor && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                setIndicVal(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+            >
+              <TrendingUp size={15} className="text-emerald-600" />
+              <span>Lançar / Corrigir Valor</span>
+            </button>
+          )}
+
+          {/* Enviar para Revisão */}
+          {podeEnviarAnalise &&
+            (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAberto(false);
+                  enviarRevisaoIndic(indicador);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+              >
+                <Send size={15} className="text-sky-600" />
+                <span>Enviar para Análise</span>
+              </button>
+            )}
+
+          {/* Revisar Indicador (Administradora - UC038) */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && ehEmAnalise && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                aprovIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#832b62] hover:bg-[#fcf2f7] transition-colors cursor-pointer text-left"
+            >
+              <Clock size={15} className="text-[#832b62]" />
+              <span>Revisar (Aprovar/Devolver)</span>
+            </button>
+          )}
+
+          {/* Editar Indicador */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                editIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+            >
+              <Pencil size={15} className="text-slate-600" />
+              <span>Editar Indicador</span>
+            </button>
+          )}
+
+          <div className="my-1 border-t border-slate-100" />
+
+          {/* Arquivar / Inativar */}
+          {UsuarioAtual.tipo === 'ADM' && ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                arquivarIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer text-left"
+            >
+              <Archive size={15} className="text-amber-600" />
+              <span>Arquivar / Inativar</span>
+            </button>
+          )}
+
+          {/* Reativar */}
+          {UsuarioAtual.tipo === 'ADM' && !ehAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                reativarIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+            >
+              <RotateCcw size={15} className="text-emerald-600" />
+              <span>Reativar Indicador</span>
+            </button>
+          )}
+
+          {/* Excluir */}
+          {UsuarioAtual.tipo === 'ADM' && (
+            <button
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                delIndic(indicador);
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
+            >
+              <Trash2 size={15} className="text-rose-600" />
+              <span>Excluir Indicador</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Top() {
   return (
-    <div className="bg-[#3b142f] flex items-center justify-between min-h-[48px] px-[20px] py-[8px] rounded-t-[24px] w-full">
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Indicador</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Ano</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Trimestre</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Unidade</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Meta</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Realizado</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Progresso</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center">
-        <p className="font-normal text-[15px] text-white">Ações</p>
-      </div>
+    <div className="bg-[#3b142f] grid grid-cols-[minmax(240px,2.5fr)_70px_85px_95px_105px_115px_125px_75px] items-center gap-3 min-h-[48px] px-5 py-2.5 rounded-t-[20px] w-full text-white text-[14px] font-semibold drop-shadow-xs">
+      <div className="text-left">Indicador</div>
+      <div className="text-center">Ano</div>
+      <div className="text-center">Trimestre</div>
+      <div className="text-center">Unidade</div>
+      <div className="text-center">Meta</div>
+      <div className="text-center">Realizado</div>
+      <div className="text-center">Progresso</div>
+      <div className="text-center">Ações</div>
     </div>
   );
 }
@@ -177,18 +405,52 @@ function Lista({
   leList,
   editIndic,
   setIndicVal,
+  arquivarIndic,
+  reativarIndic,
+  enviarRevisaoIndic,
   delIndic,
   aprovIndic,
+  abrirHistorico,
 }: {
   leList: Indicador[];
   editIndic: (arg0: Indicador) => void;
   setIndicVal: (indic: Indicador) => void;
+  arquivarIndic: (indic: Indicador) => void;
+  reativarIndic: (indic: Indicador) => void;
+  enviarRevisaoIndic: (indic: Indicador) => void;
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
+  abrirHistorico: (indic: Indicador) => void;
 }) {
+  if (leList.length === 0) {
+    return (
+      <div className="bg-[#f2eff4] rounded-xl px-5 py-8 text-center text-sm text-slate-500 w-full">
+        Nenhum indicador encontrado para os filtros selecionados.
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center justify-start gap-[12px] w-full">
-      {leList.map((indicador) => {
+    <div className="flex flex-col items-center justify-start gap-2.5 w-full">
+      {leList.map((indicador, index) => {
+        const statusNormalizado = (indicador.status ?? 'ATIVO').toUpperCase();
+        const ehAtivo = statusNormalizado === 'ATIVO';
+        const statusAprov = indicador.statusAprovacao;
+        const ehEmAnalise = statusAprov === 'ENVIADO_REVISAO';
+        const ehAprovado =
+          statusAprov === 'APROVADO' || statusAprov === 'PUBLICADO';
+        const ehDevolvido = statusAprov === 'NECESSITA_CORRECAO';
+        const podeEnviarAnalise =
+          ehAtivo &&
+          Boolean(indicador.registroId) &&
+          (statusAprov === 'EM_PREENCHIMENTO' ||
+            statusAprov === 'NECESSITA_CORRECAO');
+        const podeEditarValor =
+          ehAtivo &&
+          !ehAprovado &&
+          !ehEmAnalise &&
+          (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN');
+        const badgeRevisao = infoStatusAprovacao(statusAprov);
         const numRealizado = parseFloat(indicador.valAtual) || 0;
         const numMeta = parseFloat(indicador.meta || '0');
 
@@ -200,163 +462,162 @@ function Lista({
         return (
           <div
             key={indicador.id}
-            className="bg-[#f2eff4] rounded-xl px-[20px] py-[12px] flex items-center justify-between gap-[15px] shadow-xs hover:shadow-md transition-shadow w-full"
+            className={`rounded-xl px-5 py-3 grid grid-cols-[minmax(240px,2.5fr)_70px_85px_95px_105px_115px_125px_75px] items-center gap-3 shadow-xs hover:shadow-md transition-shadow w-full text-sm ${
+              ehAtivo
+                ? 'bg-[#f2eff4]'
+                : 'bg-[#f2eff4]/75 border border-[#832b62]/20'
+            }`}
           >
-            <div className="flex items-center justify-between min-h-[40px] w-full text-[15px]">
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.nome}</p>
-              </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.ano ?? '-'}</p>
-              </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.trimestre ?? '-'}</p>
-              </div>
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>{indicador.unidade}</p>
-              </div>
-
-              <div className="flex flex-1 flex-col font-normal justify-center text-black">
-                <p>
-                  {indicador.meta != null
-                    ? indicador.meta +
-                      (indicador.simbolUni ? indicador.simbolUni : '')
-                    : 'Sem meta'}
+            {/* 1. Indicador */}
+            <div className="flex flex-col justify-center min-w-0 pr-2 text-left">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-slate-900 break-words leading-tight">
+                  {indicador.nome}
                 </p>
-              </div>
-
-              {UsuarioAtual.tipo == 'ADM' || UsuarioAtual.tipo == 'DN' ? (
-                <>
-                  {/* Realizado */}
-                  <button
-                    title="Definir Valor Atual"
-                    onClick={() => setIndicVal(indicador)}
-                    className="flex flex-1 gap-[16px] items-center cursor-pointer"
+                {!ehAtivo && (
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      statusNormalizado === 'ARQUIVADO'
+                        ? 'bg-[#ffdfbf] text-[#5c3310]'
+                        : 'bg-[rgba(102,70,102,0.16)] text-[#3b142f]'
+                    }`}
                   >
-                    <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
-                      {indicador.valAtual +
-                        (indicador.simbolUni ? indicador.simbolUni : '')}
-                    </p>
-
-                    {/* Botao Editar */}
-                    <div className="flex items-center p-[2px] size-[14px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 14.6791 14.6795"
-                      >
-                        <path
-                          d={Svg.p1dac9e00}
-                          stroke="#3B142F"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d={Svg.pa46f980}
-                          stroke="#3B142F"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    </div>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-1 gap-[16px] items-center cursor-pointer">
-                    <p className="font-normal text-[#3c3b3b] whitespace-nowrap">
-                      {indicador.valAtual +
-                        (indicador.simbolUni ? indicador.simbolUni : '')}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {/* Container barra */}
-              <div className="flex items-center flex-1">
-                <div className="bg-[#c2c2c2] flex flex-col h-[8px] items-start rounded-[100px] w-[90px] overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-[#3b142f] to-[#77275e] h-full rounded-[100px] w-[60%]"
-                    style={{ width: `${progressoPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Ações */}
-              <div className="flex flex-1 gap-[12px] items-center">
-                {UsuarioAtual.tipo == 'ADM' ? (
-                  <button
-                    title="Editar Indicador"
-                    onClick={() => editIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
-                  >
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 39 39"
-                    >
-                      <path d={Svg.p36224900} fill="#3C3B3B" />
-                    </svg>
-                  </button>
-                ) : (
-                  ''
+                    {statusNormalizado === 'ARQUIVADO'
+                      ? 'Arquivado'
+                      : 'Inativo'}
+                  </span>
                 )}
-
-                <a
-                  title="Ver nos Dashboards"
-                  className="size-[24px]"
-                  href="/dashboard"
-                >
-                  <div className="size-full">
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 32.5 32.5001"
-                    >
-                      <path d={Svg.p19cd0a80} fill="#3C3B3B" />
-                    </svg>
-                  </div>
-                </a>
-
-                {UsuarioAtual.tipo == 'ADM' ? (
-                  <button
-                    title="Excluir Indicador"
-                    onClick={() => delIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
-                  >
-                    <svg
-                      className="block size-full"
-                      fill="none"
-                      viewBox="0 0 31.6875 36.5625"
-                    >
-                      <path d={Svg.p38953980} fill="#3C3B3B" />
-                    </svg>
-                  </button>
-                ) : (
-                  ''
-                )}
-
-                {UsuarioAtual.tipo == 'ADM' ? (
-                  <button
-                    title="Definir Aprovação"
-                    onClick={() => aprovIndic(indicador)}
-                    className="size-[24px] cursor-pointer"
-                  >
-                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
-                  </button>
-                ) : (
-                  <div
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                {indicador.registroId && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeRevisao.classe}`}
                     title={
-                      indicador.aprovado
-                        ? 'Aprovado para Publicação'
-                        : 'Não Aprovado para Publicação'
+                      ehDevolvido && indicador.justificativaDevolucao
+                        ? `Motivo da devolução: ${indicador.justificativaDevolucao}`
+                        : undefined
                     }
-                    className="size-[24px]"
                   >
-                    {indicador.aprovado ? <CheckCircle2 /> : <Circle />}
-                  </div>
+                    {badgeRevisao.rotulo}
+                  </span>
+                )}
+                {indicador.registros && indicador.registros.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => abrirHistorico(indicador)}
+                    className="text-[11px] font-semibold text-[#832b62] bg-[#832b62]/10 hover:bg-[#832b62]/20 px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 w-fit transition-colors"
+                    title="Ver todas as medições trimestrais cadastradas"
+                  >
+                    <History className="size-3" />
+                    <span>
+                      {indicador.registros.length}{' '}
+                      {indicador.registros.length === 1
+                        ? 'período'
+                        : 'períodos'}
+                    </span>
+                  </button>
                 )}
               </div>
+              {ehDevolvido && indicador.justificativaDevolucao && (
+                <p className="text-[11px] text-[#7a1f2b] mt-1 line-clamp-2">
+                  <strong>Correção solicitada:</strong>{' '}
+                  {indicador.justificativaDevolucao}
+                </p>
+              )}
+            </div>
+
+            {/* 2. Ano */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.ano ?? '-'}
+            </div>
+
+            {/* 3. Trimestre */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.trimestre ?? '-'}
+            </div>
+
+            {/* 4. Unidade */}
+            <div
+              className="text-center font-medium text-slate-700 truncate"
+              title={indicador.unidade}
+            >
+              {indicador.unidade || '-'}
+            </div>
+
+            {/* 5. Meta */}
+            <div className="text-center font-medium text-slate-700">
+              {indicador.meta != null
+                ? `${indicador.meta}${indicador.simbolUni ?? ''}`
+                : 'Sem meta'}
+            </div>
+
+            {/* 6. Realizado */}
+            <div className="text-center">
+              {podeEditarValor ? (
+                <button
+                  type="button"
+                  title="Clique para lançar ou corrigir o valor realizado"
+                  onClick={() => setIndicVal(indicador)}
+                  className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-slate-800 hover:text-[#832b62] hover:bg-slate-200/60 font-semibold cursor-pointer transition-colors"
+                >
+                  <span>
+                    {indicador.valAtual}
+                    {indicador.simbolUni ?? ''}
+                  </span>
+                  <Pencil size={12} className="text-[#832b62]" />
+                </button>
+              ) : (
+                <span
+                  className="font-medium text-slate-700"
+                  title={
+                    !ehAtivo
+                      ? 'Indicador arquivado/inativo: somente consulta'
+                      : ehAprovado
+                        ? 'Aprovado no ciclo: edição bloqueada'
+                        : ehEmAnalise
+                          ? 'Em análise pela Administração: edição bloqueada'
+                          : undefined
+                  }
+                >
+                  {indicador.valAtual}
+                  {indicador.simbolUni ?? ''}
+                </span>
+              )}
+            </div>
+
+            {/* 7. Progresso */}
+            <div className="flex flex-col items-center justify-center w-full gap-1">
+              <div className="bg-slate-200 h-2 rounded-full w-full max-w-[85px] overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-[#3b142f] to-[#a13680] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressoPercent}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-semibold text-slate-600">
+                {Math.round(progressoPercent)}%
+              </span>
+            </div>
+
+            {/* 8. Ações (3 pontos) */}
+            <div className="flex items-center justify-center">
+              <MenuAcoesIndicador
+                indicador={indicador}
+                ehAtivo={ehAtivo}
+                ehEmAnalise={ehEmAnalise}
+                podeEditarValor={podeEditarValor}
+                podeEnviarAnalise={podeEnviarAnalise}
+                editIndic={editIndic}
+                setIndicVal={setIndicVal}
+                arquivarIndic={arquivarIndic}
+                reativarIndic={reativarIndic}
+                enviarRevisaoIndic={enviarRevisaoIndic}
+                delIndic={delIndic}
+                aprovIndic={aprovIndic}
+                abrirHistorico={abrirHistorico}
+                posicaoMenu={
+                  index >= Math.max(leList.length - 2, 2) ? 'cima' : 'baixo'
+                }
+              />
             </div>
           </div>
         );
@@ -369,18 +630,26 @@ export default function TelaIndicadores() {
   const [indicadores, setIndicadores] = useState<Indicador[]>([]);
   const [nucleosDoBanco, setNucleosDoBanco] = useState<Nucleo[]>([]);
   const [programasDoBanco, setProgramasDoBanco] = useState<Programa[]>([]);
+  const [filtroStatus, setFiltroStatus] = useState<
+    'ATIVO' | 'ARQUIVADO' | 'INATIVO'
+  >('ATIVO');
 
-  const carregarIndicadores = async () => {
+  const carregarIndicadores = async (
+    statusAlvo: 'ATIVO' | 'ARQUIVADO' | 'INATIVO' = filtroStatus,
+  ) => {
     const token = localStorage.getItem('access_token');
 
     if (!token) return;
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores?status=${statusAlvo}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (!resposta.ok) {
         throw new Error(`Erro ao carregar indicadores: ${resposta.status}`);
@@ -421,6 +690,7 @@ export default function TelaIndicadores() {
 
         return {
           id: item.id,
+          registroId: registro?.id,
           nome: item.nome,
           unidade,
           simbolUni: simbolo,
@@ -435,12 +705,23 @@ export default function TelaIndicadores() {
           nucleo: item.nucleo ?? undefined,
           programa: item.programa ?? undefined,
           status: item.status,
-          // Publicado também é um valor aprovado
+          statusAprovacao: registro?.statusAprovacao,
+          justificativaDevolucao: registro?.justificativaDevolucao ?? null,
           aprovado:
             registro?.statusAprovacao === 'APROVADO' ||
             registro?.statusAprovacao === 'PUBLICADO',
-          registroId: registro?.id,
-          statusAprovacao: registro?.statusAprovacao,
+          registros: (item.registros ?? []).map((r: any) => ({
+            id: r.id,
+            ano: r.ano,
+            trimestre: r.trimestre,
+            valorRealizado:
+              r.valorRealizado != null ? String(r.valorRealizado) : null,
+            metaAplicada:
+              r.metaAplicada != null ? String(r.metaAplicada) : null,
+            statusAprovacao: r.statusAprovacao,
+            justificativaDevolucao: r.justificativaDevolucao ?? null,
+            status: r.status,
+          })),
         };
       });
 
@@ -452,8 +733,8 @@ export default function TelaIndicadores() {
   };
 
   useEffect(() => {
-    carregarIndicadores();
-  }, []);
+    carregarIndicadores(filtroStatus);
+  }, [filtroStatus]);
 
   useEffect(() => {
     const carregarNucleos = async () => {
@@ -578,7 +859,13 @@ export default function TelaIndicadores() {
     new Set(programasDoNucleo.map((i) => i.nome)),
   );
 
-  const listagemAprovacao = ['Aprovado', 'Desaprovado'];
+  const listagemAprovacao = [
+    'Em Análise',
+    'Aprovado',
+    'Devolvido para Correção',
+    'Em Preenchimento',
+    'Pendente',
+  ];
 
   // Filtragem
   const indicDoUser = indicadores.filter((n) => {
@@ -634,9 +921,18 @@ export default function TelaIndicadores() {
       const matchAprov =
         filtroAprovacao === ''
           ? true
-          : filtroAprovacao === 'Aprovado'
-            ? n.aprovado
-            : !n.aprovado;
+          : filtroAprovacao === 'Em Análise'
+            ? n.statusAprovacao === 'ENVIADO_REVISAO'
+            : filtroAprovacao === 'Aprovado'
+              ? n.statusAprovacao === 'APROVADO' ||
+                n.statusAprovacao === 'PUBLICADO'
+              : filtroAprovacao === 'Devolvido para Correção'
+                ? n.statusAprovacao === 'NECESSITA_CORRECAO'
+                : filtroAprovacao === 'Em Preenchimento'
+                  ? n.statusAprovacao === 'EM_PREENCHIMENTO'
+                  : filtroAprovacao === 'Pendente'
+                    ? !n.statusAprovacao || n.statusAprovacao === 'PENDENTE'
+                    : true;
 
       return matchNucleo && matchPrograma && matchAprov;
     })
@@ -653,28 +949,11 @@ export default function TelaIndicadores() {
   const [formNucleoId, setFormNucleoId] = useState<string>('');
   const [formProgramId, setProgramId] = useState<string>('');
   const [formMeta, setMetaForm] = useState('');
+  const [temMetaForm, setTemMetaForm] = useState(true);
   const [formValor, setValorForm] = useState('');
   const [formAno, setFormAno] = useState(String(new Date().getFullYear()));
   const [formTrimestre, setFormTrimestre] = useState('Q4');
-  // O formulário não tem campo de status; o valor só acompanha o indicador aberto
-  const [, setStatusForm] = useState('');
-  const [formAprovacao, setAprovacaoForm] = useState(false);
   const [formDesaprovMotivo, setMotivo] = useState('');
-
-  function getUnitSimb() {
-    switch (formUnidade) {
-      case 'Porcentagem':
-        return '%';
-      case 'Toneladas':
-        return 't';
-      case 'Quilos':
-        return 'Kg';
-      case 'Reais':
-        return '$';
-      default:
-        return '';
-    }
-  }
 
   // Janelas popup
 
@@ -685,9 +964,10 @@ export default function TelaIndicadores() {
     setFormNucleoId('');
     setProgramId('');
     setValorForm('0');
+    setMetaForm('');
+    setTemMetaForm(false);
     setFormAno(String(new Date().getFullYear()));
     setFormTrimestre('Q4');
-    setStatusForm('ativo');
     setModalNovoAberto(true);
   };
 
@@ -750,21 +1030,34 @@ export default function TelaIndicadores() {
     const trimestreInicial = formTrimestre;
 
     try {
-      const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dadosIndicador),
-      });
+      // 1. Verifica se já existe um indicador com este mesmo nome no núcleo ou escopo institucional
+      const indicadorExistente = indicadores.find(
+        (ind) =>
+          ind.nome.trim().toLowerCase() === nome.toLowerCase() &&
+          (formNucleoId ? ind.nucleo?.id === formNucleoId : !ind.nucleo),
+      );
 
-      const resultado = await resposta.json();
+      let idIndicador = indicadorExistente?.id;
 
-      if (!resposta.ok) {
-        throw new Error(
-          resultado.message || 'Não foi possível cadastrar o indicador.',
-        );
+      if (!idIndicador) {
+        const resposta = await fetch(`${API_BASE_URL}/indicadores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(dadosIndicador),
+        });
+
+        const resultado = await resposta.json();
+
+        if (!resposta.ok) {
+          throw new Error(
+            resultado.message || 'Não foi possível cadastrar o indicador.',
+          );
+        }
+
+        idIndicador = resultado.id;
       }
 
       const valorParaSalvar = Number.isFinite(valorInicial) ? valorInicial : 0;
@@ -775,7 +1068,7 @@ export default function TelaIndicadores() {
         anoInicial >= 2000 &&
         anoInicial <= 2100
       ) {
-        await fetch(`${API_BASE_URL}/indicadores/${resultado.id}/registros`, {
+        await fetch(`${API_BASE_URL}/indicadores/${idIndicador}/registros`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -789,46 +1082,45 @@ export default function TelaIndicadores() {
         });
       }
 
-      const novo: Indicador = {
-        id: resultado.id,
-        nome: resultado.nome,
-        unidade: resultado.unidadeMedida || 'Unidade',
-        simbolUni: getUnitSimb(),
-        ano: anoInicial,
-        trimestre: trimestreInicial,
-        nucleo: resultado.nucleo
-          ? {
-              id: resultado.nucleo.id,
-              nome: resultado.nucleo.nome,
-              sigla: resultado.nucleo.sigla,
-              descricao: resultado.nucleo.descricao || '',
-              corBg: 'bg-[#832b62]',
-              corIcone: 'text-white',
-            }
-          : undefined,
-        programa: resultado.programa
-          ? ({
-              ...programSelecionado,
-              id: resultado.programa.id,
-              nome: resultado.programa.nome,
-            } as Programa)
-          : undefined,
-        valAtual: String(valorParaSalvar),
-        status: resultado.status || 'ATIVO',
-        aprovado: false,
-      };
+      if (temMetaForm && formMeta.trim() !== '') {
+        const valMetaNum = Number(formMeta.trim().replace(',', '.'));
+        if (Number.isFinite(valMetaNum) && valMetaNum > 0) {
+          try {
+            await apiFetch('/metas', {
+              method: 'POST',
+              body: JSON.stringify({
+                indicadorId: idIndicador,
+                ano: anoInicial,
+                trimestre: trimestreInicial,
+                valorMeta: valMetaNum,
+              }),
+            });
+          } catch (e) {
+            console.warn('Erro ao salvar meta inicial do novo indicador:', e);
+          }
+        }
+      }
 
-      setIndicadores((prev) => [...prev, novo]);
+      await carregarIndicadores();
+
       setModalNovoAberto(false);
       setNomeForm('');
       setUnidadeForm('');
       setFormNucleoId('');
       setProgramId('');
       setValorForm('0');
+      setMetaForm('');
+      setTemMetaForm(false);
       setFormAno(String(new Date().getFullYear()));
       setFormTrimestre('Q4');
 
-      alert('Indicador cadastrado com sucesso!');
+      if (indicadorExistente) {
+        alert(
+          `O indicador "${indicadorExistente.nome}" já existe. A nova medição para ${anoInicial} (${trimestreInicial}) foi adicionada ao histórico com sucesso!`,
+        );
+      } else {
+        alert('Indicador cadastrado com sucesso!');
+      }
     } catch (erro) {
       console.error('Erro ao cadastrar indicador:', erro);
       alert(
@@ -841,8 +1133,8 @@ export default function TelaIndicadores() {
   const abrirValModal = (indicador: Indicador) => {
     setIndicSelecionado(indicador);
     setValorForm(indicador.valAtual);
-    setFormAno(String(new Date().getFullYear()));
-    setFormTrimestre('Q4');
+    setFormAno(String(indicador.ano ?? new Date().getFullYear()));
+    setFormTrimestre(indicador.trimestre ?? 'Q4');
     inserindoValor(true);
   };
 
@@ -880,19 +1172,192 @@ export default function TelaIndicadores() {
         throw new Error(erro.message || 'Não foi possível salvar o valor.');
       }
 
-      setIndicadores(
-        indicadores.map((n) =>
-          n.id === indicSelecionado.id ? { ...n, valAtual: formValor } : n,
-        ),
-      );
-
-      inserindoValor(false);
-      alert('Valor salvo com sucesso!');
-      // Recarrega para o card refletir o valor, o status de aprovação e a meta do período
       await carregarIndicadores();
+      inserindoValor(false);
+      alert('Medição salva no histórico com sucesso!');
     } catch (erro) {
       console.error('Erro ao salvar valor:', erro);
       alert(erro instanceof Error ? erro.message : 'Erro ao salvar o valor.');
+    }
+  };
+
+  // Histórico de medições (ver todas e adicionar novos períodos a um indicador existente)
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+  const [historicoAno, setHistoricoAno] = useState(
+    String(new Date().getFullYear()),
+  );
+  const [historicoTrimestre, setHistoricoTrimestre] = useState('Q1');
+  const [historicoValor, setHistoricoValor] = useState('');
+
+  const abrirHistoricoModal = (indicador: Indicador) => {
+    setIndicSelecionado(indicador);
+    setHistoricoAno(String(new Date().getFullYear()));
+    setHistoricoTrimestre('Q1');
+    setHistoricoValor('');
+    setModalHistoricoAberto(true);
+  };
+
+  const salvarMedicaoHistorico = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indicSelecionado) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    const valor = Number(historicoValor);
+    if (!Number.isFinite(valor) || valor < 0) {
+      alert('Informe um valor realizado válido.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}/registros`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ano: Number(historicoAno),
+            trimestre: historicoTrimestre,
+            valorRealizado: valor,
+          }),
+        },
+      );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível salvar a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : prev.valAtual,
+                  ano: atual.registros?.[0]?.ano ?? prev.ano,
+                  trimestre: atual.registros?.[0]?.trimestre ?? prev.trimestre,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      setHistoricoValor('');
+      alert(
+        `Medição para ${historicoAno} (${historicoTrimestre}) salva no histórico com sucesso!`,
+      );
+    } catch (erro) {
+      console.error('Erro ao salvar medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao salvar medição.');
+    }
+  };
+
+  const excluirMedicao = async (
+    registroId: string,
+    ano: number,
+    trimestre: string,
+  ) => {
+    if (!indicSelecionado) return;
+
+    const confirmou = window.confirm(
+      `Tem certeza que deseja excluir a medição de ${ano} (${trimestre}) do indicador "${indicSelecionado.nome}"?`,
+    );
+    if (!confirmou) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
+    }
+
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/registros/${registroId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.message || 'Não foi possível excluir a medição.');
+      }
+
+      await carregarIndicadores();
+
+      // Atualiza o indicSelecionado com os dados mais recentes do backend
+      const respAtualizada = await fetch(`${API_BASE_URL}/indicadores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (respAtualizada.ok) {
+        const dadosNovos = await respAtualizada.json();
+        const atual = dadosNovos.find((i: any) => i.id === indicSelecionado.id);
+        if (atual) {
+          setIndicSelecionado((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valAtual:
+                    atual.registros?.[0]?.valorRealizado != null
+                      ? String(atual.registros[0].valorRealizado)
+                      : '0',
+                  ano: atual.registros?.[0]?.ano ?? undefined,
+                  trimestre: atual.registros?.[0]?.trimestre ?? undefined,
+                  registros: (atual.registros ?? []).map((r: any) => ({
+                    id: r.id,
+                    ano: r.ano,
+                    trimestre: r.trimestre,
+                    valorRealizado:
+                      r.valorRealizado != null
+                        ? String(r.valorRealizado)
+                        : null,
+                    metaAplicada:
+                      r.metaAplicada != null ? String(r.metaAplicada) : null,
+                    statusAprovacao: r.statusAprovacao,
+                    status: r.status,
+                  })),
+                }
+              : null,
+          );
+        }
+      }
+
+      alert(`Medição de ${ano} (${trimestre}) excluída com sucesso!`);
+    } catch (erro) {
+      console.error('Erro ao excluir medição:', erro);
+      alert(erro instanceof Error ? erro.message : 'Erro ao excluir medição.');
     }
   };
 
@@ -903,24 +1368,54 @@ export default function TelaIndicadores() {
     setUnidadeForm(indicador.unidade);
     setFormNucleoId(indicador.nucleo ? indicador.nucleo.id : '');
     setProgramId(indicador.programa ? indicador.programa.id : '');
-    setMetaForm(indicador.meta != null ? indicador.meta : '');
-    setStatusForm(indicador.status);
+    const metaValor = indicador.meta != null ? indicador.meta : '';
+    setMetaForm(metaValor);
+    setTemMetaForm(Boolean(metaValor && parseFloat(metaValor) > 0));
     setEditAberto(true);
   };
 
   // A meta tem endpoint próprio (/metas): cria, altera ou exclui a meta do período
   // exibido no card. Devolve o id da meta resultante.
   const salvarMeta = async (indicador: Indicador, texto: string) => {
-    if (texto === '') {
+    const valorLimpo = texto.trim().replace(',', '.');
+    const valorMeta = Number(valorLimpo);
+    const ehSemMeta =
+      texto.trim() === '' || (!isNaN(valorMeta) && valorMeta <= 0);
+
+    if (ehSemMeta) {
       if (indicador.metaId) {
-        await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        try {
+          await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.warn('Erro ao deletar meta por id:', e);
+        }
       }
+
+      // Garante exclusão de todas as metas ativas deste indicador
+      try {
+        const respMetas = await apiFetch<{ itens: Array<{ id: string }> }>(
+          `/metas?indicadorId=${indicador.id}&limite=100`,
+        );
+        if (respMetas?.itens?.length) {
+          for (const m of respMetas.itens) {
+            try {
+              await apiFetch(`/metas/${m.id}`, { method: 'DELETE' });
+            } catch (err) {
+              console.warn(`Erro ao excluir meta ${m.id}:`, err);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao listar metas do indicador:', e);
+      }
+
       return undefined;
     }
 
-    const valorMeta = Number(texto.replace(',', '.'));
     if (!Number.isFinite(valorMeta) || valorMeta <= 0) {
-      throw new Error('Informe uma meta maior que zero.');
+      throw new Error(
+        'Informe uma meta maior que zero ou marque a opção "Não precisa de meta".',
+      );
     }
 
     if (indicador.metaId) {
@@ -932,64 +1427,140 @@ export default function TelaIndicadores() {
     }
 
     // Com valor lançado, a meta é do trimestre exibido; sem valor, anual do ano corrente
+    const anoMeta = indicador.ano ?? new Date().getFullYear();
+    const trimestreMeta = indicador.ano ? (indicador.trimestre ?? null) : null;
     const criada = await apiFetch<{ id: string }>('/metas', {
       method: 'POST',
       body: JSON.stringify({
         indicadorId: indicador.id,
-        ano: indicador.ano ?? new Date().getFullYear(),
-        trimestre: indicador.ano ? (indicador.trimestre ?? null) : null,
+        ano: anoMeta,
+        trimestre: trimestreMeta,
         valorMeta,
       }),
     });
     return criada.id;
   };
 
-  // Tipo de dado derivado da unidade, como no cadastro do indicador
-  const tipoDaUnidade = (unidade: string) =>
-    unidade === 'Porcentagem'
-      ? 'PERCENTUAL'
-      : unidade === 'Reais'
-        ? 'MOEDA'
-        : 'NUMERICO';
-
   const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!indicSelecionado) return;
 
-    // Dados do indicador (PATCH /indicadores/:id): envia só o que mudou.
-    // Sem núcleo, o backend torna o indicador institucional.
-    const alteracoes: Record<string, unknown> = {};
-    if (formNome.trim() !== indicSelecionado.nome)
-      alteracoes.nome = formNome.trim();
-    if (formUnidade !== indicSelecionado.unidade) {
-      alteracoes.unidadeMedida = formUnidade || 'Unidade';
-      alteracoes.tipoDado = tipoDaUnidade(formUnidade);
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Sua sessão expirou. Faça login novamente.');
+      return;
     }
-    if (formNucleoId !== (indicSelecionado.nucleo?.id ?? ''))
-      alteracoes.nucleoId = formNucleoId || null;
-    if (formProgramId !== (indicSelecionado.programa?.id ?? ''))
-      alteracoes.programaId = formProgramId || null;
+
+    const valorLimpo = formMeta.trim().replace(',', '.');
+    const valorNum = Number(valorLimpo);
+    const querSemMeta =
+      !temMetaForm ||
+      formMeta.trim() === '' ||
+      (!isNaN(valorNum) && valorNum <= 0);
 
     try {
-      if (Object.keys(alteracoes).length > 0) {
-        await apiFetch(`/indicadores/${indicSelecionado.id}`, {
+      if (querSemMeta) {
+        await salvarMeta(indicSelecionado, '');
+      } else {
+        await salvarMeta(indicSelecionado, formMeta.trim());
+      }
+
+      const resposta = await fetch(
+        `${API_BASE_URL}/indicadores/${indicSelecionado.id}`,
+        {
           method: 'PATCH',
-          body: JSON.stringify(alteracoes),
-        });
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: formNome.trim(),
+            unidadeMedida: formUnidade || undefined,
+            nucleoId: formNucleoId || null,
+            programaId: formProgramId || null,
+            semMeta: querSemMeta,
+          }),
+        },
+      );
+
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(
+          erro.message || 'Não foi possível salvar a edição do indicador.',
+        );
       }
 
-      // A meta tem endpoint próprio (/metas)
-      const textoMeta = formMeta.trim();
-      if (textoMeta !== (indicSelecionado.meta ?? '')) {
-        await salvarMeta(indicSelecionado, textoMeta);
-      }
-
-      setEditAberto(false);
-    } catch (erro) {
-      alert('Não foi possível salvar o indicador: ' + mensagemDeErro(erro));
-    } finally {
-      // Recarrega para o card refletir o que foi salvo
       await carregarIndicadores();
+      setEditAberto(false);
+      alert('Indicador atualizado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao atualizar indicador:', erro);
+      alert('Erro ao atualizar indicador: ' + mensagemDeErro(erro));
+    }
+  };
+
+  const [modalArquivando, setModalArquivando] = useState(false);
+  const [acaoArquivamento, setAcaoArquivamento] = useState<
+    'ARQUIVADO' | 'INATIVO'
+  >('ARQUIVADO');
+  const [arquivandoEmAndamento, setArquivandoEmAndamento] = useState(false);
+
+  const abrirArquivarModal = (indicador: Indicador) => {
+    setIndicSelecionado(indicador);
+    setAcaoArquivamento('ARQUIVADO');
+    setModalArquivando(true);
+  };
+
+  // UC041: arquiva ou desativa um indicador ativo sem apagar histórico nem metas
+  const confirmarArquivarIndic = async () => {
+    if (!indicSelecionado || arquivandoEmAndamento) return;
+
+    const rota = acaoArquivamento === 'ARQUIVADO' ? 'arquivar' : 'desativar';
+    setArquivandoEmAndamento(true);
+    try {
+      const resposta = await apiFetch<{ message: string }>(
+        `/indicadores/${indicSelecionado.id}/${rota}`,
+        { method: 'PATCH' },
+      );
+
+      setModalArquivando(false);
+      await carregarIndicadores(filtroStatus);
+      alert(
+        resposta?.message ||
+          (acaoArquivamento === 'ARQUIVADO'
+            ? 'Indicador arquivado com sucesso!'
+            : 'Indicador desativado com sucesso!'),
+      );
+    } catch (erro) {
+      console.error('Erro ao arquivar/desativar indicador:', erro);
+      alert(
+        'Não foi possível arquivar/desativar o indicador: ' +
+          mensagemDeErro(erro),
+      );
+    } finally {
+      setArquivandoEmAndamento(false);
+    }
+  };
+
+  const reativarIndic = async (indicador: Indicador) => {
+    if (
+      !window.confirm(
+        `Deseja reativar o indicador "${indicador.nome}" para voltar a receber medições e metas?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const resposta = await apiFetch<{ message: string }>(
+        `/indicadores/${indicador.id}/reativar`,
+        { method: 'PATCH' },
+      );
+      await carregarIndicadores(filtroStatus);
+      alert(resposta?.message || 'Indicador reativado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao reativar indicador:', erro);
+      alert('Não foi possível reativar o indicador: ' + mensagemDeErro(erro));
     }
   };
 
@@ -1040,69 +1611,164 @@ export default function TelaIndicadores() {
   };
 
   const [modalAprovacao, setModelAprov] = useState(false);
-  const abrirAprovacaoModal = (indicador: Indicador) => {
+  const [modoRevisao, setModoRevisao] = useState<'ESCOLHA' | 'DEVOLVER'>(
+    'ESCOLHA',
+  );
+  const [erroJustificativa, setErroJustificativa] = useState('');
+  const [processandoRevisao, setProcessandoRevisao] = useState(false);
+  const [registroEmRevisao, setRegistroEmRevisao] = useState<{
+    id: string;
+    ano?: number;
+    trimestre?: string;
+    valorRealizado?: string;
+  } | null>(null);
+
+  const abrirAprovacaoModal = (
+    indicador: Indicador,
+    registroAlvo?: {
+      id: string;
+      ano?: number;
+      trimestre?: string;
+      valorRealizado?: string;
+      statusAprovacao?: string;
+    },
+  ) => {
+    if (UsuarioAtual.tipo !== 'ADM') {
+      alert(
+        'Apenas a Administração pode revisar, aprovar ou devolver indicadores.',
+      );
+      return;
+    }
+
+    const statusAlvo =
+      registroAlvo?.statusAprovacao ?? indicador.statusAprovacao;
+    const idAlvo = registroAlvo?.id ?? indicador.registroId;
+
+    if (!idAlvo) {
+      alert(
+        'Este indicador ainda não possui registro de medição para análise.',
+      );
+      return;
+    }
+
+    if (statusAlvo !== 'ENVIADO_REVISAO') {
+      alert(
+        'Somente indicadores em status "Em Análise" podem ser aprovados ou devolvidos.',
+      );
+      return;
+    }
+
     setIndicSelecionado(indicador);
-    setAprovacaoForm(indicador.aprovado);
+    setRegistroEmRevisao({
+      id: idAlvo,
+      ano: registroAlvo?.ano ?? indicador.ano,
+      trimestre: registroAlvo?.trimestre ?? indicador.trimestre,
+      valorRealizado: registroAlvo?.valorRealizado ?? indicador.valAtual,
+    });
+    setModoRevisao('ESCOLHA');
     setMotivo('');
+    setErroJustificativa('');
     setModelAprov(true);
   };
 
-  // A API só aprova ou devolve valores enviados para revisão: um valor ainda em
-  // preenchimento (ou devolvido) é enviado antes, em nome do administrador
-  const garantirEmRevisao = async (registroId: string, status?: string) => {
-    if (status !== 'ENVIADO_REVISAO') {
-      await apiFetch(`/registros/${registroId}/enviar-revisao`, {
+  // UC038 Caminho A: aprovar indicador em análise (irreversível no ciclo)
+  const executarAprovacao = async () => {
+    if (!registroEmRevisao || processandoRevisao) return;
+
+    setProcessandoRevisao(true);
+    try {
+      await apiFetch(`/registros/${registroEmRevisao.id}/aprovar`, {
         method: 'PATCH',
       });
+
+      setModelAprov(false);
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador aprovado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao aprovar indicador:', erro);
+      if (erro instanceof ErroApi && erro.status === 409) {
+        setModelAprov(false);
+        await carregarIndicadores(filtroStatus);
+        alert(
+          'Este indicador já foi processado por outra operação. A listagem foi atualizada.',
+        );
+      } else {
+        alert('Não foi possível aprovar o indicador: ' + mensagemDeErro(erro));
+      }
+    } finally {
+      setProcessandoRevisao(false);
     }
   };
 
-  const handleAprovacao = async (e: React.FormEvent) => {
+  // UC038 Caminho B: devolver indicador para correção com justificativa obrigatória
+  const executarDevolucao = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!indicSelecionado) return;
+    if (!registroEmRevisao || processandoRevisao) return;
 
-    const { registroId, statusAprovacao, aprovado } = indicSelecionado;
-    if (!registroId) {
-      alert('Este indicador ainda não tem valor lançado para aprovar.');
+    const justificativa = formDesaprovMotivo.trim();
+    if (!justificativa) {
+      setErroJustificativa(
+        'A mensagem de justificativa é obrigatória para devolver o indicador para correção.',
+      );
+      return;
+    }
+
+    setErroJustificativa('');
+    setProcessandoRevisao(true);
+    try {
+      await apiFetch(`/registros/${registroEmRevisao.id}/devolver`, {
+        method: 'PATCH',
+        body: JSON.stringify({ justificativa }),
+      });
+
+      setModelAprov(false);
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador devolvido para correção!');
+    } catch (erro) {
+      console.error('Erro ao devolver indicador:', erro);
+      if (erro instanceof ErroApi && erro.status === 409) {
+        setModelAprov(false);
+        await carregarIndicadores(filtroStatus);
+        alert(
+          'Este indicador já foi processado por outra operação. A listagem foi atualizada.',
+        );
+      } else {
+        alert('Não foi possível devolver o indicador: ' + mensagemDeErro(erro));
+      }
+    } finally {
+      setProcessandoRevisao(false);
+    }
+  };
+
+  // UC037 -> UC038: envia medição preenchida ou corrigida para a fila "Em Análise"
+  const enviarParaRevisao = async (indicador: Indicador) => {
+    if (!indicador.registroId) return;
+    if (
+      !window.confirm(
+        `Enviar a medição (${indicador.trimestre}/${indicador.ano}) de "${indicador.nome}" para análise da Administração?`,
+      )
+    ) {
       return;
     }
 
     try {
-      if (formAprovacao) {
-        // Já aprovado ou publicado: nada a fazer
-        if (!aprovado) {
-          await garantirEmRevisao(registroId, statusAprovacao);
-          await apiFetch(`/registros/${registroId}/aprovar`, {
-            method: 'PATCH',
-          });
-        }
-      } else {
-        const justificativa = formDesaprovMotivo.trim();
-        if (!justificativa) {
-          alert('Informe o motivo da desaprovação.');
-          return;
-        }
-        if (aprovado) {
-          alert(
-            'Um valor já aprovado não pode ser devolvido. Para corrigi-lo, altere o valor: ele volta para revisão.',
-          );
-          return;
-        }
-        await garantirEmRevisao(registroId, statusAprovacao);
-        await apiFetch(`/registros/${registroId}/devolver`, {
-          method: 'PATCH',
-          body: JSON.stringify({ justificativa }),
-        });
-      }
-
-      setModelAprov(false);
-      await carregarIndicadores();
+      await apiFetch(`/registros/${indicador.registroId}/enviar-revisao`, {
+        method: 'PATCH',
+      });
+      await carregarIndicadores(filtroStatus);
+      alert('Indicador enviado para análise com sucesso!');
     } catch (erro) {
-      alert('Não foi possível salvar a aprovação: ' + mensagemDeErro(erro));
-      // O valor pode ter sido enviado para revisão antes da falha
-      await carregarIndicadores();
+      console.error('Erro ao enviar para análise:', erro);
+      alert(
+        'Não foi possível enviar o indicador para análise: ' +
+          mensagemDeErro(erro),
+      );
     }
   };
+
+  const qtdEmAnalise = indicDoUser.filter(
+    (n) => n.statusAprovacao === 'ENVIADO_REVISAO',
+  ).length;
 
   const totalIndicadores = indicadoresFiltrados.length;
 
@@ -1199,29 +1865,29 @@ export default function TelaIndicadores() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f8fafc] overflow-hidden">
       <NavBar />
 
       {/*================ CONTEUDO PRINCIPAL =================*/}
-      <main className="flex-1 p-6 md:p-8 h-full overflow-y-auto">
-        <div className="flex flex-1 flex-col gap-[30px] items-center pt-[30px] w-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full h-full overflow-y-auto">
+        <div className="flex flex-1 flex-col gap-6 items-center pt-2 sm:pt-4 md:pt-6 w-full">
           {/* Header */}
           <div
-            className="flex flex-col gap-[30px] items-center w-full"
+            className="flex flex-col gap-6 items-center w-full"
             data-name="Header"
           >
             <div
-              className="flex items-center justify-center px-[20px] w-full"
+              className="flex items-center justify-between px-2 sm:px-4 w-full"
               data-name="Titulo"
             >
-              <p className="text-3xl font-['Google_Sans_Flex:Regular',sans-serif] font-normal relative shrink-0 text-[#a13680] w-full">
+              <p className="text-2xl sm:text-3xl font-sans font-normal relative shrink-0 text-[#a13680] w-full">
                 Indicadores
               </p>
             </div>
 
             {/* Resumos */}
             <div
-              className="flex gap-[30px] items-start justify-center px-[40px] w-full"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 w-full px-2 sm:px-4"
               data-name="Resumos"
             >
               <TotalProgresso progresso={progressoGeral} />
@@ -1271,21 +1937,100 @@ export default function TelaIndicadores() {
                 opcoes={listagemAprovacao}
               />
 
+              {/* UC041 Regra 3: filtro de status seguindo a geometria oficial do CustomDropdown */}
+              <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between px-[16px] rounded-[9px] shrink-0 w-[190px] relative cursor-pointer">
+                <div className="size-[20px] relative shrink-0 pointer-events-none text-[#3b142f]">
+                  <Archive className="size-full" />
+                </div>
+
+                <select
+                  id="filtro-status-indicador"
+                  aria-label="Filtrar indicadores por status"
+                  value={filtroStatus}
+                  onChange={(e) =>
+                    setFiltroStatus(
+                      e.target.value as 'ATIVO' | 'ARQUIVADO' | 'INATIVO',
+                    )
+                  }
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                >
+                  <option value="ATIVO">Ativos</option>
+                  <option value="ARQUIVADO">Arquivados</option>
+                  <option value="INATIVO">Inativos</option>
+                </select>
+
+                <p className="font-normal text-[#3d3d3d] text-[15px] whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none flex-1 ml-2">
+                  {filtroStatus === 'ATIVO'
+                    ? 'Ativos'
+                    : filtroStatus === 'ARQUIVADO'
+                      ? 'Arquivados'
+                      : 'Inativos'}
+                </p>
+
+                <div className="h-[8px] w-[12px] pointer-events-none shrink-0">
+                  <svg
+                    className="block size-full"
+                    fill="none"
+                    viewBox="0 0 16.2247 10.0188"
+                  >
+                    <path d={Svg.SetaBaixo} fill="#191919" />
+                  </svg>
+                </div>
+              </div>
+
+              {UsuarioAtual.tipo === 'ADM' &&
+                filtroStatus === 'ATIVO' &&
+                qtdEmAnalise > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFiltroAprovacao(
+                        filtroAprovacao === 'Em Análise' ? '' : 'Em Análise',
+                      )
+                    }
+                    className={`flex h-[48px] items-center gap-2.5 px-[16px] rounded-[9px] shrink-0 text-[15px] font-medium transition-colors cursor-pointer ${
+                      filtroAprovacao === 'Em Análise'
+                        ? 'bg-gradient-to-l from-[#a13680] to-[#3b142f] text-white border-2 border-transparent'
+                        : 'bg-transparent border-2 border-[#3b142f] text-[#3d3d3d] hover:bg-[#f2eff4]'
+                    }`}
+                    title="Filtrar indicadores aguardando aprovação ou devolução (UC038)"
+                  >
+                    <Clock
+                      size={18}
+                      className={
+                        filtroAprovacao === 'Em Análise'
+                          ? 'text-white'
+                          : 'text-[#3b142f]'
+                      }
+                    />
+                    <span className="whitespace-nowrap">Em Análise</span>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        filtroAprovacao === 'Em Análise'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[#fbd3ee]/80 text-[#832b62]'
+                      }`}
+                    >
+                      {qtdEmAnalise}
+                    </span>
+                  </button>
+                )}
+
               {UsuarioAtual.tipo == 'ADM' ? (
                 <>
                   <BtnCriar txt="Novo Indicador" acao={abrirCriarModal} />
 
                   {/* Botão importar */}
-                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-[180px]">
+                  <div className="bg-transparent border-2 border-[#3b142f] flex h-[48px] items-center justify-between gap-2.5 relative bg-slate-200 cursor-pointer px-[16px] py-[4px] rounded-[9px] shrink-0 w-auto">
                     <BtnImportIco ico="block size-full" id="btnImportar" />
                     <div className="font-normal text-[#3d3d3d] text-[16px] whitespace-nowrap">
-                      Importar CSV
+                      Importar CSV / Excel
                     </div>
                     <input
                       type="file"
                       accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                       className="absolute inset-0 opacity-0 cursor-pointer size-full z-10"
-                      title="Importar CSV"
+                      title="Importar CSV ou Excel (.xlsx, .xls)"
                       onChange={handleCSVImport}
                     />
                   </div>
@@ -1307,15 +2052,21 @@ export default function TelaIndicadores() {
             </div>
 
             {/*ListaIndicadores*/}
-            <div className="flex flex-col gap-[8px] items-center px-[10px] py-[10px] w-full">
-              <Top />
-              <Lista
-                leList={indicadoresFiltrados}
-                editIndic={abrirEditarModal}
-                setIndicVal={abrirValModal}
-                delIndic={abrirDeletarModal}
-                aprovIndic={abrirAprovacaoModal}
-              />
+            <div className="w-full overflow-x-auto pb-28">
+              <div className="min-w-[1040px] flex flex-col gap-[8px] items-center px-1 py-1 w-full">
+                <Top />
+                <Lista
+                  leList={indicadoresFiltrados}
+                  editIndic={abrirEditarModal}
+                  setIndicVal={abrirValModal}
+                  arquivarIndic={abrirArquivarModal}
+                  reativarIndic={reativarIndic}
+                  enviarRevisaoIndic={enviarParaRevisao}
+                  delIndic={abrirDeletarModal}
+                  aprovIndic={abrirAprovacaoModal}
+                  abrirHistorico={abrirHistoricoModal}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1323,7 +2074,7 @@ export default function TelaIndicadores() {
 
       {/* ==================== BARRA DO USUÁRIO ========================== */}
       <div
-        className="absolute h-[60px] right-0 top-0 w-auto"
+        className="hidden md:block absolute h-[60px] right-0 top-0 w-auto z-20"
         data-name="userbar"
       >
         <div className="flex flex-row justify-end max-w-[inherit] min-w-[inherit] size-full">
@@ -1451,6 +2202,53 @@ export default function TelaIndicadores() {
                     )}
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Botões do Modal */}
@@ -1533,6 +2331,53 @@ export default function TelaIndicadores() {
                     <option value="Q4">4º trimestre (Q4)</option>
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta (opcional)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador cadastrado sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 pt-4">
@@ -1550,6 +2395,40 @@ export default function TelaIndicadores() {
                   <span>Confirmar</span>
                 </button>
               </div>
+
+              {UsuarioAtual.tipo === 'ADM' && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!indicSelecionado) return;
+                      const regAlvo = indicSelecionado.registros?.find(
+                        (r) =>
+                          r.ano === Number(formAno) &&
+                          r.trimestre === formTrimestre,
+                      );
+                      const regIdParaExcluir =
+                        regAlvo?.id || indicSelecionado.registroId;
+                      if (!regIdParaExcluir) {
+                        alert(
+                          'Nenhuma medição encontrada para este ano e trimestre.',
+                        );
+                        return;
+                      }
+                      await excluirMedicao(
+                        regIdParaExcluir,
+                        Number(formAno),
+                        formTrimestre,
+                      );
+                      inserindoValor(false);
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="size-3" />
+                    <span>Excluir medição deste ano e trimestre</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -1633,16 +2512,66 @@ export default function TelaIndicadores() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Meta
+                    Status
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Defina uma meta..."
-                    value={formMeta}
-                    onChange={(e) => setMetaForm(e.target.value)}
-                    className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                  />
+                  <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-600 flex items-center justify-between">
+                    <span className="font-semibold text-emerald-700">
+                      Ativo
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Para arquivar ou desativar, use o botão na listagem
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Meta{' '}
+                      {indicSelecionado?.simbolUni
+                        ? `(${indicSelecionado.simbolUni})`
+                        : ''}
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                      <input
+                        type="checkbox"
+                        checked={!temMetaForm}
+                        onChange={(e) => {
+                          const sem = e.target.checked;
+                          setTemMetaForm(!sem);
+                          if (sem) setMetaForm('');
+                        }}
+                        className="rounded text-[#832b62] focus:ring-[#832b62]"
+                      />
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Não precisa de meta
+                      </span>
+                    </label>
+                  </div>
+                  {temMetaForm ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Defina uma meta (ex: 100) ou deixe em branco..."
+                      value={formMeta}
+                      onChange={(e) => setMetaForm(e.target.value)}
+                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                    />
+                  ) : (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 italic flex items-center justify-between">
+                      <span>Indicador definido sem meta</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemMetaForm(true);
+                          setMetaForm('');
+                        }}
+                        className="text-[11px] text-[#832b62] font-semibold hover:underline cursor-pointer"
+                      >
+                        Definir meta
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1662,6 +2591,102 @@ export default function TelaIndicadores() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* arquivamento / desativação (UC041) */}
+      {modalArquivando && indicSelecionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="size-11 rounded-full bg-[#fbd3ee]/70 text-[#832b62] flex items-center justify-center shrink-0">
+                <Archive className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Arquivar / Desativar Indicador
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Confirmação de encerramento operacional
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4">
+              Deseja encerrar o monitoramento do indicador{' '}
+              <span className="font-bold text-slate-900">
+                "{indicSelecionado.nome}"
+              </span>
+              ?
+            </p>
+
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
+              <button
+                type="button"
+                onClick={() => setAcaoArquivamento('ARQUIVADO')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                  acaoArquivamento === 'ARQUIVADO'
+                    ? 'bg-[#3a182d] text-white'
+                    : 'bg-[#f2eff4] text-[#3b142f] hover:bg-[#fbd3ee]/50'
+                }`}
+              >
+                Arquivar
+              </button>
+              <button
+                type="button"
+                onClick={() => setAcaoArquivamento('INATIVO')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                  acaoArquivamento === 'INATIVO'
+                    ? 'bg-[#3a182d] text-white'
+                    : 'bg-[#f2eff4] text-[#3b142f] hover:bg-[#fbd3ee]/50'
+                }`}
+              >
+                Desativar (Inativo)
+              </button>
+            </div>
+
+            <div className="bg-[#f2eff4] border border-[#832b62]/20 rounded-2xl p-4 text-xs text-[#3b142f] space-y-1.5 mb-6">
+              <p>
+                • O indicador{' '}
+                <strong>
+                  não poderá mais receber novos lançamentos, metas ou edições
+                </strong>
+                .
+              </p>
+              <p>
+                • Ele sairá da listagem operacional padrão (visível apenas
+                filtrando por <strong>Arquivados</strong> ou{' '}
+                <strong>Inativos</strong>).
+              </p>
+              <p>
+                •{' '}
+                <strong>
+                  Todo o histórico de medições e relatórios passados será
+                  preservado
+                </strong>{' '}
+                para consulta.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={arquivandoEmAndamento}
+                onClick={() => setModalArquivando(false)}
+                className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={arquivandoEmAndamento}
+                onClick={confirmarArquivarIndic}
+                className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {arquivandoEmAndamento ? 'Processando...' : 'Confirmar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1702,63 +2727,470 @@ export default function TelaIndicadores() {
         </div>
       )}
 
-      {/* aprovacao */}
-      {modalAprovacao && (
+      {/* Revisão e Aprovação / Devolução de Indicador (UC038) */}
+      {modalAprovacao && indicSelecionado && registroEmRevisao && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">
-              Definir aprovação
-            </h2>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Revisão do Indicador
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Confira os dados enviados para análise e decida entre aprovar
+                  ou devolver para correção.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={processandoRevisao}
+                onClick={() => setModelAprov(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleAprovacao} className="space-y-4">
-              <div className="flex flex-col gap-9">
+            {/* Resumo detalhado do indicador em análise */}
+            <div className="bg-[#f2eff4] rounded-2xl p-4 mb-5 space-y-2 text-xs text-[#3c3b3b]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-[#3b142f] text-sm">
+                  {indicSelecionado.nome}
+                </span>
+                <span className="bg-[#fbd3ee]/80 text-[#832b62] text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                  Em Análise
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="flex gap-5 block text-lg-20 font-bold">
-                    Definir como aprovado para publicação
-                    <input
-                      type="checkbox"
-                      checked={formAprovacao}
-                      onChange={(e) => setAprovacaoForm(e.target.checked)}
-                      className="w-auto border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-0 focus:outline-none"
-                    />
-                  </label>
+                  <span className="text-slate-500">Núcleo:</span>{' '}
+                  <strong className="text-slate-800">
+                    {indicSelecionado.nucleo?.sigla ?? 'Institucional'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Período:</span>{' '}
+                  <strong className="text-slate-800">
+                    {registroEmRevisao.trimestre ?? '-'}/
+                    {registroEmRevisao.ano ?? '-'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Valor Realizado:</span>{' '}
+                  <strong className="text-[#832b62]">
+                    {registroEmRevisao.valorRealizado ?? '-'}
+                    {indicSelecionado.simbolUni
+                      ? ` ${indicSelecionado.simbolUni}`
+                      : ''}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Meta:</span>{' '}
+                  <strong className="text-slate-800">
+                    {indicSelecionado.meta != null
+                      ? `${indicSelecionado.meta}${
+                          indicSelecionado.simbolUni
+                            ? ` ${indicSelecionado.simbolUni}`
+                            : ''
+                        }`
+                      : 'Sem meta'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {modoRevisao === 'ESCOLHA' ? (
+              <div className="space-y-5">
+                <div className="bg-[#f2eff4]/70 border border-[#832b62]/20 rounded-2xl p-3.5 text-xs text-[#3b142f]">
+                  Ao <strong>Aprovar</strong>, a aprovação é final e
+                  irreversível para este ciclo. Ao <strong>Devolver</strong>,
+                  será solicitada uma justificativa obrigatória e o indicador
+                  voltará a ficar editável para o Diretor de Núcleo.
                 </div>
 
-                {!formAprovacao ? (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Motivo de disaprovação
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Insira um valor..."
-                      required
-                      value={formDesaprovMotivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                      className="w-full bg-slate-200/70 border-0 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
-                    />
-                  </div>
-                ) : (
-                  ''
-                )}
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => setModelAprov(false)}
+                    className="py-2.5 px-5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => {
+                      setModoRevisao('DEVOLVER');
+                      setErroJustificativa('');
+                    }}
+                    className="flex-1 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Devolver
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={executarAprovacao}
+                    className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {processandoRevisao ? 'Processando...' : 'Aprovar'}
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form
+                onSubmit={executarDevolucao}
+                className="space-y-4"
+                noValidate
+              >
+                <div>
+                  <label
+                    htmlFor="justificativa-devolucao"
+                    className="block text-xs font-bold text-slate-700 mb-1.5"
+                  >
+                    Mensagem de Justificativa{' '}
+                    <span className="text-red-600">*</span>
+                  </label>
+                  <textarea
+                    id="justificativa-devolucao"
+                    rows={4}
+                    placeholder="Descreva claramente o motivo da devolução (ex.: Faltou anexar o comprovante da meta X)..."
+                    value={formDesaprovMotivo}
+                    onChange={(e) => {
+                      setMotivo(e.target.value);
+                      if (erroJustificativa && e.target.value.trim()) {
+                        setErroJustificativa('');
+                      }
+                    }}
+                    className={`w-full bg-slate-200/70 rounded-xl px-3 py-3 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none ${
+                      erroJustificativa ? 'border border-red-500' : 'border-0'
+                    }`}
+                  />
+                  {erroJustificativa && (
+                    <p className="text-xs font-semibold text-red-600 mt-1.5">
+                      {erroJustificativa}
+                    </p>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setModelAprov(false)}
-                  className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <span>Confirmar</span>
-                </button>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={processandoRevisao}
+                    onClick={() => {
+                      setModoRevisao('ESCOLHA');
+                      setErroJustificativa('');
+                    }}
+                    className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processandoRevisao}
+                    className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {processandoRevisao
+                      ? 'Devolvendo...'
+                      : 'Confirmar Devolução'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Histórico de Medições do Indicador */}
+      {modalHistoricoAberto && indicSelecionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between mb-4 border-b border-slate-200 pb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <History className="size-5 text-[#832b62]" />
+                  Histórico de Medições
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Indicador:{' '}
+                  <span className="font-semibold text-slate-800">
+                    {indicSelecionado.nome}
+                  </span>
+                  {indicSelecionado.nucleo &&
+                    ` • Núcleo: ${indicSelecionado.nucleo.sigla}`}
+                  {` • Unidade: ${indicSelecionado.unidade}`}
+                </p>
               </div>
-            </form>
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Listagem do Histórico */}
+            {(indicSelecionado.status ?? 'ATIVO').toUpperCase() !== 'ATIVO' && (
+              <div className="mb-4 bg-[#f2eff4] border border-[#832b62]/20 text-[#3b142f] rounded-xl px-4 py-2.5 text-xs">
+                Este indicador está{' '}
+                <strong>
+                  {(indicSelecionado.status ?? '').toUpperCase() === 'ARQUIVADO'
+                    ? 'arquivado'
+                    : 'inativo'}
+                </strong>
+                . Os dados históricos permanecem preservados apenas para
+                consulta (novos lançamentos e edições estão bloqueados).
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto mb-6 pr-1">
+              <h3 className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                Medições Registradas ({indicSelecionado.registros?.length ?? 0})
+              </h3>
+
+              {!indicSelecionado.registros ||
+              indicSelecionado.registros.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">
+                  Nenhuma medição registrada para este indicador ainda.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">Ano</th>
+                        <th className="py-2.5 px-3">Trimestre</th>
+                        <th className="py-2.5 px-3">Realizado</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...indicSelecionado.registros]
+                        .sort((a, b) => {
+                          if (b.ano !== a.ano) return b.ano - a.ano;
+                          return b.trimestre.localeCompare(a.trimestre);
+                        })
+                        .map((reg) => (
+                          <tr
+                            key={reg.id}
+                            className="hover:bg-slate-50 transition-colors"
+                          >
+                            <td className="py-2.5 px-3 font-medium">
+                              {reg.ano}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded font-mono font-semibold">
+                                {reg.trimestre}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-[#832b62]">
+                              {reg.valorRealizado != null
+                                ? `${reg.valorRealizado}${
+                                    indicSelecionado.simbolUni
+                                      ? ' ' + indicSelecionado.simbolUni
+                                      : ''
+                                  }`
+                                : '-'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {(() => {
+                                const info = infoStatusAprovacao(
+                                  reg.statusAprovacao,
+                                );
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${info.classe}`}
+                                    >
+                                      {info.rotulo}
+                                    </span>
+                                    {reg.statusAprovacao ===
+                                      'NECESSITA_CORRECAO' &&
+                                      reg.justificativaDevolucao && (
+                                        <span className="text-[10px] text-[#7a1f2b]">
+                                          Motivo: {reg.justificativaDevolucao}
+                                        </span>
+                                      )}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              {(
+                                indicSelecionado.status ?? 'ATIVO'
+                              ).toUpperCase() === 'ATIVO' ? (
+                                <div className="flex items-center justify-end gap-3">
+                                  {reg.statusAprovacao === 'APROVADO' ||
+                                  reg.statusAprovacao === 'PUBLICADO' ? (
+                                    <span className="text-[11px] text-[#24421e] font-semibold">
+                                      Aprovado no ciclo
+                                    </span>
+                                  ) : reg.statusAprovacao ===
+                                    'ENVIADO_REVISAO' ? (
+                                    UsuarioAtual.tipo === 'ADM' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setModalHistoricoAberto(false);
+                                          abrirAprovacaoModal(
+                                            indicSelecionado,
+                                            {
+                                              id: reg.id,
+                                              ano: reg.ano,
+                                              trimestre: reg.trimestre,
+                                              valorRealizado:
+                                                reg.valorRealizado != null
+                                                  ? String(reg.valorRealizado)
+                                                  : undefined,
+                                              statusAprovacao:
+                                                reg.statusAprovacao,
+                                            },
+                                          );
+                                        }}
+                                        className="text-[11px] text-[#832b62] hover:underline font-bold cursor-pointer"
+                                      >
+                                        Revisar (Aprovar / Devolver)
+                                      </button>
+                                    ) : (
+                                      <span className="text-[11px] text-[#832b62] italic">
+                                        Em análise
+                                      </span>
+                                    )
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setHistoricoAno(String(reg.ano));
+                                        setHistoricoTrimestre(reg.trimestre);
+                                        setHistoricoValor(
+                                          reg.valorRealizado != null
+                                            ? String(reg.valorRealizado)
+                                            : '',
+                                        );
+                                      }}
+                                      className="text-[11px] text-[#832b62] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Carregar para editar
+                                    </button>
+                                  )}
+                                  {UsuarioAtual.tipo === 'ADM' && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        excluirMedicao(
+                                          reg.id,
+                                          reg.ano,
+                                          reg.trimestre,
+                                        )
+                                      }
+                                      title={`Excluir medição de ${reg.ano} (${reg.trimestre})`}
+                                      className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">
+                                  Somente consulta
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Formulário para adicionar nova medição ou atualizar (bloqueado para inativos/arquivados — UC041) */}
+            {(indicSelecionado.status ?? 'ATIVO').toUpperCase() === 'ATIVO' &&
+              (UsuarioAtual.tipo === 'ADM' || UsuarioAtual.tipo === 'DN') && (
+                <form
+                  onSubmit={salvarMedicaoHistorico}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
+                >
+                  <h4 className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-1.5">
+                    <span>
+                      + Adicionar ou atualizar medição neste indicador
+                    </span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Ano
+                      </label>
+                      <input
+                        type="number"
+                        min="2000"
+                        max="2100"
+                        value={historicoAno}
+                        onChange={(e) => setHistoricoAno(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Trimestre
+                      </label>
+                      <select
+                        value={historicoTrimestre}
+                        onChange={(e) => setHistoricoTrimestre(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                      >
+                        <option value="Q1">1º trimestre (Q1)</option>
+                        <option value="Q2">2º trimestre (Q2)</option>
+                        <option value="Q3">3º trimestre (Q3)</option>
+                        <option value="Q4">4º trimestre (Q4)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Valor Realizado{' '}
+                        {indicSelecionado.simbolUni
+                          ? `(${indicSelecionado.simbolUni})`
+                          : ''}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ex: 50"
+                        value={historicoValor}
+                        onChange={(e) => setHistoricoValor(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-[#832b62] focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 mt-3">
+                    <button
+                      type="submit"
+                      className="py-2 px-5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer"
+                    >
+                      Salvar Medição
+                    </button>
+                  </div>
+                </form>
+              )}
+
+            <div className="flex justify-end pt-4">
+              <button
+                type="button"
+                onClick={() => setModalHistoricoAberto(false)}
+                className="py-2 px-6 rounded-full border border-slate-400 text-slate-700 font-medium text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
