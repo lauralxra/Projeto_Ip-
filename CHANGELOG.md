@@ -1,3 +1,10 @@
+# [1.1.0-dev.20](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.19...v1.1.0-dev.20) (2026-11-20)
+
+
+### Features
+
+* implementa tela de notificações ([f6f9f73](https://github.com/lauralxra/Projeto_Ip-/commit/f6f9f739d09ddd741f8301e3f812bda22802f7cd))
+
 # [1.1.0-dev.19](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.18...v1.1.0-dev.19) (2026-11-20)
 
 
