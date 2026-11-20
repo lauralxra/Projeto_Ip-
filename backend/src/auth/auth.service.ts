@@ -321,7 +321,7 @@ export class AuthService {
 
   // Confere o código do token mais recente não usado. A tentativa é reservada antes
   // da comparação (incremento condicional), para requisições paralelas não
-  // ultrapassarem o limite de RECUPERACAO_MAX_TENTATIVAS.
+  // ultrapassarem o limite de RECUPERACAO_MAX_TENTATIVAS. Acertos devolvem a tentativa.
   private async verificarCodigo(email: string, codigo: string) {
     const token = await this.prisma.passwordResetToken.findFirst({
       where: {
@@ -358,6 +358,14 @@ export class AuthService {
     if (!codigoValido) {
       throw new BadRequestException(CODIGO_INVALIDO);
     }
+
+    // Código certo devolve a tentativa reservada: só chutes errados gastam o
+    // limite. Sem isso, validar e depois redefinir consumiria duas tentativas,
+    // e quem acertou na 5ª receberia 429 ao redefinir.
+    await this.prisma.passwordResetToken.updateMany({
+      where: { id: token.id, tentativas: { gt: 0 } },
+      data: { tentativas: { decrement: 1 } },
+    });
 
     return { userId: token.userId, tokenId: token.id };
   }
