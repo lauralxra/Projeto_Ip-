@@ -11,14 +11,21 @@ export const REGEX_NOME_USUARIO = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
 export const MENSAGEM_NOME_INVALIDO =
   'O nome deve conter apenas letras, espaços, hífen ou apóstrofo (sem números, símbolos ou scripts).';
 
+// Apóstrofos tipográficos (’ ‘ ʼ) que teclados de celular inserem sozinhos
+const REGEX_APOSTROFOS_VARIANTES = /[\u2018\u2019\u02BC]/g;
+
 /**
- * Normaliza Unicode (NFC), remove espaços nas extremidades e colapsa espaços
- * horizontais repetidos. Não remove caracteres inválidos/tags silenciosamente
- * para que tentativas de script ou entrada malformada sejam rejeitadas pela validação.
+ * Normaliza Unicode (NFC), troca apóstrofos tipográficos pelo simples, remove
+ * espaços nas extremidades e colapsa espaços repetidos. Não remove caracteres
+ * inválidos/tags silenciosamente para que a validação os rejeite.
  */
 export function sanitizarNomeUsuario(valor: unknown): unknown {
   if (typeof valor !== 'string') return valor;
-  return valor.normalize('NFC').replace(/ {2,}/g, ' ').trim();
+  return valor
+    .normalize('NFC')
+    .replace(REGEX_APOSTROFOS_VARIANTES, "'")
+    .replace(/ {2,}/g, ' ')
+    .trim();
 }
 
 /**

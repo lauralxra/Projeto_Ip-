@@ -15,15 +15,16 @@ describe('UpdateProfileDto (UC04 — validação e sanitização de nome)', () =
     ['João Pedro Gonçalves', 'João Pedro Gonçalves'],
     ['Ana-Clara Souza', 'Ana-Clara Souza'],
     ["Luísa D'Ávila", "Luísa D'Ávila"],
-  ])(
-    'aceita nome válido %p e sanitiza para %p',
-    async (entrada, esperado) => {
-      const { dto, campos } = await validar({ name: entrada });
+    // Apóstrofo tipográfico do teclado do celular vira o simples
+    ['Luísa D’Ávila', "Luísa D'Ávila"],
+    // Acento decomposto (NFD) é normalizado para NFC
+    ['José', 'José'],
+  ])('aceita nome válido %p e sanitiza para %p', async (entrada, esperado) => {
+    const { dto, campos } = await validar({ name: entrada });
 
-      expect(campos).toEqual([]);
-      expect(dto.name).toBe(esperado);
-    },
-  );
+    expect(campos).toEqual([]);
+    expect(dto.name).toBe(esperado);
+  });
 
   it.each([
     '<script>alert("xss")</script>',

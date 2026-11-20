@@ -4,8 +4,8 @@ import { type Nucleo } from './dados/nucleos';
 import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
 import { urlDaImagem } from './api/mapeadores';
 import {
-  contemCaracteresProibidosNome,
-  MENSAGEM_NOME_INVALIDO,
+  filtrarDigitacaoNome,
+  nomeFoiAlterado,
   sanitizarNomeUsuario,
   TAMANHO_MAX_NOME_USUARIO,
   validarNomeUsuario,
@@ -196,13 +196,11 @@ export function TelaUsuarioUserPopup({
 
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 
-  const handleAlterarNome = (novoValor: string) => {
+  // Números e símbolos são descartados na digitação/colagem; o restante da
+  // regra (hífen/apóstrofo só entre letras, tamanho) é conferido no blur e no envio
+  const handleAlterarNome = (valorDigitado: string) => {
+    const novoValor = filtrarDigitacaoNome(valorDigitado);
     setFormNome(novoValor);
-
-    if (contemCaracteresProibidosNome(novoValor)) {
-      setErroNome(MENSAGEM_NOME_INVALIDO);
-      return;
-    }
 
     if (tentouEnviar) {
       setErroNome(validarNomeUsuario(novoValor));
@@ -210,6 +208,8 @@ export function TelaUsuarioUserPopup({
       setErroNome(null);
     }
   };
+
+  const nomeMudou = nomeFoiAlterado(formNome, nome || '');
 
   const handleMudarImagem = (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
@@ -226,15 +226,19 @@ export function TelaUsuarioUserPopup({
     e.preventDefault();
     setTentouEnviar(true);
 
-    const erroValidacao = validarNomeUsuario(formNome);
-    if (erroValidacao) {
-      setErroNome(erroValidacao);
-      return;
-    }
+    // Nome inalterado segue como veio, mesmo que seja antigo e fora da regra
+    let nomeSanitizado = formNome;
+    if (nomeMudou) {
+      const erroValidacao = validarNomeUsuario(formNome);
+      if (erroValidacao) {
+        setErroNome(erroValidacao);
+        return;
+      }
 
-    const nomeSanitizado = sanitizarNomeUsuario(formNome);
+      nomeSanitizado = sanitizarNomeUsuario(formNome);
+      setFormNome(nomeSanitizado);
+    }
     setErroNome(null);
-    setFormNome(nomeSanitizado);
 
     onSubmit(
       {
@@ -336,7 +340,9 @@ export function TelaUsuarioUserPopup({
                 value={formNome}
                 onChange={(e) => handleAlterarNome(e.target.value)}
                 onBlur={() => {
-                  if (formNome) setErroNome(validarNomeUsuario(formNome));
+                  if (formNome && nomeMudou) {
+                    setErroNome(validarNomeUsuario(formNome));
+                  }
                 }}
                 className={`${estiloCampo} ${
                   erroNome ? 'ring-2 ring-[#7a1f2b] bg-[#f8d7da]/25' : ''

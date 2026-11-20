@@ -13,6 +13,7 @@ import {
 } from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
 import {
+  nomeFoiAlterado,
   sanitizarNomeUsuario,
   validarNomeUsuario,
 } from './utils/validacaoNome';
@@ -345,22 +346,26 @@ export function UserbarPopupUser({
     dadosUsuario: Usuario,
     arquivoImagem: File | null,
   ) => {
-    try {
-      if (arquivoImagem) {
-        await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
-      }
-
+    // Valida antes de qualquer envio, para não salvar a foto e depois
+    // abortar por causa do nome
+    const nomeMudou = nomeFoiAlterado(dadosUsuario.nome, UsuarioAtual.nome);
+    if (nomeMudou) {
       const erroNome = validarNomeUsuario(dadosUsuario.nome);
       if (erroNome) {
         alert(erroNome);
         return;
       }
+    }
 
-      const nomeSanitizado = sanitizarNomeUsuario(dadosUsuario.nome);
+    try {
+      if (arquivoImagem) {
+        await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
+      }
+
       const alteracoes: Record<string, string> = {};
 
-      if (nomeSanitizado !== UsuarioAtual.nome) {
-        alteracoes.name = nomeSanitizado;
+      if (nomeMudou) {
+        alteracoes.name = sanitizarNomeUsuario(dadosUsuario.nome);
       }
 
       if (dadosUsuario.email !== UsuarioAtual.email) {

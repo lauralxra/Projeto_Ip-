@@ -19,6 +19,7 @@ import {
 } from './api/mapeadores';
 import { atualizarUsuarioSessao } from './routes/sessao';
 import {
+  nomeFoiAlterado,
   sanitizarNomeUsuario,
   validarNomeUsuario,
 } from './utils/validacaoNome';
@@ -353,13 +354,17 @@ export default function TelaUsuarios() {
   ) => {
     const proprio = dados.id === UsuarioAtual.id;
 
-    const erroNome = validarNomeUsuario(dados.nome);
-    if (erroNome) throw new Error(erroNome);
-    const nomeSanitizado = sanitizarNomeUsuario(dados.nome);
+    // Só valida o nome quando ele muda: nome antigo fora da regra não
+    // impede editar e-mail, perfil, núcleos ou senha
+    const nomeMudou = nomeFoiAlterado(dados.nome, original.nome);
+    if (nomeMudou) {
+      const erroNome = validarNomeUsuario(dados.nome);
+      if (erroNome) throw new Error(erroNome);
+    }
 
     // Nome e e-mail: a Administração edita qualquer usuário
     const alteracoes: Record<string, string> = {};
-    if (nomeSanitizado !== original.nome) alteracoes.name = nomeSanitizado;
+    if (nomeMudou) alteracoes.name = sanitizarNomeUsuario(dados.nome);
     if (dados.email !== original.email) alteracoes.email = dados.email;
     if (Object.keys(alteracoes).length > 0) {
       const atualizado = await apiFetch<{ nome?: string; email?: string }>(
