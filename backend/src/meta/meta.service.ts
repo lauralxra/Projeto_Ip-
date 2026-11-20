@@ -340,7 +340,10 @@ export class MetaService {
       throw new NotFoundException('Meta não encontrada.');
     }
 
-    if (atual.indicador.status && atual.indicador.status !== StatusRegistro.ATIVO) {
+    if (
+      atual.indicador.status &&
+      atual.indicador.status !== StatusRegistro.ATIVO
+    ) {
       throw new ConflictException(
         'Não é possível alterar metas de um indicador inativo ou arquivado.',
       );

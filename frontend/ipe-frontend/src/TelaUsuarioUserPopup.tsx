@@ -134,7 +134,10 @@ type userItems = {
   nucleos?: Nucleo[];
   status: number;
   // O arquivo da foto escolhida (se houver) vai junto, para quem salva poder enviá-lo à API
-  onSubmit: (usuario: Usuario, arquivoImagem: File | null) => void | Promise<void>;
+  onSubmit: (
+    usuario: Usuario,
+    arquivoImagem: File | null,
+  ) => void | Promise<void>;
   onClose: () => void;
 };
 
