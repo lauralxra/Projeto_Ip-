@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Imagens, Svg } from './config/assets';
 import { type Nucleo } from './dados/nucleos';
 import { UsuarioAtual, type TipoDeConta, type Usuario } from './dados/usuarios';
 import { urlDaImagem } from './api/mapeadores';
+import {
+  filtrarDigitacaoNome,
+  nomeFoiAlterado,
+  sanitizarNomeUsuario,
+  TAMANHO_MAX_NOME_USUARIO,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 
-// Núcleos que o usuário logado enxerga (para o administrador, todos), vindos da API
+// Núcleos que o usuário logado enxerga
 const nucleosDisponiveis = () => UsuarioAtual.nucleos;
+
+/* =========================
+   Status do usuário
+========================= */
 
 interface BtnUserStatusProps {
   value: number;
@@ -14,11 +25,11 @@ interface BtnUserStatusProps {
 
 function BtnUserStatus({ value, onChange }: BtnUserStatusProps) {
   return (
-    <div className="bg-[#d5e4d1] cursor-pointer h-[27px] min-w-[120px] relative rounded-[100px] flex items-center px-1">
+    <div className="flex h-9 w-full items-center rounded-full bg-[#d5e4d1] px-3">
       <select
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-sans font-bold text-xs text-center"
+        className="h-full w-full cursor-pointer border-none bg-transparent text-center text-sm font-semibold outline-none"
       >
         <option value={1}>Ativo</option>
         <option value={0}>Inativo</option>
@@ -27,43 +38,47 @@ function BtnUserStatus({ value, onChange }: BtnUserStatusProps) {
   );
 }
 
+/* =========================
+   Núcleos
+========================= */
+
 interface BtnUserNucleoProps {
   selectedNucleos: Nucleo[];
   onChange: (nucleos: Nucleo[]) => void;
 }
 
 function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
-  // Função para remover um núcleo individualmente ao clicar no "X"
   const removerNucleo = (idParaRemover: string) => {
     onChange(selectedNucleos.filter((n) => n.id !== idParaRemover));
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full max-w-[300px]">
-      {/* Select normal ou múltiplo para escolher */}
+    <div className="flex w-full flex-col gap-2">
       <select
         onChange={(e) => {
           const idSelecionado = e.target.value;
           if (!idSelecionado) return;
 
-          // Verifica se já não está adicionado para evitar duplicadas
           const nucleoEncontrado = nucleosDisponiveis().find(
             (n) => n.id === idSelecionado,
           );
+
           if (
             nucleoEncontrado &&
             !selectedNucleos.some((n) => n.id === idSelecionado)
           ) {
             onChange([...selectedNucleos, nucleoEncontrado]);
           }
-          e.target.value = ''; // Reseta o select
+
+          e.target.value = '';
         }}
-        className="bg-[#d8d0d8] h-[40px] px-3 rounded-xl font-bold text-xs outline-none cursor-pointer text-black"
+        className="h-10 w-full cursor-pointer rounded-xl bg-[#f3edf3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#a13680]/30"
         defaultValue=""
       >
         <option value="" disabled>
           Selecione um núcleo...
         </option>
+
         {nucleosDisponiveis().map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.nome + ' (' + opt.sigla + ')'}
@@ -71,27 +86,27 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
         ))}
       </select>
 
-      {/* Área onde aparecem os núcleos já selecionados em formato de pílulas visíveis */}
-      <div className="flex flex-wrap gap-1.5 min-h-[40px] p-2 bg-slate-100 rounded-xl border border-slate-200">
+      <div className="flex min-h-10 w-full flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2">
         {selectedNucleos.length > 0 ? (
           selectedNucleos.map((nucleo) => (
             <span
               key={nucleo.id}
-              className="inline-flex items-center gap-1 bg-[#664666] text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs"
+              className="inline-flex items-center gap-1 rounded-full bg-[#664666] px-2.5 py-1 text-xs font-semibold text-white"
             >
               {nucleo.sigla}
+
               <button
                 type="button"
                 onClick={() => removerNucleo(nucleo.id)}
-                className="hover:text-red-300 font-bold ml-1 cursor-pointer"
-                title="Remover"
+                className="ml-1 cursor-pointer font-bold transition-colors hover:text-red-300"
+                title="Remover núcleo"
               >
                 ×
               </button>
             </span>
           ))
         ) : (
-          <span className="text-slate-400 text-xs italic self-center">
+          <span className="self-center text-xs italic text-slate-400">
             Nenhum núcleo associado
           </span>
         )}
@@ -100,6 +115,10 @@ function BtnUserNucleo({ selectedNucleos, onChange }: BtnUserNucleoProps) {
   );
 }
 
+/* =========================
+   Tipo de conta
+========================= */
+
 interface BtnUserTipoProps {
   value: string;
   onChange: (val: string) => void;
@@ -107,11 +126,11 @@ interface BtnUserTipoProps {
 
 function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
   return (
-    <div className="bg-[#ffdfbf] cursor-pointer h-[27px] max-h-[27px] min-h-[27px] min-w-[72px] relative rounded-[100px] flex items-center px-1">
+    <div className="flex h-9 w-full items-center rounded-full bg-[#ffdfbf] px-3">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent cursor-pointer border-none outline-none h-full w-full font-sans font-bold text-xs text-center"
+        className="h-full w-full cursor-pointer border-none bg-transparent text-center text-sm font-semibold outline-none"
       >
         <option value="ADM">Administrador</option>
         <option value="DN">Diretor de Núcleo</option>
@@ -121,6 +140,10 @@ function BtnUserTipo({ value, onChange }: BtnUserTipoProps) {
     </div>
   );
 }
+
+/* =========================
+   Propriedades do formulário
+========================= */
 
 type userItems = {
   adm?: boolean;
@@ -133,13 +156,16 @@ type userItems = {
   tipo: string;
   nucleos?: Nucleo[];
   status: number;
-  // O arquivo da foto escolhida (se houver) vai junto, para quem salva poder enviá-lo à API
   onSubmit: (
     usuario: Usuario,
     arquivoImagem: File | null,
   ) => void | Promise<void>;
   onClose: () => void;
 };
+
+/* =========================
+   Formulário do usuário
+========================= */
 
 export function TelaUsuarioUserPopup({
   adm,
@@ -156,6 +182,8 @@ export function TelaUsuarioUserPopup({
   onClose,
 }: userItems) {
   const [formNome, setFormNome] = useState(nome || '');
+  const [erroNome, setErroNome] = useState<string | null>(null);
+  const [tentouEnviar, setTentouEnviar] = useState(false);
   const [formMail, setFormMail] = useState(email || '');
   const [formSenha, setFormSenha] = useState(senha || '');
   const [formTipo, setFormTipo] = useState<string>(tipo || 'DN');
@@ -165,24 +193,57 @@ export function TelaUsuarioUserPopup({
   const [imagemPreview, setImagemPreview] = useState<string | null>(
     urlDaImagem(imagem) ?? null,
   );
+
   const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
 
-  const handleMudarImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Números e símbolos são descartados na digitação/colagem; o restante da
+  // regra (hífen/apóstrofo só entre letras, tamanho) é conferido no blur e no envio
+  const handleAlterarNome = (valorDigitado: string) => {
+    const novoValor = filtrarDigitacaoNome(valorDigitado);
+    setFormNome(novoValor);
+
+    if (tentouEnviar) {
+      setErroNome(validarNomeUsuario(novoValor));
+    } else if (erroNome) {
+      setErroNome(null);
+    }
+  };
+
+  const nomeMudou = nomeFoiAlterado(formNome, nome || '');
+
+  const handleMudarImagem = (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
+
     if (arquivo) {
       setArquivoImagem(arquivo);
+
       const urlTemporaria = URL.createObjectURL(arquivo);
       setImagemPreview(urlTemporaria);
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setTentouEnviar(true);
+
+    // Nome inalterado segue como veio, mesmo que seja antigo e fora da regra
+    let nomeSanitizado = formNome;
+    if (nomeMudou) {
+      const erroValidacao = validarNomeUsuario(formNome);
+      if (erroValidacao) {
+        setErroNome(erroValidacao);
+        return;
+      }
+
+      nomeSanitizado = sanitizarNomeUsuario(formNome);
+      setFormNome(nomeSanitizado);
+    }
+    setErroNome(null);
 
     onSubmit(
       {
         id: id || Date.now().toString(),
-        nome: formNome,
+        nome: nomeSanitizado,
         email: formMail,
         senha: formSenha,
         tipo: formTipo as TipoDeConta,
@@ -194,66 +255,59 @@ export function TelaUsuarioUserPopup({
     );
   };
 
+  const estiloCampo =
+    'h-11 w-full min-w-0 rounded-xl bg-[#f1f0f1] px-3 text-sm text-[#664666] outline-none transition-all placeholder:text-[#a49aa4] focus:ring-2 focus:ring-[#a13680]/30';
+
+  const estiloLabel = 'text-sm font-semibold text-[#3b142f]';
+
   return (
     <form
       onSubmit={handleFormSubmit}
-      className="bg-white border border-[#a13680] border-solid content-stretch flex flex-col gap-[82px] items-center overflow-clip px-[40px] py-[20px] relative rounded-[45px]"
       data-name="JanelaEdicaoUser"
+      className="flex max-h-[calc(100dvh-32px)] w-full min-w-0 flex-col gap-5 overflow-x-hidden overflow-y-auto rounded-2xl border border-[#a13680]/50 bg-white p-5 shadow-2xl sm:p-7"
     >
-      <div
-        className="content-stretch flex items-center justify-between relative shrink-0 w-full"
-        data-name="Up"
-      >
-        <div
-          className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-bold h-full justify-center leading-[0] min-w-px not-italic relative text-[36px] text-black"
-          style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
+      {/* Cabeçalho */}
+      <div className="flex w-full items-center justify-between">
+        <h2 className="break-words text-2xl font-bold leading-tight text-[#3b142f] sm:text-[26px]">
+          {header}
+        </h2>
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full text-xl text-[#664666] transition-colors hover:bg-[#f5edf5]"
         >
-          <p className="leading-[normal]">{header}</p>
-        </div>
+          ×
+        </button>
       </div>
 
-      {/* Opcoes */}
-      <div
-        className="content-stretch flex flex-col gap-[40px] items-start relative shrink-0 w-full"
-        data-name="Opcoes"
-      >
-        <div
-          className="content-stretch flex gap-[30px] items-start relative shrink-0 w-full"
-          data-name="Usuario"
-        >
+      {/* Informações */}
+      <div className="flex w-full min-w-0 flex-col gap-5">
+        <div className="flex w-full min-w-0 flex-col gap-5 sm:flex-row sm:items-start">
           {/* Foto */}
-          <div
-            className="bg-tranparent content-stretch flex h-[170px] items-start relative rounded-[20px] shrink-0 w-[173px]"
-            data-name="Foto"
-          >
+          <div className="flex w-full shrink-0 justify-center sm:w-[120px] sm:pt-1">
             <label
-              className="size-full relative shrink-0 block cursor-pointer"
-              data-name="Img"
+              className="relative block size-[120px] cursor-pointer overflow-visible sm:size-[112px]"
               title="Alterar foto"
             >
               <img
-                alt=""
-                className="absolute inset-0 max-w-none object-cover rounded-[5px] size-full"
+                alt="Foto de perfil"
+                className="size-full rounded-xl border border-[#eee] object-cover"
                 src={imagemPreview || Imagens.DefaultPFP}
               />
 
-              {/* BtnAddImg */}
-              <div
-                className="absolute bottom-[-12px] max-h-[56px] max-w-[56px] min-h-[56px] min-w-[56px] right-[-11px] size-[56px] cursor-pointer"
-                data-name="btnAddImg"
-              >
+              {/* Botão para alterar imagem */}
+              <div className="absolute -bottom-2 -right-2 z-10 flex size-10 items-center justify-center rounded-full bg-[#3b142f] shadow-md transition-transform hover:scale-105">
                 <svg
-                  className="absolute block inset-0 size-full pointer-events-none"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 22 22"
                   fill="none"
-                  height="56"
-                  preserveAspectRatio="none"
-                  viewBox="0 0 56 56"
-                  width="56"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="block shrink-0"
                 >
-                  <g id="btnAddImg">
-                    <rect fill="#3B142F" height="56" rx="28" width="56" />
-                    <path d={Svg.p2a30fc00} fill="white" id="Vector" />
-                  </g>
+                  <path d={Svg.p2a30fc00} fill="white" />
                 </svg>
               </div>
 
@@ -266,160 +320,121 @@ export function TelaUsuarioUserPopup({
             </label>
           </div>
 
-          {/* Nome, email e senha */}
-          <div
-            className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full"
-            data-name="Usuario"
-          >
-            <div
-              className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]"
-              data-name="CampoNome"
-            >
-              <label
-                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
-                style={{
-                  fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                }}
-              >
+          {/* Campos */}
+          <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
+            {/* Nome */}
+            <div className="flex w-full min-w-0 flex-col gap-1.5">
+              <label className={estiloLabel} htmlFor="campo-nome-usuario">
                 Nome
               </label>
-              <div
-                className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full"
-                data-name="Field"
-              >
-                <input
-                  type="text"
-                  placeholder="Insira um nome..."
-                  required
-                  value={formNome}
-                  onChange={(e) => setFormNome(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
-                  style={{
-                    fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                  }}
-                />
-              </div>
+
+              <input
+                id="campo-nome-usuario"
+                type="text"
+                placeholder="Insira um nome..."
+                required
+                autoComplete="name"
+                maxLength={TAMANHO_MAX_NOME_USUARIO}
+                aria-invalid={Boolean(erroNome)}
+                aria-describedby={erroNome ? 'erro-nome-usuario' : undefined}
+                value={formNome}
+                onChange={(e) => handleAlterarNome(e.target.value)}
+                onBlur={() => {
+                  if (formNome && nomeMudou) {
+                    setErroNome(validarNomeUsuario(formNome));
+                  }
+                }}
+                className={`${estiloCampo} ${
+                  erroNome ? 'ring-2 ring-[#7a1f2b] bg-[#f8d7da]/25' : ''
+                }`}
+              />
+
+              {erroNome && (
+                <p
+                  id="erro-nome-usuario"
+                  role="alert"
+                  className="text-xs font-medium text-[#7a1f2b]"
+                >
+                  {erroNome}
+                </p>
+              )}
             </div>
 
-            <div
-              className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]"
-              data-name="CampoMail"
-            >
-              <label
-                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
-                style={{
-                  fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                }}
-              >
-                E-mail
-              </label>
-              <div
-                className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full"
-                data-name="Field"
-              >
-                <input
-                  type="email"
-                  placeholder="Insira um nome..."
-                  required
-                  value={formMail}
-                  onChange={(e) => setFormMail(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
-                  style={{
-                    fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                  }}
-                />
-              </div>
+            {/* E-mail */}
+            <div className="flex w-full min-w-0 flex-col gap-1.5">
+              <label className={estiloLabel}>E-mail</label>
+
+              <input
+                type="email"
+                placeholder="Insira um e-mail..."
+                required
+                value={formMail}
+                onChange={(e) => setFormMail(e.target.value)}
+                className={estiloCampo}
+              />
             </div>
 
-            <div
-              className="content-stretch flex flex-col gap-[3px] items-start p-px relative shrink-0 w-[648px]"
-              data-name="CampoSenha"
-            >
-              <label
-                className="[word-break:break-word] font-sans font-bold leading-[normal] not-italic relative shrink-0 text-[20px] text-black w-full"
-                style={{
-                  fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                }}
-              >
-                Senha
-              </label>
-              <div
-                className="bg-[#d9d9d9] content-stretch flex h-[49px] items-center max-h-[49px] min-h-[49px] px-[10px] py-[5px] relative rounded-[15px] shrink-0 w-full"
-                data-name="Field"
-              >
-                <input
-                  type="password"
-                  placeholder="Insira um nome..."
-                  required
-                  value={formSenha}
-                  onChange={(e) => setFormSenha(e.target.value)}
-                  className="[word-break:break-word] flex flex-[1_0_0] flex-col border-none outline-none font-sans font-light h-full justify-center leading-[0] min-w-px not-italic relative text-[#747474] text-[16px]"
-                  style={{
-                    fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-                  }}
-                />
-              </div>
+            {/* Senha */}
+            <div className="flex w-full min-w-0 flex-col gap-1.5">
+              <label className={estiloLabel}>Senha</label>
+
+              <input
+                type="password"
+                placeholder="Insira uma senha..."
+                required
+                value={formSenha}
+                onChange={(e) => setFormSenha(e.target.value)}
+                className={estiloCampo}
+              />
             </div>
           </div>
         </div>
 
-        {adm ? (
-          <div className="content-stretch flex gap-[15px] items-start relative shrink-0 w-full justify-between">
-            <div className="flex flex-col gap-1">
-              <label className="font-bold text-sm">Tipo de conta</label>
+        {/* Opções administrativas */}
+        {adm && (
+          <div className="grid w-full min-w-0 grid-cols-1 gap-4 border-t border-[#eee5ee] pt-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Tipo de conta */}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label className={estiloLabel}>Tipo de conta</label>
+
               <BtnUserTipo value={formTipo} onChange={setFormTipo} />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-bold text-sm">Núcleos pertencentes</label>
+
+            {/* Núcleos */}
+            <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+              <label className={estiloLabel}>Núcleos pertencentes</label>
+
               <BtnUserNucleo
                 selectedNucleos={formNucleos}
                 onChange={setFormNucleos}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-bold text-sm">Status</label>
+
+            {/* Status */}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label className={estiloLabel}>Status</label>
+
               <BtnUserStatus value={formStatus} onChange={setFormStatus} />
             </div>
           </div>
-        ) : (
-          ''
         )}
       </div>
 
-      <div
-        className="content-stretch flex gap-[25px] items-center justify-center px-[4px] relative shrink-0 w-full"
-        data-name="Botoes"
-      >
-        {/* botao cancelar */}
+      {/* Botões */}
+      <div className="flex w-full flex-col-reverse gap-3 border-t border-[#eee5ee] pt-4 sm:flex-row sm:gap-4">
         <button
           type="button"
           onClick={onClose}
-          className="border-2 border-[#3b142f] border-solid content-stretch cursor-pointer flex flex-[1_0_0] items-center justify-center min-h-[55px] min-w-px p-[10px] relative rounded-[100px]"
-          data-name="btnCancel"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-full border-2 border-[#3b142f] px-4 py-2 text-base font-semibold text-[#3b142f] transition-colors hover:bg-[#f8f2f8]"
         >
-          <div
-            className="[word-break:break-word] flex flex-[1_0_0] flex-col font-sans font-semibold justify-center leading-[0] min-w-px not-italic relative text-[#3b142f] text-[24.413px] text-center"
-            style={{ fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100' }}
-          >
-            <p className="leading-[normal]">Cancelar</p>
-          </div>
+          Cancelar
         </button>
-        {/* botao criar */}
+
         <button
           type="submit"
-          className="bg-[#3b142f] content-stretch flex flex-[1_0_0] items-center justify-center min-h-[55px] min-w-px p-[10px] relative rounded-[100px] cursor-pointer"
-          data-name="btnCriar"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-[#3b142f] px-4 py-2 text-base font-semibold text-white transition-colors hover:bg-[#5a2549]"
         >
-          <div className="content-stretch flex flex-[1_0_0] gap-[15px] items-center justify-center min-w-px relative">
-            <p
-              className="[word-break:break-word] font-sans font-semibold leading-[normal] not-italic relative shrink-0 text-[24.413px] text-white whitespace-nowrap"
-              style={{
-                fontVariationSettings: '"GRAD" 0, "ROND" 0, "wdth" 100',
-              }}
-            >
-              Salvar
-            </p>
-          </div>
+          Salvar
         </button>
       </div>
     </form>
