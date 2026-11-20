@@ -3,8 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import TelaLogin from './TelaLogin';
 import TelaRecuperarSenha from './TelaRecuperarSenha';
 import TelaRedefinirSenha from './TelaRedefinirSenha';
-//import TelaCadastro from './TelaCadastro';
-import TelaCadastro from './TelaCadastro';
 import TelaDashboard from './TelaDashboard';
 import TelaNucleos from './TelaNucleos';
 import TelaIndicadores from './TelaIndicadores';
@@ -20,7 +18,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
 
         <Route path="/login" element={<TelaLogin />} />
-        <Route path="/cadastro" element={<TelaCadastro />} />
+        <Route path="/cadastro" element={<Navigate to="/login" replace />} />
 
         <Route path="/recuperar-senha" element={<TelaRecuperarSenha />} />
         <Route path="/redefinir-senha" element={<TelaRedefinirSenha />} />

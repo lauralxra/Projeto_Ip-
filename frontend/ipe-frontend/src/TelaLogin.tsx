@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { Imagens } from './config/assets';
@@ -209,18 +209,6 @@ export default function TelaLogin() {
               >
                 {carregando ? 'Autenticando...' : 'Entrar'}
               </button>
-
-              <div className="text-center pt-3">
-                <span className="text-xs text-slate-500">
-                  Não tem uma conta?{' '}
-                  <Link
-                    to="/cadastro"
-                    className="text-[#9d3878] font-semibold hover:underline"
-                  >
-                    Cadastre-se
-                  </Link>
-                </span>
-              </div>
             </form>
           </div>
         </div>
