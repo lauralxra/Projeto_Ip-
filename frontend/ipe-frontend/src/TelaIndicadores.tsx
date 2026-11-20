@@ -198,6 +198,7 @@ function MenuAcoesIndicador({
   delIndic,
   aprovIndic,
   abrirHistorico,
+  posicaoMenu = 'baixo',
 }: {
   indicador: Indicador;
   ehAtivo: boolean;
@@ -212,6 +213,7 @@ function MenuAcoesIndicador({
   delIndic: (indic: Indicador) => void;
   aprovIndic: (indic: Indicador) => void;
   abrirHistorico: (indic: Indicador) => void;
+  posicaoMenu?: 'cima' | 'baixo';
 }) {
   const [aberto, setAberto] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -243,7 +245,11 @@ function MenuAcoesIndicador({
       </button>
 
       {aberto && (
-        <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          className={`absolute right-0 ${
+            posicaoMenu === 'cima' ? 'bottom-full mb-1' : 'top-full mt-1'
+          } w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100`}
+        >
           {/* Ver no Dashboard */}
           <Link
             to={`/dashboard?indicadorId=${indicador.id}&nome=${encodeURIComponent(indicador.nome)}`}
@@ -426,7 +432,7 @@ function Lista({
 
   return (
     <div className="flex flex-col items-center justify-start gap-2.5 w-full">
-      {leList.map((indicador) => {
+      {leList.map((indicador, index) => {
         const statusNormalizado = (indicador.status ?? 'ATIVO').toUpperCase();
         const ehAtivo = statusNormalizado === 'ATIVO';
         const statusAprov = indicador.statusAprovacao;
@@ -608,6 +614,9 @@ function Lista({
                 delIndic={delIndic}
                 aprovIndic={aprovIndic}
                 abrirHistorico={abrirHistorico}
+                posicaoMenu={
+                  index >= Math.max(leList.length - 2, 2) ? 'cima' : 'baixo'
+                }
               />
             </div>
           </div>
@@ -2043,8 +2052,8 @@ export default function TelaIndicadores() {
             </div>
 
             {/*ListaIndicadores*/}
-            <div className="w-full overflow-x-auto pb-4">
-              <div className="min-w-[960px] flex flex-col gap-[8px] items-center px-1 py-1 w-full">
+            <div className="w-full overflow-x-auto pb-28">
+              <div className="min-w-[1040px] flex flex-col gap-[8px] items-center px-1 py-1 w-full">
                 <Top />
                 <Lista
                   leList={indicadoresFiltrados}
