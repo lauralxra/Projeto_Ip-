@@ -1,3 +1,10 @@
+# [1.1.0-dev.28](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.27...v1.1.0-dev.28) (2026-11-21)
+
+
+### Bug Fixes
+
+* **docker:** copiar prisma client para imagem de producao e fixar porta 3000 ([c09bc11](https://github.com/lauralxra/Projeto_Ip-/commit/c09bc11880c6bb70c293c08e07b11062e537c11b))
+
 # [1.1.0-dev.27](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.26...v1.1.0-dev.27) (2026-11-21)
 
 
