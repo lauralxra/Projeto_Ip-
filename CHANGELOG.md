@@ -1,3 +1,10 @@
+# [1.1.0-dev.30](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.29...v1.1.0-dev.30) (2026-11-21)
+
+
+### Bug Fixes
+
+* **docker:** criar pasta de uploads com dono node na imagem de producao ([f43c6da](https://github.com/lauralxra/Projeto_Ip-/commit/f43c6da889aa560f556f4c75306b0cf3cac1076e))
+
 # [1.1.0-dev.29](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.28...v1.1.0-dev.29) (2026-11-21)
 
 
