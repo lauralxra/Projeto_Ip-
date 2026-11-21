@@ -1,3 +1,30 @@
+# [1.1.0-dev.26](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.25...v1.1.0-dev.26) (2026-11-21)
+
+
+### Bug Fixes
+
+* **auth:** desbloquear conta e encerrar sessoes ao redefinir senha (uc02) ([934ad2c](https://github.com/lauralxra/Projeto_Ip-/commit/934ad2cb8a40292b7896947b6a79bf059082c417))
+* **auth:** limitar codigos de recuperacao por conta (uc02) ([2558b11](https://github.com/lauralxra/Projeto_Ip-/commit/2558b111af78d724e084941dc1a5972743fab56c))
+* **auth:** limitar recuperacao de senha por IP (uc02) ([fa4a2ba](https://github.com/lauralxra/Projeto_Ip-/commit/fa4a2ba9d7dbbbbb0e2b9992d4b7de8ca7e16f9f))
+* **auth:** nao gastar tentativa quando o codigo de recuperacao esta certo (uc02) ([4e042ff](https://github.com/lauralxra/Projeto_Ip-/commit/4e042ffb6871633f70a70399247212001ba843d1))
+* **frontend:** encerrar sessao local quando o token deixa de valer ([eb1cd79](https://github.com/lauralxra/Projeto_Ip-/commit/eb1cd79c69d3cd3548d8213829d07c0e7a9b3019))
+* **notificacoes:** impedir exclusao global pela rota da propria caixa (uc014) ([0524423](https://github.com/lauralxra/Projeto_Ip-/commit/05244232d9a7e995b4a0e881cefb7b1b77a635a2))
+* **programas:** alinhar filtro de responsavel ao backend (uc27) ([8bea9ed](https://github.com/lauralxra/Projeto_Ip-/commit/8bea9ed20713cd43ff9c49958284eb51f3b7c383))
+* **programas:** filtrar responsavel pelo nucleo selecionado (uc27) ([1f83c1f](https://github.com/lauralxra/Projeto_Ip-/commit/1f83c1f7c524fa905a1535ce04261b818ad28d63))
+* **usuarios:** ajustar validacao de nucleos e lint (uc07, uc08, uc12) ([785f920](https://github.com/lauralxra/Projeto_Ip-/commit/785f920f16f83b03a55da9b627a8bcb272ca0550))
+* **usuarios:** ajustar validacao do nome no uc04 ([1cc3b52](https://github.com/lauralxra/Projeto_Ip-/commit/1cc3b522df674252491a21b67595ca79ca589db5))
+* **usuarios:** corrigir layout e matriz de autorizacao (uc07, uc08, uc12) ([d89cd8f](https://github.com/lauralxra/Projeto_Ip-/commit/d89cd8f73b188d1640e5c00dc4bb5c6cb508362a))
+* **usuarios:** gravar troca de permissoes em uma unica transacao (uc08) ([3040c66](https://github.com/lauralxra/Projeto_Ip-/commit/3040c66b4c9936d2a32adeb4667b09e7929d8da4))
+* **usuarios:** implementar validacao e sanitizacao no nome (uc04) ([29854b2](https://github.com/lauralxra/Projeto_Ip-/commit/29854b2b94aed74d1e4cf40755030313ad0e83f0))
+
+
+### Features
+
+* **auth:** add password recovery flow UC02 with email, code validation and rate limiting ([9f89b72](https://github.com/lauralxra/Projeto_Ip-/commit/9f89b723e879f2b5afd9511b13856f99ae7f35f7))
+* **auth:** permitir encerrar todas as sessoes de um usuario ([d983fab](https://github.com/lauralxra/Projeto_Ip-/commit/d983faba562f3b0fcc5b83117b5b614fef421ae9))
+* **frontend:** integrar tela de recuperacao de senha a api (uc02) ([77c703c](https://github.com/lauralxra/Projeto_Ip-/commit/77c703c319710450b3d095933d2c188248ac5b64))
+* **notificacoes:** implementar exclusao de notificacoes (uc014) ([2d170e4](https://github.com/lauralxra/Projeto_Ip-/commit/2d170e43123079af67375bdcc62811e49dc94616))
+
 # [1.1.0-dev.25](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.24...v1.1.0-dev.25) (2026-11-20)
 
 
