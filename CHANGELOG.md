@@ -1,3 +1,10 @@
+# [1.1.0-dev.29](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.28...v1.1.0-dev.29) (2026-11-21)
+
+
+### Bug Fixes
+
+* **frontend:** sincronizar package-lock com vite ^8.3.7 ([b80c85f](https://github.com/lauralxra/Projeto_Ip-/commit/b80c85f87fb8a1da143676d1b6ecaac2058f86b0))
+
 # [1.1.0-dev.28](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.27...v1.1.0-dev.28) (2026-11-21)
 
 
