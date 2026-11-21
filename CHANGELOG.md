@@ -1,3 +1,10 @@
+# [1.1.0-dev.31](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.30...v1.1.0-dev.31) (2026-11-21)
+
+
+### Bug Fixes
+
+* **frontend:** importar logos para incluí-las no build de producao ([35d08f3](https://github.com/lauralxra/Projeto_Ip-/commit/35d08f347e96c1ca3740b2402052cbc9ede95849))
+
 # [1.1.0-dev.30](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.29...v1.1.0-dev.30) (2026-11-21)
 
 
