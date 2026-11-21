@@ -1,3 +1,10 @@
+# [1.1.0-dev.27](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.26...v1.1.0-dev.27) (2026-11-21)
+
+
+### Bug Fixes
+
+* updating vite version ([faa3e56](https://github.com/lauralxra/Projeto_Ip-/commit/faa3e566bb10a1b8d8b5149db89416cb6fa4ec0e))
+
 # [1.1.0-dev.26](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.25...v1.1.0-dev.26) (2026-11-21)
 
 
