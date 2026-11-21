@@ -1,9 +1,17 @@
+// Importadas (e não caminhos '/src/assets/...') para o Vite incluí-las no build:
+// em produção só a dist/ é publicada e a pasta src/ não existe no servidor
+import DefaultPfp from '../assets/IPE_DefaultPfp.png';
+import LogoIPE from '../assets/Logo_IPE.png';
+import LogoNEI from '../assets/Logo_NEI.png';
+import LogoNINTER from '../assets/Logo_NINTER.png';
+import LogoNURI from '../assets/Logo_NURI.png';
+
 export const Imagens = {
-  LogoIPE: '/src/assets/Logo_IPE.png',
-  LogoNEI: '/src/assets/Logo_NEI.png',
-  LogoNURI: '/src/assets/Logo_NURI.png',
-  LogoNINTER: '/src/assets/Logo_NINTER.png',
-  DefaultPFP: '/src/assets/IPE_DefaultPfp.png',
+  LogoIPE,
+  LogoNEI,
+  LogoNURI,
+  LogoNINTER,
+  DefaultPFP: DefaultPfp,
 } as const;
 
 export const Svg = {
