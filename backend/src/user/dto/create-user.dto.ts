@@ -1,30 +1,46 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsByteLength,
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Match } from '../../common/validators/match.decorator';
+import {
+  MENSAGEM_NOME_INVALIDO,
+  REGEX_NOME_USUARIO,
+  sanitizarNomeUsuario,
+  TAMANHO_MAX_NOME_USUARIO,
+  TAMANHO_MIN_NOME_USUARIO,
+} from '../../common/validators/nome-usuario.validator';
 
 export class CreateUserDto {
   @ApiProperty({
     example: 'Maria da Silva',
     description: 'Nome completo do usuário',
-    maxLength: 150,
+    minLength: TAMANHO_MIN_NOME_USUARIO,
+    maxLength: TAMANHO_MAX_NOME_USUARIO,
   })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @IsString()
+  @Transform(({ value }: { value: unknown }) => sanitizarNomeUsuario(value))
+  @IsString({ message: 'O nome deve ser um texto.' })
   @IsNotEmpty({ message: 'O nome não pode estar vazio.' })
-  @MaxLength(150)
+  @MinLength(TAMANHO_MIN_NOME_USUARIO, {
+    message: `O nome deve ter no mínimo ${TAMANHO_MIN_NOME_USUARIO} caracteres.`,
+  })
+  @MaxLength(TAMANHO_MAX_NOME_USUARIO, {
+    message: `O nome deve ter no máximo ${TAMANHO_MAX_NOME_USUARIO} caracteres.`,
+  })
+  @Matches(REGEX_NOME_USUARIO, { message: MENSAGEM_NOME_INVALIDO })
   name!: string;
 
   @ApiProperty({
@@ -76,4 +92,19 @@ export class CreateUserDto {
   })
   @IsEnum(Role, { message: 'Perfil de acesso inválido.' })
   role!: Role;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['1c8f2c0f-7b62-4f90-8b40-3d2e5f607b81'],
+    description:
+      'IDs dos núcleos ativos vinculados (obrigatório para Diretor de Núcleo e Equipe de Gestão)',
+  })
+  @IsOptional()
+  @IsArray({ message: 'nucleoIds deve ser uma lista.' })
+  @ArrayUnique({ message: 'Não informe núcleos duplicados.' })
+  @IsUUID('all', {
+    each: true,
+    message: 'Cada nucleoId deve ser um UUID válido.',
+  })
+  nucleoIds?: string[];
 }

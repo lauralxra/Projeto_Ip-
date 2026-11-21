@@ -30,15 +30,21 @@ describe('UserService', () => {
     updatePassword: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
-  let prisma: { user: { findFirst: jest.Mock } };
+  let prisma: {
+    user: { findFirst: jest.Mock };
+    nucleo: { count: jest.Mock };
+    $transaction: jest.Mock;
+  };
   let notificacao: { notificarSenhaAlterada: jest.Mock };
   const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
+  const NUCLEO_UUID = '1c8f2c0f-7b62-4f90-8b40-3d2e5f607b81';
   const dto = {
     name: 'Maria',
     email: 'maria@exemplo.com',
     password: 'Senha1234',
     confirmPassword: 'Senha1234',
     role: Role.EQUIPE_GESTAO,
+    nucleoIds: [NUCLEO_UUID],
   };
   const createdAt = new Date('2026-10-25T12:00:00.000Z');
 
@@ -47,6 +53,15 @@ describe('UserService', () => {
       user: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      nucleo: {
+        count: jest.fn((args: { where: { id: { in: string[] } } }) =>
+          Promise.resolve(args.where.id.in.length),
+        ),
+      },
+      // A transação interativa recebe o próprio mock como `tx`
+      $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+        fn(prisma),
+      ),
     };
     repository = {
       findActiveByEmail: jest.fn(),
@@ -119,9 +134,39 @@ describe('UserService', () => {
           perfil: Role.EQUIPE_GESTAO,
           ativo: true,
           createdAt: createdAt.toISOString(),
+          nucleos: [NUCLEO_UUID],
         },
         ip: '203.0.113.7',
       });
+    });
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'recusa criar conta %s sem núcleo obrigatório (UC012)',
+      async (role) => {
+        await expect(
+          service.create({ ...dto, role, nucleoIds: [] }, autor),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(repository.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'recusa vincular núcleos específicos ao criar perfil global %s (UC08/UC012)',
+      async (role) => {
+        await expect(
+          service.create({ ...dto, role, nucleoIds: [NUCLEO_UUID] }, autor),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(repository.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('recusa criar conta vinculada a núcleo inexistente ou inativo', async () => {
+      prisma.nucleo.count.mockResolvedValueOnce(0);
+
+      await expect(service.create(dto, autor)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repository.create).not.toHaveBeenCalled();
     });
 
     it('recusa e-mail já cadastrado com 409 sem criar nem auditar', async () => {
@@ -273,19 +318,45 @@ describe('UserService', () => {
       expect(repository.updateDados).not.toHaveBeenCalled();
     });
 
-    it('troca só o nome sem pedir senha', async () => {
-      repository.findActiveById.mockResolvedValue(usuario);
+    it('troca só o nome sem pedir senha, sanitiza espaços e registra auditoria (UC04)', async () => {
+      repository.findActiveById
+        .mockResolvedValueOnce(usuario)
+        .mockResolvedValueOnce({ ...usuario, nome: 'Maria Souza' });
 
-      await service.atualizarPerfil(
+      const atualizado = await service.atualizarPerfil(
         'usuario-uuid',
-        { name: 'Maria Souza' },
-        { id: 'usuario-uuid' },
+        { name: '  Maria   Souza  ' },
+        { id: 'usuario-uuid', ip: '127.0.0.1' },
       );
 
       expect(repository.findActiveWithPasswordById).not.toHaveBeenCalled();
       expect(repository.updateDados).toHaveBeenCalledWith('usuario-uuid', {
         nome: 'Maria Souza',
       });
+      expect(audit.registrarAcao).toHaveBeenCalledWith({
+        userId: 'usuario-uuid',
+        acao: AcaoAuditoria.ATUALIZAR,
+        entidade: 'User',
+        entidadeId: 'usuario-uuid',
+        dadosAntigos: { nome: 'Maria' },
+        dadosNovos: { nome: 'Maria Souza' },
+        ip: '127.0.0.1',
+      });
+      expect(atualizado?.nome).toBe('Maria Souza');
+    });
+
+    it('rejeita nome com script malicioso ou caracteres inválidos na camada de serviço (UC04)', async () => {
+      repository.findActiveById.mockResolvedValue(usuario);
+
+      await expect(
+        service.atualizarPerfil(
+          'usuario-uuid',
+          { name: '<script>alert(1)</script>' },
+          { id: 'usuario-uuid' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.updateDados).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
   });
 
@@ -464,6 +535,32 @@ describe('UserService', () => {
             nucleos: ['nucleo-novo'],
           },
         }),
+        prisma,
+      );
+    });
+
+    it('mantém núcleo antigo já vinculado sem exigir que ele ainda esteja ativo', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-desativado' },
+      ]);
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { nucleoIds: ['nucleo-desativado', 'nucleo-novo'] },
+        autor,
+      );
+
+      expect(prisma.nucleo.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['nucleo-novo'] },
+          }) as unknown,
+        }),
+      );
+      expect(repository.syncNucleos).toHaveBeenCalledWith(
+        'usuario-uuid',
+        ['nucleo-desativado', 'nucleo-novo'],
+        prisma,
       );
     });
 
@@ -509,6 +606,7 @@ describe('UserService', () => {
       expect(repository.updatePermissions).toHaveBeenCalledWith(
         'usuario-uuid',
         Role.EQUIPE_GESTAO,
+        prisma,
       );
       expect(repository.syncNucleos).not.toHaveBeenCalled();
     });
@@ -523,7 +621,93 @@ describe('UserService', () => {
       expect(repository.updatePermissions).toHaveBeenCalledWith(
         'usuario-uuid',
         Role.ADMINISTRADOR,
+        prisma,
       );
+    });
+
+    it('impede o administrador de alterar o próprio tipo de conta ou permissões (UC07/UC08)', async () => {
+      await expect(
+        service.updatePermissions(
+          autor.id,
+          { role: Role.EQUIPE_GESTAO, nucleoIds: [NUCLEO_UUID] },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('recusa vincular núcleos específicos a perfil ADMINISTRADOR ou EQUIPE_COMUNICACAO', async () => {
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.EQUIPE_COMUNICACAO, nucleoIds: [NUCLEO_UUID] },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.updatePermissions).not.toHaveBeenCalled();
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+    });
+
+    it('limpa vínculos antigos de núcleos ao mudar DN/EG para perfil global', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-antigo' },
+      ]);
+
+      await service.updatePermissions(
+        'usuario-uuid',
+        { role: Role.ADMINISTRADOR },
+        autor,
+      );
+
+      expect(repository.updatePermissions).toHaveBeenCalledWith(
+        'usuario-uuid',
+        Role.ADMINISTRADOR,
+        prisma,
+      );
+      expect(repository.syncNucleos).toHaveBeenCalledWith(
+        'usuario-uuid',
+        [],
+        prisma,
+      );
+    });
+
+    it('grava perfil, núcleos e auditoria na mesma transação e propaga falha da sincronização', async () => {
+      repository.findNucleosByUserId.mockResolvedValue([
+        { nucleoId: 'nucleo-antigo' },
+      ]);
+      repository.syncNucleos.mockRejectedValue(new Error('falha no banco'));
+
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.ADMINISTRADOR },
+          autor,
+        ),
+      ).rejects.toThrow('falha no banco');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(repository.updatePermissions).toHaveBeenCalledWith(
+        'usuario-uuid',
+        Role.ADMINISTRADOR,
+        prisma,
+      );
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 se o usuário for excluído entre a leitura e a troca de perfil', async () => {
+      repository.updatePermissions.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.updatePermissions(
+          'usuario-uuid',
+          { role: Role.ADMINISTRADOR },
+          autor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.syncNucleos).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
 
     it('retorna 404 para usuário inexistente ou excluído', async () => {

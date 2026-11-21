@@ -12,6 +12,11 @@ import {
   trocarPropriaSenha,
 } from './api/usuarios';
 import { atualizarUsuarioSessao, encerrarSessaoLocal } from './routes/sessao';
+import {
+  nomeFoiAlterado,
+  sanitizarNomeUsuario,
+  validarNomeUsuario,
+} from './utils/validacaoNome';
 
 const svgPaths = Svg;
 
@@ -222,39 +227,37 @@ function OptExtras({
       <div className="w-full">
         {/* Menu */}
         <div className="flex flex-col gap-2">
-          {/* Usuários */}
-          <a href="/usuarios" className={`${itemMenu} text-[#664666]`}>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
-              <IconUsuarios />
-            </div>
+          {/* Gerenciar usuários (exclusivo do Administrador — UC07) */}
+          {UsuarioAtual.tipo === 'ADM' && (
+            <a href="/usuarios" className={`${itemMenu} text-[#664666]`}>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+                <IconUsuarios />
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold">
-                {UsuarioAtual.tipo === 'ADM'
-                  ? 'Gerenciar usuários'
-                  : 'Usuários cadastrados'}
-              </p>
-              <p className="mt-1 text-xs text-[#99919b]">
-                Visualizar usuários do sistema
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold">Gerenciar usuários</p>
+                <p className="mt-1 text-xs text-[#99919b]">
+                  Cadastrar e definir permissões de usuários
+                </p>
+              </div>
 
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="shrink-0 text-[#b7a8b8]"
-            >
-              <path
-                d="M9 18L15 12L9 6"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="shrink-0 text-[#b7a8b8]"
+              >
+                <path
+                  d="M9 18L15 12L9 6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+          )}
 
           {/* Editar perfil */}
           <button
@@ -341,6 +344,17 @@ export function UserbarPopupUser({
     dadosUsuario: Usuario,
     arquivoImagem: File | null,
   ) => {
+    // Valida antes de qualquer envio, para não salvar a foto e depois
+    // abortar por causa do nome
+    const nomeMudou = nomeFoiAlterado(dadosUsuario.nome, UsuarioAtual.nome);
+    if (nomeMudou) {
+      const erroNome = validarNomeUsuario(dadosUsuario.nome);
+      if (erroNome) {
+        alert(erroNome);
+        return;
+      }
+    }
+
     try {
       if (arquivoImagem) {
         await enviarFotoUsuario(UsuarioAtual.id, arquivoImagem);
@@ -348,8 +362,8 @@ export function UserbarPopupUser({
 
       const alteracoes: Record<string, string> = {};
 
-      if (dadosUsuario.nome !== UsuarioAtual.nome) {
-        alteracoes.name = dadosUsuario.nome;
+      if (nomeMudou) {
+        alteracoes.name = sanitizarNomeUsuario(dadosUsuario.nome);
       }
 
       if (dadosUsuario.email !== UsuarioAtual.email) {
@@ -365,17 +379,23 @@ export function UserbarPopupUser({
       }
 
       if (Object.keys(alteracoes).length > 0) {
-        await apiFetch('/users/profile', {
-          method: 'PATCH',
-          body: JSON.stringify(alteracoes),
-        });
+        const atualizado = await apiFetch<{ nome?: string; email?: string }>(
+          '/users/profile',
+          {
+            method: 'PATCH',
+            body: JSON.stringify(alteracoes),
+          },
+        );
 
-        if (alteracoes.name) UsuarioAtual.nome = alteracoes.name;
-        if (alteracoes.email) UsuarioAtual.email = alteracoes.email;
+        const nomePersistido = atualizado?.nome ?? alteracoes.name;
+        const emailPersistido = atualizado?.email ?? alteracoes.email;
+
+        if (nomePersistido) UsuarioAtual.nome = nomePersistido;
+        if (emailPersistido) UsuarioAtual.email = emailPersistido;
 
         atualizarUsuarioSessao({
-          ...(alteracoes.name && { nome: alteracoes.name }),
-          ...(alteracoes.email && { email: alteracoes.email }),
+          ...(nomePersistido && { nome: nomePersistido }),
+          ...(emailPersistido && { email: emailPersistido }),
         });
       }
 

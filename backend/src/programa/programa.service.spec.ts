@@ -53,7 +53,7 @@ describe('ProgramaService', () => {
     nucleo: { findFirst: jest.Mock };
     indicador: { updateMany: jest.Mock };
     programaParticipante: { deleteMany: jest.Mock; createMany: jest.Mock };
-    user: { count: jest.Mock };
+    user: { count: jest.Mock; findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let audit: { registrarAcao: jest.Mock };
@@ -72,7 +72,7 @@ describe('ProgramaService', () => {
       nucleo: {
         findFirst: jest
           .fn()
-          .mockResolvedValue({ status: StatusRegistro.ATIVO }),
+          .mockResolvedValue({ status: StatusRegistro.ATIVO, sigla: 'NEI' }),
       },
       indicador: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -81,11 +81,16 @@ describe('ProgramaService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      // Por padrão todo usuário informado existe e está ativo
+      // Por padrão todo usuário informado existe, está ativo e vinculado ao núcleo padrão
       user: {
         count: jest.fn((args: { where: { id: { in: string[] } } }) =>
           Promise.resolve(args.where.id.in.length),
         ),
+        findFirst: jest.fn().mockResolvedValue({
+          id: USER_A,
+          perfil: Role.DIRETORES_NUCLEOS,
+          nucleos: [{ nucleoId: NUCLEO_ID }],
+        }),
       },
       $transaction: jest.fn(),
     };
@@ -168,6 +173,47 @@ describe('ProgramaService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.programa.create).not.toHaveBeenCalled();
+    });
+
+    it('recusa responsável que não pertence ao núcleo selecionado (UC27)', async () => {
+      prisma.programa.findFirst.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue({
+        id: USER_A,
+        perfil: Role.DIRETORES_NUCLEOS,
+        nucleos: [{ nucleoId: OUTRO_NUCLEO }],
+      });
+
+      await expect(
+        service.create(
+          { nome: 'Novo', nucleoId: NUCLEO_ID, responsavelId: USER_A },
+          autor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.programa.create).not.toHaveBeenCalled();
+    });
+
+    it('aceita perfil institucional (ADM) como responsável de programa do IPÊ (UC27)', async () => {
+      prisma.programa.findFirst.mockResolvedValue(null);
+      prisma.nucleo.findFirst.mockResolvedValue({
+        status: StatusRegistro.ATIVO,
+        sigla: 'IPÊ',
+      });
+      prisma.user.findFirst.mockResolvedValue({
+        id: USER_A,
+        perfil: Role.ADMINISTRADOR,
+        nucleos: [],
+      });
+
+      await service.create(
+        {
+          nome: 'Institucional IPÊ',
+          nucleoId: NUCLEO_ID,
+          responsavelId: USER_A,
+        },
+        autor,
+      );
+
+      expect(prisma.programa.create).toHaveBeenCalled();
     });
 
     it('cria programa institucional (sem núcleo) sem consultar núcleo', async () => {

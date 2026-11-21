@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AcaoAuditoria, Prisma, Role } from '@prisma/client';
+import { AcaoAuditoria, Prisma, Role, StatusRegistro } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,8 +20,10 @@ import { removerUpload } from '../common/upload-imagem';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { NotificacaoService } from '../notificacao/notificacao.service';
+import { validarNomeUsuarioOuFalhar } from '../common/validators/nome-usuario.validator';
 
 const EMAIL_EM_USO = 'Já existe um usuário cadastrado com este e-mail.';
+const PERFIS_COM_NUCLEO: Role[] = [Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO];
 
 @Injectable()
 export class UserService {
@@ -32,23 +34,64 @@ export class UserService {
     private readonly notificacao: NotificacaoService,
   ) {}
 
+  private async garantirNucleosAtivos(nucleoIds: string[]) {
+    const unicos = [...new Set(nucleoIds)];
+    if (unicos.length === 0) return;
+
+    const encontrados = await this.prisma.nucleo.count({
+      where: {
+        id: { in: unicos },
+        deletedAt: null,
+        status: StatusRegistro.ATIVO,
+      },
+    });
+
+    if (encontrados !== unicos.length) {
+      throw new BadRequestException(
+        'Um ou mais núcleos informados não existem ou estão inativos.',
+      );
+    }
+  }
+
   async create(createUserDto: CreateUserDto, autor: AutorAcao) {
     const { name, email, password, role } = createUserDto;
+    const nomeSanitizado = validarNomeUsuarioOuFalhar(name);
+    const nucleoIds = [...new Set(createUserDto.nucleoIds ?? [])];
+    const exigeNucleo = PERFIS_COM_NUCLEO.includes(role);
+
+    if (exigeNucleo && nucleoIds.length === 0) {
+      throw new BadRequestException(
+        'Usuários com perfil Diretor de Núcleo (DN) ou Equipe de Gestão (EG) precisam ter ao menos um núcleo associado.',
+      );
+    }
+
+    if (!exigeNucleo && nucleoIds.length > 0) {
+      throw new BadRequestException(
+        'Perfis Administrador e Equipe de Comunicação não devem ter núcleos específicos vinculados.',
+      );
+    }
 
     if (await this.userRepository.findActiveByEmail(email)) {
       throw new ConflictException(EMAIL_EM_USO);
     }
+
+    await this.garantirNucleosAtivos(nucleoIds);
 
     const senhaHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     let user: Awaited<ReturnType<UserRepository['create']>>;
     try {
       user = await this.userRepository.create({
-        nome: name,
+        nome: nomeSanitizado,
         email,
         senhaHash,
         perfil: role,
         ativo: true,
+        ...(nucleoIds.length > 0 && {
+          nucleos: {
+            create: nucleoIds.map((nucleoId) => ({ nucleoId })),
+          },
+        }),
       });
     } catch (error) {
       if (
@@ -65,7 +108,11 @@ export class UserService {
       acao: AcaoAuditoria.CRIAR,
       entidade: 'User',
       entidadeId: user.id,
-      dadosNovos: { ...user, createdAt: user.createdAt.toISOString() },
+      dadosNovos: {
+        ...user,
+        createdAt: user.createdAt.toISOString(),
+        ...(nucleoIds.length > 0 && { nucleos: nucleoIds }),
+      },
       ip: autor.ip,
     });
 
@@ -144,8 +191,11 @@ export class UserService {
     }
 
     const alteracoes: { nome?: string; email?: string } = {};
-    if (dados.name !== undefined && dados.name !== atual.nome) {
-      alteracoes.nome = dados.name;
+    if (dados.name !== undefined) {
+      const nomeSanitizado = validarNomeUsuarioOuFalhar(dados.name);
+      if (nomeSanitizado !== atual.nome) {
+        alteracoes.nome = nomeSanitizado;
+      }
     }
     if (dados.email !== undefined && dados.email !== atual.email) {
       alteracoes.email = dados.email;
@@ -345,6 +395,13 @@ export class UserService {
     dto: UpdateUserPermissionsDto,
     autor: AutorAcao,
   ) {
+    // UC07/UC08: o administrador não pode alterar o próprio tipo de conta ou permissões
+    if (autor.id === id) {
+      throw new ForbiddenException(
+        'Você não pode alterar o seu próprio tipo de conta ou permissões.',
+      );
+    }
+
     // 1. Busca o usuário
     const usuarioAtual = await this.userRepository.findActiveById(id);
     if (!usuarioAtual) {
@@ -355,47 +412,86 @@ export class UserService {
     const vinculosAtuais = await this.userRepository.findNucleosByUserId(id);
     const nucleosAntigos = vinculosAtuais.map((n) => n.nucleoId);
     const perfilFinal = dto.role ?? usuarioAtual.perfil;
-    const nucleosFinais = dto.nucleoIds ?? nucleosAntigos;
-
-    // 3. Valida o estado final: perfis DN e EG precisam de ao menos um núcleo
-    const perfisSemNucleo: Role[] = [
-      Role.ADMINISTRADOR,
-      Role.EQUIPE_COMUNICACAO,
-    ];
     const precisaNucleo =
-      perfilFinal !== null && !perfisSemNucleo.includes(perfilFinal);
+      perfilFinal !== null && PERFIS_COM_NUCLEO.includes(perfilFinal);
 
-    if (precisaNucleo && nucleosFinais.length === 0) {
-      throw new ConflictException(
-        'Usuários com perfil DN ou EG precisam ter ao menos um núcleo associado.',
+    let nucleosFinais: string[];
+    let sincronizarNucleos = false;
+
+    if (precisaNucleo) {
+      nucleosFinais =
+        dto.nucleoIds !== undefined
+          ? [...new Set(dto.nucleoIds)]
+          : nucleosAntigos;
+
+      // 3. Valida o estado final: perfis DN e EG precisam de ao menos um núcleo ativo
+      if (nucleosFinais.length === 0) {
+        throw new ConflictException(
+          'Usuários com perfil DN ou EG precisam ter ao menos um núcleo associado.',
+        );
+      }
+
+      if (dto.nucleoIds !== undefined) {
+        // Só os núcleos novos precisam estar ativos: manter um vínculo antigo
+        // com núcleo que foi desativado depois não pode travar a edição
+        await this.garantirNucleosAtivos(
+          nucleosFinais.filter((n) => !nucleosAntigos.includes(n)),
+        );
+        sincronizarNucleos = true;
+      }
+    } else {
+      // Perfis globais (ADM e EC) não devem receber vínculos de núcleos específicos
+      if (dto.nucleoIds !== undefined && dto.nucleoIds.length > 0) {
+        throw new BadRequestException(
+          'Perfis Administrador e Equipe de Comunicação não devem ter núcleos específicos vinculados.',
+        );
+      }
+      nucleosFinais = [];
+      // Remove vínculos antigos caso o usuário tenha saído de DN/EG para ADM/EC
+      sincronizarNucleos =
+        nucleosAntigos.length > 0 || dto.nucleoIds !== undefined;
+    }
+
+    // 4 a 6 numa única transação: perfil, núcleos e auditoria são gravados
+    // juntos ou nenhum deles é (ex.: perfil novo com núcleos antigos)
+    await this.prisma.$transaction(async (tx) => {
+      // 4. Atualiza o perfil
+      if (dto.role) {
+        const { count } = await this.userRepository.updatePermissions(
+          id,
+          dto.role,
+          tx,
+        );
+        // Usuário excluído entre a leitura e a escrita
+        if (count === 0) {
+          throw new NotFoundException('Usuário não encontrado.');
+        }
+      }
+
+      // 5. Sincroniza os núcleos
+      if (sincronizarNucleos) {
+        await this.userRepository.syncNucleos(id, nucleosFinais, tx);
+      }
+
+      // 6. Registra auditoria
+      await this.audit.registrarAcao(
+        {
+          userId: autor.id,
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'User',
+          entidadeId: id,
+          dadosAntigos: {
+            perfil: usuarioAtual.perfil,
+            nucleos: nucleosAntigos,
+          },
+          dadosNovos: {
+            perfil: perfilFinal,
+            nucleos: nucleosFinais,
+          },
+          ip: autor.ip,
+        },
+        tx,
       );
-    }
-
-    // 4. Atualiza o perfil
-    if (dto.role) {
-      await this.userRepository.updatePermissions(id, dto.role);
-    }
-
-    // 5. Sincroniza os núcleos
-    if (dto.nucleoIds !== undefined) {
-      await this.userRepository.syncNucleos(id, dto.nucleoIds);
-    }
-
-    // 6. Registra auditoria
-    await this.audit.registrarAcao({
-      userId: autor.id,
-      acao: AcaoAuditoria.ATUALIZAR,
-      entidade: 'User',
-      entidadeId: id,
-      dadosAntigos: {
-        perfil: usuarioAtual.perfil,
-        nucleos: nucleosAntigos,
-      },
-      dadosNovos: {
-        perfil: perfilFinal,
-        nucleos: nucleosFinais,
-      },
-      ip: autor.ip,
     });
 
     return { message: 'Permissões atualizadas com sucesso.' };
