@@ -26,6 +26,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}?schema=public
       - NODE_ENV=production
+      - PORT=3000 # o main.ts cai em 3001 sem PORT; Nginx e o mapeamento acima usam 3000
     volumes:
       # Uploads persistidos em volume nomeado — sobrevivem a redeployments
       - uploads_data:/app/uploads

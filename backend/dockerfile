@@ -29,7 +29,9 @@ COPY backend/package*.json ./
 COPY backend/vendor ./vendor
 # bcrypt é módulo nativo: --ignore-scripts pula o download do binário, então reconstruímos
 RUN npm ci --omit=dev --ignore-scripts && npm rebuild bcrypt
-# O Prisma Client gerado (src/generated/prisma) já vai compilado dentro de dist/
+# Prisma Client gerado no builder (saída padrão em node_modules/.prisma); o
+# --ignore-scripts acima pula o postinstall, então sem esta cópia o require falha
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/dist ./dist
 USER node
 EXPOSE 3000
