@@ -33,6 +33,9 @@ RUN npm ci --omit=dev --ignore-scripts && npm rebuild bcrypt
 # --ignore-scripts acima pula o postinstall, então sem esta cópia o require falha
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/dist ./dist
+# A pasta precisa existir na imagem com dono node: um volume nomeado vazio herda
+# o dono dela no primeiro mount; sem isso ele nasce root e o multer não cria subpastas
+RUN mkdir -p uploads/photos uploads/nucleos && chown -R node:node uploads
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
