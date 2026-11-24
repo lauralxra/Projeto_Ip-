@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    'Google Sans Flex', 'Google Sans', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-ipe-primary: #9d3878;
+  --color-ipe-primary-hover: #832b62;
+  --color-ipe-bg-from: #d28ba8;
+  --color-ipe-bg-to: #9e4b7b;
+  --color-ipe-input-bg: #eef1f5;
+  --color-ipe-card: #ffffff;
+  --color-ipe-text-dark: #1e293b;
+  --color-ipe-text-muted: #64748b;
+  --font-playfair: 'Playfair Display', serif;
+}
+
+/* Google Sans e Google Sans Flex são carregadas pelo <link> do index.html */
+
+/* Configuração global e limpa da tipografia padrão */
+html,
+body {
+  margin: 0;
+  font-family:
+    'Google Sans Flex',
+    'Google Sans',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Títulos com kerning refinado */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family:
+    'Google Sans Flex',
+    'Google Sans',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Elementos de formulário herdam a fonte do sistema */
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

@@ -24,18 +24,17 @@ A solução busca reduzir a descentralização de informações e facilitar o ac
 - **Usuários e acessibilidade:** gerenciamento de permissões e recursos de acessibilidade.
 - **Relatórios:** consolidação e exportação de informações.
 
-
 ## Tecnologias
 
-| Tecnologia | Finalidade |
-|---|---|
-| TypeScript e Node.js | Linguagem e ambiente de execução |
-| NestJS | Framework do backend |
-| PostgreSQL | Banco de dados relacional |
-| Prisma ORM | Acesso e versionamento do esquema do banco |
-| Docker e Docker Compose | Containerização e execução dos serviços |
-| Jest e Supertest | Testes automatizados |
-| Git e GitHub Actions | Versionamento e automação de integração contínua |
+| Tecnologia              | Finalidade                                       |
+| ----------------------- | ------------------------------------------------ |
+| TypeScript e Node.js    | Linguagem e ambiente de execução                 |
+| NestJS                  | Framework do backend                             |
+| PostgreSQL              | Banco de dados relacional                        |
+| Prisma ORM              | Acesso e versionamento do esquema do banco       |
+| Docker e Docker Compose | Containerização e execução dos serviços          |
+| Jest e Supertest        | Testes automatizados                             |
+| Git e GitHub Actions    | Versionamento e automação de integração contínua |
 
 ## Estrutura do projeto
 
@@ -53,3 +52,10 @@ Projeto_Ipê/
 ├── CHANGELOG.md
 ├── LICENSE
 └── README.md
+```
+
+---
+
+## 👥 Casos de Uso e Entregas
+
+- [Relatório de Casos de Uso e Entregas — Laura de Lima Cavalcante](docs/casos-de-uso-laura.md)

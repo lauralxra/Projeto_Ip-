@@ -1,0 +1,687 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AcaoAuditoria,
+  Prisma,
+  Role,
+  StatusRegistro,
+  TrimestreEnum,
+} from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { NucleoRepository } from './nucleo.repository';
+import { NucleoService } from './nucleo.service';
+import { removerUpload } from '../common/upload-imagem';
+
+jest.mock('../common/upload-imagem', () => ({
+  removerUpload: jest.fn(),
+}));
+
+describe('NucleoService', () => {
+  let service: NucleoService;
+  let repository: {
+    findConflito: jest.Mock;
+    findAssociadosByUserId: jest.Mock;
+    findAtivoById: jest.Mock;
+    usuarioVinculado: jest.Mock;
+    create: jest.Mock;
+    findAtivoComVinculos: jest.Mock;
+    softDelete: jest.Mock;
+    deactivate: jest.Mock;
+    reactivate: jest.Mock;
+    contarPendencias: jest.Mock;
+    updateImagem: jest.Mock;
+    update: jest.Mock;
+    findConflitoOutro: jest.Mock;
+    search: jest.Mock;
+  };
+  let audit: { registrarAcao: jest.Mock };
+  const autor = { id: 'admin-uuid', ip: '203.0.113.7' };
+  const dto = {
+    nome: 'Núcleo de Educação Ambiental',
+    sigla: 'NEA',
+    corHex: '#2E7D32',
+  };
+  const createdAt = new Date('2026-10-25T15:00:00.000Z');
+
+  beforeEach(() => {
+    repository = {
+      findConflito: jest.fn(),
+      findAssociadosByUserId: jest.fn(),
+      findAtivoById: jest.fn(),
+      usuarioVinculado: jest.fn(),
+      create: jest.fn(),
+      findAtivoComVinculos: jest.fn(),
+      softDelete: jest.fn(),
+      deactivate: jest.fn(),
+      reactivate: jest.fn(),
+      contarPendencias: jest.fn(),
+      updateImagem: jest.fn(),
+      update: jest.fn(),
+      findConflitoOutro: jest.fn(),
+      search: jest.fn(),
+    };
+    audit = { registrarAcao: jest.fn().mockResolvedValue({}) };
+    service = new NucleoService(
+      repository as unknown as NucleoRepository,
+      audit as unknown as AuditService,
+    );
+
+    repository.findConflito.mockResolvedValue(null);
+    repository.create.mockImplementation((data: Prisma.NucleoCreateInput) => ({
+      id: 'nucleo-uuid',
+      nome: data.nome,
+      sigla: data.sigla,
+      descricao: null,
+      corHex: data.corHex,
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    }));
+  });
+
+  it('persiste o núcleo e o devolve', async () => {
+    const result = await service.create(dto, autor);
+
+    expect(repository.create).toHaveBeenCalledWith(dto);
+    expect(result).toMatchObject({
+      id: 'nucleo-uuid',
+      sigla: 'NEA',
+      status: StatusRegistro.ATIVO,
+    });
+  });
+
+  it('registra a criação na auditoria com autor, recurso e dados novos', async () => {
+    await service.create(dto, autor);
+
+    expect(audit.registrarAcao).toHaveBeenCalledWith({
+      userId: 'admin-uuid',
+      acao: AcaoAuditoria.CRIAR,
+      entidade: 'Nucleo',
+      entidadeId: 'nucleo-uuid',
+      dadosNovos: expect.objectContaining({
+        nome: dto.nome,
+        sigla: 'NEA',
+        createdAt: createdAt.toISOString(),
+      }) as unknown,
+      ip: '203.0.113.7',
+    });
+  });
+
+  it('recusa nome já cadastrado com 409 sem persistir nem auditar', async () => {
+    repository.findConflito.mockResolvedValue({
+      nome: 'núcleo de educação ambiental',
+      sigla: 'OUTRA',
+    });
+
+    await expect(service.create(dto, autor)).rejects.toThrow(
+      new ConflictException('Já existe um núcleo cadastrado com este nome.'),
+    );
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(audit.registrarAcao).not.toHaveBeenCalled();
+  });
+
+  it('recusa sigla já cadastrada com 409', async () => {
+    repository.findConflito.mockResolvedValue({
+      nome: 'Outro Núcleo',
+      sigla: 'NEA',
+    });
+
+    await expect(service.create(dto, autor)).rejects.toThrow(
+      new ConflictException('Já existe um núcleo cadastrado com esta sigla.'),
+    );
+  });
+
+  it('não audita quando a gravação no banco falha', async () => {
+    repository.create.mockRejectedValue(new Error('falha no banco'));
+
+    await expect(service.create(dto, autor)).rejects.toThrow('falha no banco');
+    expect(audit.registrarAcao).not.toHaveBeenCalled();
+  });
+
+  describe('findAssociados', () => {
+    it('retorna os núcleos associados ao ID autenticado', async () => {
+      const nucleos = [
+        {
+          id: 'nucleo-uuid',
+          nome: 'Núcleo de Educação Ambiental',
+          sigla: 'NEA',
+          imagemUrl: 'https://example.com/nea.png',
+        },
+      ];
+      repository.findAssociadosByUserId.mockResolvedValue(nucleos);
+
+      await expect(service.findAssociados('usuario-uuid')).resolves.toEqual(
+        nucleos,
+      );
+      expect(repository.findAssociadosByUserId).toHaveBeenCalledWith(
+        'usuario-uuid',
+      );
+    });
+
+    it('retorna lista vazia quando o usuário não possui núcleos associados', async () => {
+      repository.findAssociadosByUserId.mockResolvedValue([]);
+
+      await expect(service.findAssociados('usuario-uuid')).resolves.toEqual([]);
+    });
+  });
+
+  describe('remove', () => {
+    const nucleo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo de Educação Ambiental',
+      sigla: 'NEA',
+      descricao: null,
+      corHex: '#2E7D32',
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+    const semVinculos = { users: 0, programas: 0, indicadores: 0 };
+
+    beforeEach(() => {
+      repository.findAtivoComVinculos.mockResolvedValue({
+        ...nucleo,
+        _count: semVinculos,
+      });
+      repository.softDelete.mockResolvedValue(true);
+    });
+
+    it('exclui logicamente o núcleo elegível', async () => {
+      await expect(
+        service.remove('nucleo-uuid', autor),
+      ).resolves.toBeUndefined();
+
+      expect(repository.softDelete).toHaveBeenCalledWith('nucleo-uuid');
+    });
+
+    it('registra a exclusão na auditoria com autor e dados antigos', async () => {
+      await service.remove('nucleo-uuid', autor);
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith({
+        userId: 'admin-uuid',
+        acao: AcaoAuditoria.EXCLUIR_LOGICO,
+        entidade: 'Nucleo',
+        entidadeId: 'nucleo-uuid',
+        dadosAntigos: { ...nucleo, createdAt: createdAt.toISOString() },
+        ip: '203.0.113.7',
+      });
+    });
+
+    it('núcleo inexistente ou já excluído retorna 404 sem auditar', async () => {
+      repository.findAtivoComVinculos.mockResolvedValue(null);
+
+      await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
+        new NotFoundException('Núcleo não encontrado.'),
+      );
+      expect(repository.softDelete).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('núcleo excluído por requisição concorrente retorna 404 sem auditar', async () => {
+      repository.softDelete.mockResolvedValue(false);
+
+      await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ users: 2 }, 'usuários'],
+      [{ programas: 1 }, 'programas'],
+      [{ indicadores: 3 }, 'indicadores'],
+    ])(
+      'bloqueia com 409 quando há vínculos %o',
+      async (vinculos, descricao) => {
+        repository.findAtivoComVinculos.mockResolvedValue({
+          ...nucleo,
+          _count: { ...semVinculos, ...vinculos },
+        });
+
+        await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
+          new ConflictException(
+            `O núcleo não pode ser excluído pois possui ${descricao} vinculados.`,
+          ),
+        );
+        expect(repository.softDelete).not.toHaveBeenCalled();
+        expect(audit.registrarAcao).not.toHaveBeenCalled();
+      },
+    );
+
+    it('lista todos os vínculos impeditivos na mensagem', async () => {
+      repository.findAtivoComVinculos.mockResolvedValue({
+        ...nucleo,
+        _count: { users: 1, programas: 1, indicadores: 1 },
+      });
+
+      await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
+        'O núcleo não pode ser excluído pois possui usuários, programas, indicadores vinculados.',
+      );
+    });
+  });
+
+  describe('deactivate', () => {
+    const nucleo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo de Educação Ambiental',
+      sigla: 'NEA',
+      descricao: null,
+      corHex: '#2E7D32',
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+
+    it('desativa sem excluir o núcleo e registra os dados alterados na auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleo);
+      repository.deactivate.mockResolvedValue(true);
+
+      await expect(
+        service.deactivate('nucleo-uuid', autor),
+      ).resolves.toBeUndefined();
+
+      expect(repository.deactivate).toHaveBeenCalledWith('nucleo-uuid');
+      expect(audit.registrarAcao).toHaveBeenCalledWith({
+        userId: autor.id,
+        acao: AcaoAuditoria.DESATIVAR,
+        entidade: 'Nucleo',
+        entidadeId: 'nucleo-uuid',
+        dadosAntigos: expect.objectContaining({ status: StatusRegistro.ATIVO }),
+        dadosNovos: expect.objectContaining({ status: StatusRegistro.INATIVO }),
+        ip: autor.ip,
+      });
+    });
+
+    it('retorna 404 para núcleo inexistente ou desativado sem auditar', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        new NotFoundException('Núcleo não encontrado.'),
+      );
+      expect(repository.deactivate).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('trata uma desativação concorrente como 404 e não registra auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleo);
+      repository.deactivate.mockResolvedValue(false);
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+
+    it('retorna 409 quando o núcleo já está inativo/arquivado sem auditar', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleo,
+        status: StatusRegistro.INATIVO,
+      });
+
+      await expect(service.deactivate('nucleo-uuid', autor)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.deactivate).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verificarPendencias e reactivate (UC026)', () => {
+    const nucleoInativo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo Teste',
+      sigla: 'NT',
+      descricao: null,
+      corHex: '#3b142f',
+      imagemUrl: null,
+      status: StatusRegistro.INATIVO,
+      createdAt,
+    };
+
+    it('retorna contagem de indicadores pendentes para confirmação (FE-026.01)', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleoInativo,
+        status: StatusRegistro.ATIVO,
+      });
+      repository.contarPendencias.mockResolvedValue({
+        possuiPendencias: true,
+        totalIndicadoresPendentes: 2,
+        totalRegistrosPendentes: 3,
+      });
+
+      await expect(service.verificarPendencias('nucleo-uuid')).resolves.toEqual(
+        {
+          possuiPendencias: true,
+          totalIndicadoresPendentes: 2,
+          totalRegistrosPendentes: 3,
+        },
+      );
+    });
+
+    it('reativa um núcleo inativo e registra auditoria RESTAURAR (RN03)', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoInativo);
+      repository.reactivate.mockResolvedValue(true);
+
+      await expect(service.reactivate('nucleo-uuid', autor)).resolves.toEqual({
+        message: 'Núcleo reativado com sucesso.',
+        status: StatusRegistro.ATIVO,
+      });
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.RESTAURAR,
+          entidade: 'Nucleo',
+          entidadeId: 'nucleo-uuid',
+        }),
+      );
+    });
+
+    it('recusa reativar um núcleo já ativo com 409', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        ...nucleoInativo,
+        status: StatusRegistro.ATIVO,
+      });
+
+      await expect(service.reactivate('nucleo-uuid', autor)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.reactivate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne', () => {
+    const nucleo = {
+      id: 'nucleo-uuid',
+      nome: 'Núcleo de Educação Ambiental',
+      sigla: 'NEA',
+      descricao: null,
+      corHex: '#2E7D32',
+      imagemUrl: null,
+      status: StatusRegistro.ATIVO,
+      createdAt,
+    };
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'perfil %s consulta qualquer núcleo sem checar vínculo',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).resolves.toEqual(nucleo);
+        expect(repository.usuarioVinculado).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s consulta núcleo ao qual está vinculado',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+        repository.usuarioVinculado.mockResolvedValue(true);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).resolves.toEqual(nucleo);
+        expect(repository.usuarioVinculado).toHaveBeenCalledWith(
+          'nucleo-uuid',
+          'user-uuid',
+        );
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s sem vínculo com o núcleo recebe 403',
+      async (role) => {
+        repository.findAtivoById.mockResolvedValue(nucleo);
+        repository.usuarioVinculado.mockResolvedValue(false);
+
+        await expect(
+          service.findOne('nucleo-uuid', { id: 'user-uuid', role }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it('núcleo inexistente ou excluído retorna 404 antes de checar vínculo', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.findOne('nucleo-uuid', {
+          id: 'user-uuid',
+          role: Role.DIRETORES_NUCLEOS,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repository.usuarioVinculado).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('search', () => {
+    const admin = { id: 'admin-uuid', role: Role.ADMINISTRADOR };
+    const diretor = { id: 'diretor-uuid', role: Role.DIRETORES_NUCLEOS };
+    const semFiltros = { pagina: 1, limite: 20 };
+
+    // where enviado ao repositório na última pesquisa
+    const whereUsado = () =>
+      (repository.search.mock.calls[0] as [Prisma.NucleoWhereInput])[0];
+
+    beforeEach(() => {
+      repository.search.mockResolvedValue([[{ id: 'nucleo-uuid' }], 1]);
+    });
+
+    it('devolve a página com itens e total', async () => {
+      await expect(service.search(semFiltros, admin)).resolves.toEqual({
+        itens: [{ id: 'nucleo-uuid' }],
+        total: 1,
+        pagina: 1,
+        limite: 20,
+      });
+    });
+
+    it('converte página e limite em skip e take', async () => {
+      await service.search({ pagina: 3, limite: 10 }, admin);
+
+      expect(repository.search).toHaveBeenCalledWith(expect.anything(), 20, 10);
+    });
+
+    it.each([Role.ADMINISTRADOR, Role.EQUIPE_COMUNICACAO])(
+      'perfil %s pesquisa todos os núcleos não excluídos',
+      async (role) => {
+        await service.search(semFiltros, { id: 'user-uuid', role });
+
+        expect(whereUsado()).toEqual({ deletedAt: null });
+      },
+    );
+
+    it.each([Role.DIRETORES_NUCLEOS, Role.EQUIPE_GESTAO])(
+      'perfil %s só recebe os núcleos aos quais está vinculado',
+      async (role) => {
+        await service.search(semFiltros, { id: 'user-uuid', role });
+
+        expect(whereUsado()).toEqual({
+          deletedAt: null,
+          users: { some: { userId: 'user-uuid' } },
+        });
+      },
+    );
+
+    it('mantém a restrição de vínculo junto com os filtros', async () => {
+      await service.search({ ...semFiltros, termo: 'nea' }, diretor);
+
+      expect(whereUsado()).toMatchObject({
+        deletedAt: null,
+        users: { some: { userId: 'diretor-uuid' } },
+        OR: expect.any(Array) as unknown,
+      });
+    });
+
+    it('busca o termo no nome, sigla e descrição sem diferenciar maiúsculas', async () => {
+      await service.search({ ...semFiltros, termo: 'Ambiental' }, admin);
+
+      expect(whereUsado().OR).toEqual([
+        { nome: { contains: 'Ambiental', mode: 'insensitive' } },
+        { sigla: { contains: 'Ambiental', mode: 'insensitive' } },
+        { descricao: { contains: 'Ambiental', mode: 'insensitive' } },
+      ]);
+    });
+
+    it('filtra por programa, estado e período de criação', async () => {
+      await service.search(
+        {
+          ...semFiltros,
+          programaId: 'programa-uuid',
+          status: StatusRegistro.INATIVO,
+          dataInicio: '2026-01-01',
+          dataFim: '2026-03-31',
+        },
+        admin,
+      );
+
+      expect(whereUsado()).toMatchObject({
+        programas: { some: { id: 'programa-uuid', deletedAt: null } },
+        status: StatusRegistro.INATIVO,
+        createdAt: {
+          gte: new Date('2026-01-01T00:00:00.000Z'),
+          lt: new Date('2026-04-01T00:00:00.000Z'),
+        },
+      });
+    });
+
+    it('filtra por ano e trimestre dos registros de indicadores', async () => {
+      await service.search(
+        { ...semFiltros, ano: 2026, trimestre: TrimestreEnum.Q2 },
+        admin,
+      );
+
+      expect(whereUsado().indicadores).toEqual({
+        some: {
+          deletedAt: null,
+          registros: {
+            some: { deletedAt: null, ano: 2026, trimestre: TrimestreEnum.Q2 },
+          },
+        },
+      });
+    });
+
+    it('recusa data inicial posterior à final com 400 sem consultar', async () => {
+      await expect(
+        service.search(
+          { ...semFiltros, dataInicio: '2026-05-01', dataFim: '2026-04-01' },
+          admin,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.search).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('atualizarImagem', () => {
+    const imagemUrl = '/uploads/nucleos/nova.png';
+
+    beforeEach(() => jest.mocked(removerUpload).mockClear());
+
+    it('grava a nova imagem, apaga a anterior e audita', async () => {
+      repository.findAtivoById.mockResolvedValue({
+        id: 'nucleo-uuid',
+        imagemUrl: '/uploads/nucleos/antiga.png',
+      });
+      repository.updateImagem.mockResolvedValue(true);
+
+      await expect(
+        service.atualizarImagem('nucleo-uuid', imagemUrl, autor),
+      ).resolves.toEqual(expect.objectContaining({ imagemUrl }));
+
+      expect(repository.updateImagem).toHaveBeenCalledWith(
+        'nucleo-uuid',
+        imagemUrl,
+      );
+      expect(removerUpload).toHaveBeenCalledWith('/uploads/nucleos/antiga.png');
+      expect(removerUpload).not.toHaveBeenCalledWith(imagemUrl);
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'Nucleo',
+          dadosAntigos: { imagemUrl: '/uploads/nucleos/antiga.png' },
+          dadosNovos: { imagemUrl },
+        }),
+      );
+    });
+
+    it('descarta o arquivo enviado quando o núcleo não existe', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.atualizarImagem('nucleo-uuid', imagemUrl, autor),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repository.updateImagem).not.toHaveBeenCalled();
+      expect(removerUpload).toHaveBeenCalledWith(imagemUrl);
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    const id = 'nucleo-uuid';
+    const nucleoExistente = {
+      id,
+      nome: 'Núcleo Original',
+      sigla: 'NO',
+      descricao: 'Descrição original',
+      corHex: '#123456',
+      imagemUrl: null,
+      status: 'ATIVO',
+      createdAt,
+    };
+
+    it('atualiza os dados com sucesso e registra auditoria', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoExistente);
+      repository.findConflitoOutro.mockResolvedValue(null);
+      const atualizado = {
+        ...nucleoExistente,
+        nome: 'Núcleo Atualizado',
+        sigla: 'NA',
+      };
+      repository.update.mockResolvedValue(atualizado);
+
+      const res = await service.update(
+        id,
+        { nome: 'Núcleo Atualizado', sigla: 'NA' },
+        autor,
+      );
+
+      expect(res).toEqual(atualizado);
+      expect(repository.update).toHaveBeenCalledWith(id, {
+        nome: 'Núcleo Atualizado',
+        sigla: 'NA',
+      });
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: AcaoAuditoria.ATUALIZAR,
+          entidade: 'Nucleo',
+          entidadeId: id,
+        }),
+      );
+    });
+
+    it('lança NotFoundException se o núcleo não existir', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
+
+      await expect(
+        service.update(id, { nome: 'Novo Nome' }, autor),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('lança ConflictException se outro núcleo já usa o nome informado', async () => {
+      repository.findAtivoById.mockResolvedValue(nucleoExistente);
+      repository.findConflitoOutro.mockResolvedValue({
+        nome: 'Núcleo Conflito',
+        sigla: 'OUTRA',
+      });
+
+      await expect(
+        service.update(id, { nome: 'Núcleo Conflito' }, autor),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+});
