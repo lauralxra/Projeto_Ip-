@@ -159,6 +159,40 @@ function IconPerfil() {
   );
 }
 
+function IconNucleos() {
+  return (
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0"
+    >
+      <path
+        d="M12 2L2 7L12 12L22 7L12 2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 17L12 22L22 17"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 12L12 17L22 12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function IconSair() {
   return (
     <svg
@@ -292,6 +326,42 @@ function OptExtras({
               />
             </svg>
           </button>
+
+          {/* Núcleos associados (UC12) */}
+          <a
+            href="/nucleos"
+            className={`${itemMenu} text-[#664666]`}
+            data-testid="link-nucleos-associados"
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+              <IconNucleos />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold">Núcleos Associados</p>
+              <p className="mt-1 text-xs text-[#99919b]">
+                {UsuarioAtual.nucleos?.length
+                  ? UsuarioAtual.nucleos.map((n) => n.sigla).join(', ')
+                  : 'Consultar núcleos vinculados'}
+              </p>
+            </div>
+
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="shrink-0 text-[#b7a8b8]"
+            >
+              <path
+                d="M9 18L15 12L9 6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
         </div>
       </div>
 

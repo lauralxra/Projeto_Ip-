@@ -14,6 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "commitlint": "commitlint --edit",
+    "test:backend": "docker exec nestjs-app npm test -- --runInBand",
+    "test:e2e": "npm --prefix frontend/ipe-frontend run test:e2e",
+    "test:e2e:ui": "npm --prefix frontend/ipe-frontend run test:e2e:ui",
+    "test:e2e:report": "npm --prefix frontend/ipe-frontend run test:e2e:report",
     "release": "semantic-release",
     "release:dry": "semantic-release --dry-run --no-ci"
   },

@@ -1,11 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { StatusRegistro } from '@prisma/client';
 import { aparar } from './create-programa.dto';
@@ -34,4 +37,19 @@ export class FilterProgramaDto {
     message: 'O status deve ser ATIVO, INATIVO ou ARQUIVADO.',
   })
   status?: StatusRegistro;
+
+  @ApiPropertyOptional({ example: 100, default: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'O limite deve ser um número inteiro.' })
+  @Min(1)
+  @Max(500)
+  limite?: number;
+
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'A página deve ser um número inteiro.' })
+  @Min(1)
+  pagina?: number;
 }

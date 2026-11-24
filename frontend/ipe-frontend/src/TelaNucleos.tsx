@@ -238,10 +238,15 @@ export default function TelaNucleos() {
         );
       }
     }
+    exibirFeedback('Núcleo cadastrado com sucesso.');
     await carregarNucleos();
   };
 
   const abrirEditarModal = (nucleo: Nucleo) => {
+    if (UsuarioAtual.tipo !== 'ADM') {
+      alert('Você não possui permissão para editar núcleos.');
+      return;
+    }
     setNucleoSelecionado(nucleo);
     setNomeForm(nucleo.nome);
     setSiglaForm(nucleo.sigla);
@@ -285,6 +290,8 @@ export default function TelaNucleos() {
           method: 'PATCH',
         });
         exibirFeedback('Núcleo reativado com sucesso.');
+      } else {
+        exibirFeedback('Núcleo atualizado com sucesso.');
       }
       setModalEditarAberto(false);
       if (statusForm !== 'ATIVO' && statusAtual === 'ATIVO') {

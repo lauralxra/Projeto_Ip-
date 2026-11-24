@@ -96,7 +96,11 @@ export class DashboardRepository {
           select: { id: true, nome: true },
         },
         metas: {
-          where: { ano, trimestre: trimestreMeta, deletedAt: null },
+          where: {
+            ano,
+            deletedAt: null,
+            ...(trimestreMeta ? { trimestre: trimestreMeta } : {}),
+          },
           select: { valorMeta: true },
           orderBy: { createdAt: 'desc' },
           take: 1,

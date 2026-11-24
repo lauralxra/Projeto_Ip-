@@ -1464,6 +1464,16 @@ export default function TelaIndicadores() {
       texto.trim() === '' || (!isNaN(valorMeta) && valorMeta <= 0);
 
     if (ehSemMeta) {
+      if (
+        indicador.metaId ||
+        (indicador.meta && indicador.meta !== 'Sem meta')
+      ) {
+        const confirmar = window.confirm(
+          'O campo de meta está em branco. Deseja realmente remover a meta deste indicador?',
+        );
+        if (!confirmar) return indicador.metaId;
+      }
+
       if (indicador.metaId) {
         try {
           await apiFetch(`/metas/${indicador.metaId}`, { method: 'DELETE' });

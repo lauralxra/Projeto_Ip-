@@ -18,6 +18,10 @@ lerna-debug.log*
 # Tests
 /coverage
 /.nyc_output
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 .opencode/
 .codex/

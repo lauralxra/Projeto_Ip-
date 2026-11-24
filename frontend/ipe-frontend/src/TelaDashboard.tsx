@@ -371,6 +371,7 @@ export default function TelaDashboard() {
         pixelRatio: 2,
         backgroundColor: '#f8fafc',
         filter: filterNoExport,
+        skipFonts: true,
       });
 
       const propsHeader = pdf.getImageProperties(imagemHeader);
@@ -399,6 +400,7 @@ export default function TelaDashboard() {
           pixelRatio: 2,
           backgroundColor: '#ffffff',
           filter: filterNoExport,
+          skipFonts: true,
         });
         const props = pdf.getImageProperties(img);
         const cardWidth = Math.min(larguraDisponivel, 180);
@@ -423,6 +425,7 @@ export default function TelaDashboard() {
             pixelRatio: 2,
             backgroundColor: '#ffffff',
             filter: filterNoExport,
+            skipFonts: true,
           });
           const props1 = pdf.getImageProperties(img1);
           const h1 = (props1.height * colWidth) / props1.width;
@@ -434,6 +437,7 @@ export default function TelaDashboard() {
               pixelRatio: 2,
               backgroundColor: '#ffffff',
               filter: filterNoExport,
+              skipFonts: true,
             });
             const props2 = pdf.getImageProperties(img2);
             h2 = (props2.height * colWidth) / props2.width;
@@ -532,6 +536,7 @@ export default function TelaDashboard() {
       const imagem = await toPng(dashboard, {
         pixelRatio: 2,
         backgroundColor: '#f8fafc',
+        skipFonts: true,
         filter: (node) => {
           if (
             node instanceof HTMLElement &&
@@ -571,6 +576,7 @@ export default function TelaDashboard() {
       const dataUrl = await toPng(card, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
+        skipFonts: true,
         filter: (node) => {
           if (
             node instanceof HTMLElement &&

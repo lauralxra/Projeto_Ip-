@@ -35,12 +35,17 @@ export function NavBar() {
     navigate('/login');
   };
 
+  const podeAcessarHistorico =
+    usuario?.perfil === 'ADMINISTRADOR' || usuario?.perfil === 'EQUIPE_GESTAO';
+
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/nucleos', label: 'Núcleos', icon: Layers },
     { to: '/programas', label: 'Programas', icon: FolderKanban },
     { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
-    { to: '/historico', label: 'Histórico', icon: History },
+    ...(podeAcessarHistorico
+      ? [{ to: '/historico', label: 'Histórico', icon: History }]
+      : []),
     ...(usuario?.perfil === 'ADMINISTRADOR'
       ? [{ to: '/usuarios', label: 'Usuários', icon: Users }]
       : []),

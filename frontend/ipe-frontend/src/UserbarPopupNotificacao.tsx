@@ -65,6 +65,7 @@ export function UserbarPopupNotificacao({
     NotificacaoAdmin[]
   >([]);
   const [carregando, setCarregando] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState<{
     tipo: 'sucesso' | 'erro';
@@ -110,6 +111,7 @@ export function UserbarPopupNotificacao({
   // Carrega notificações da API
   const carregarNotificacoes = async () => {
     setCarregando(true);
+    setErroCarregamento(false);
     try {
       // 1. Minhas notificações recebidas (GET /notificacoes)
       const resRecebidas = await apiFetch<{ itens: NotificacaoRecebida[] }>(
@@ -144,6 +146,7 @@ export function UserbarPopupNotificacao({
       }
     } catch (erro) {
       console.error('Erro ao carregar notificações:', erro);
+      setErroCarregamento(true);
     } finally {
       setCarregando(false);
     }
@@ -689,6 +692,13 @@ export function UserbarPopupNotificacao({
                   <div className="flex flex-col items-center justify-center flex-1 py-10">
                     <p className="text-[#888888] text-[13px]">
                       Carregando notificações...
+                    </p>
+                  </div>
+                ) : erroCarregamento ? (
+                  <div className="flex flex-col items-center justify-center flex-1 py-12 text-center">
+                    <p className="text-[#7a1f2b] text-[14px] font-medium">
+                      Não foi possível carregar as notificações. Tente
+                      novamente.
                     </p>
                   </div>
                 ) : notificacoes.length === 0 ? (

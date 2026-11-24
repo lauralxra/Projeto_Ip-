@@ -47,6 +47,9 @@ interface ProgramaApi {
   responsavelId?: string | null;
   responsavel?: { id: string; nome: string; email?: string } | null;
   participantes?: { user: { id: string; nome: string; email?: string } }[];
+  _count?: {
+    indicadores?: number;
+  };
 }
 
 const STATUS_DA_TELA: Record<StatusApi, string> = {
@@ -91,6 +94,7 @@ const programaDaApi = (item: ProgramaApi): Programa => ({
   status: STATUS_DA_TELA[item.status] ?? 'Ativo',
   responsavel: item.responsavel ? usuarioResumido(item.responsavel) : undefined,
   participantes: (item.participantes ?? []).map((p) => usuarioResumido(p.user)),
+  totalIndicadores: item._count?.indicadores ?? 0,
 });
 
 const idsDosParticipantes = (programa: Programa) =>
@@ -131,7 +135,10 @@ function MenuAcoesPrograma({
     <div className="relative inline-block text-left" ref={menuRef}>
       <button
         type="button"
-        onClick={() => setAberto(!aberto)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setAberto(!aberto);
+        }}
         className="p-1 text-[#3c3b3b] hover:text-[#832b62] hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
         title="Opções do programa"
         aria-label="Opções do programa"
@@ -222,7 +229,14 @@ function ProgramaObj({
 
   return (
     <div
+      onClick={() => {
+        if (UsuarioAtual.tipo === 'ADM') {
+          editFunc(programaEmSi);
+        }
+      }}
       className={`border-2 border-solid content-stretch flex gap-3.5 sm:gap-4 items-start min-h-[110px] px-3.5 sm:px-[18px] py-3 sm:py-[14px] relative rounded-[12px] shadow-xs hover:shadow-md transition-shadow shrink-0 w-full ${
+        UsuarioAtual.tipo === 'ADM' ? 'cursor-pointer' : ''
+      } ${
         ehAtivo
           ? 'bg-white border-[#3b142f]'
           : 'bg-[#f2eff4] border-[#832b62]/40'
@@ -340,6 +354,13 @@ function ProgramaObj({
               </span>
             </div>
           )}
+
+          {/* Indicadores vinculados (UC29 / BUG-021) */}
+          <div className="flex gap-[6px] items-center text-[#832b62]">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#f8edf5] text-[#832b62]">
+              {programaEmSi.totalIndicadores ?? 0} Indicador(es) vinculado(s)
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -442,7 +463,25 @@ export default function TelaProgramas({
   const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
   const [filtroNucleo, setFiltroNucleo] = useState('');
-  const NucleosDoUser = Array.from(new Set(UsuarioAtual.nucleos));
+  const [nucleosDoUsuario, setNucleosDoUsuario] = useState<Nucleo[]>(
+    UsuarioAtual.nucleos || [],
+  );
+
+  useEffect(() => {
+    carregarNucleosDoUsuario()
+      .then((itens) => {
+        if (itens && itens.length > 0) {
+          setNucleosDoUsuario(itens.map(nucleoDaApi));
+        }
+      })
+      .catch((erro) =>
+        console.error('Erro ao sincronizar núcleos do usuário:', erro),
+      );
+  }, []);
+
+  const nucleosReferencia =
+    nucleosDoUsuario.length > 0 ? nucleosDoUsuario : UsuarioAtual.nucleos;
+  const NucleosDoUser = Array.from(new Set(nucleosReferencia));
   const listaNucleosNome = Array.from(
     new Set(NucleosDoUser.map((i) => i.sigla)),
   );
@@ -451,9 +490,10 @@ export default function TelaProgramas({
     if (ehAdm) return true;
     if (!n.nucleo) return false;
 
-    // Verifica se algum dos núcleos do usuário possui a mesma sigla ou ID do núcleo do programa
-    return UsuarioAtual.nucleos?.some(
-      (nuUser) => nuUser.sigla === n.nucleo?.sigla,
+    // Restringe aos núcleos vinculados ao usuário
+    return nucleosReferencia?.some(
+      (nuUser) =>
+        nuUser.sigla === n.nucleo?.sigla || nuUser.id === n.nucleo?.id,
     );
   });
 

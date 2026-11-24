@@ -42,6 +42,11 @@ const SELECT_PROGRAMA = {
     select: { user: { select: { id: true, nome: true } } },
     orderBy: { createdAt: 'asc' },
   },
+  _count: {
+    select: {
+      indicadores: { where: { deletedAt: null } },
+    },
+  },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ProgramaSelect;

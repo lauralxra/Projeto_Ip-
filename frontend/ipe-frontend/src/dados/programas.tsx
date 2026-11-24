@@ -12,6 +12,7 @@ export interface Programa {
   // A API ainda não tem responsável nem participantes de programa
   responsavel?: Usuario;
   participantes: Usuario[];
+  totalIndicadores?: number;
 }
 
 export const programasCadastrados: Programa[] = [
