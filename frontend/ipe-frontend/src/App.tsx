@@ -9,6 +9,21 @@ import TelaIndicadores from './TelaIndicadores';
 import TelaUsuarios from './TelaUsuarios';
 import TelaProgramas from './TelaProgramas';
 import TelaHistorico from './TelaHistorico';
+import { lerUsuarioSessao } from './routes/sessao';
+
+function RotaHistoricoProtegida() {
+  const usuario = lerUsuarioSessao();
+
+  if (!usuario) return <Navigate to="/login" replace />;
+  if (
+    usuario.perfil !== 'ADMINISTRADOR' &&
+    usuario.perfil !== 'EQUIPE_GESTAO'
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <TelaHistorico />;
+}
 
 export default function App() {
   return (
@@ -31,7 +46,7 @@ export default function App() {
           element={<TelaProgramas modoInicial="ARQUIVADO" />}
         />
         <Route path="/indicadores" element={<TelaIndicadores />} />
-        <Route path="/historico" element={<TelaHistorico />} />
+        <Route path="/historico" element={<RotaHistoricoProtegida />} />
         <Route path="/usuarios" element={<TelaUsuarios />} />
 
         {/* caso a URL não exista */}

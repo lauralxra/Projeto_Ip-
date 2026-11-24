@@ -388,6 +388,9 @@ export default function TelaProgramas({
   const [nucleosAtivos, setNucleosAtivos] = useState<Nucleo[]>(() =>
     UsuarioAtual.nucleos.filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
   );
+  const [nucleosDoUsuario, setNucleosDoUsuario] = useState<Nucleo[] | null>(
+    null,
+  );
   const [mensagemFeedback, setMensagemFeedback] = useState<string | null>(null);
 
   const exibirFeedback = (texto: string) => {
@@ -444,13 +447,13 @@ export default function TelaProgramas({
 
     // UC026 (RN02): sempre recarrega núcleos ATIVOS do banco para novos cadastros
     carregarNucleosDoUsuario()
-      .then((itens) =>
+      .then((itens) => {
+        const nucleosAtualizados = itens.map(nucleoDaApi);
+        setNucleosDoUsuario(nucleosAtualizados);
         setNucleosAtivos(
-          itens
-            .map(nucleoDaApi)
-            .filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
-        ),
-      )
+          nucleosAtualizados.filter((n) => (n.status ?? 'ATIVO') === 'ATIVO'),
+        );
+      })
       .catch((erro) => console.error('Erro ao carregar núcleos ativos:', erro));
 
     if (ehAdm) {
@@ -463,24 +466,8 @@ export default function TelaProgramas({
   const [programaSelecionado, setProgramaSelecionado] = useState<Programa>();
 
   const [filtroNucleo, setFiltroNucleo] = useState('');
-  const [nucleosDoUsuario, setNucleosDoUsuario] = useState<Nucleo[]>(
-    UsuarioAtual.nucleos || [],
-  );
 
-  useEffect(() => {
-    carregarNucleosDoUsuario()
-      .then((itens) => {
-        if (itens && itens.length > 0) {
-          setNucleosDoUsuario(itens.map(nucleoDaApi));
-        }
-      })
-      .catch((erro) =>
-        console.error('Erro ao sincronizar núcleos do usuário:', erro),
-      );
-  }, []);
-
-  const nucleosReferencia =
-    nucleosDoUsuario.length > 0 ? nucleosDoUsuario : UsuarioAtual.nucleos;
+  const nucleosReferencia = nucleosDoUsuario ?? UsuarioAtual.nucleos;
   const NucleosDoUser = Array.from(new Set(nucleosReferencia));
   const listaNucleosNome = Array.from(
     new Set(NucleosDoUser.map((i) => i.sigla)),
