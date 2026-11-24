@@ -1,0 +1,105 @@
+name: Relatório de Bug
+description: Registre um erro encontrado durante as rodadas de teste.
+title: "[BUG] "
+labels: ["bug", "status: novo"]
+body:
+  - type: input
+    id: identificador
+    attributes:
+      label: Identificador Único
+      description: Código interno do plano de testes (ex. BUG-001). O GitHub também gerará um número #ID automático.
+      placeholder: "BUG-001"
+    validations:
+      required: true
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão / Build
+      description: Versão exata do sistema ou número da build onde o erro ocorreu.
+      placeholder: "v1.4.2 / build #310"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gravidade
+    attributes:
+      label: Gravidade
+      description: Impacto técnico ou funcional do erro no sistema.
+      options:
+        - Baixa
+        - Média
+        - Alta
+        - Crítica
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgencia
+    attributes:
+      label: Urgência
+      description: Prioridade de tempo para a correção.
+      options:
+        - Baixa
+        - Média
+        - Alta
+        - Imediata
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status Atual
+      options:
+        - Novo
+        - Em análise
+        - Em correção
+        - Aguardando validação
+        - Corrigido
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: ambiente
+    attributes:
+      label: Ambiente
+      description: Sistema operacional, navegador/versão do app e hardware utilizado.
+      value: |
+        - **Sistema Operacional:** 
+        - **Software / Navegador:** 
+        - **Hardware:** 
+    validations:
+      required: true
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: Descrição do Erro (Esperado vs. Observado)
+      description: Detalhe o que deveria acontecer e o que realmente ocorreu.
+      value: |
+        - **Comportamento esperado:** 
+        - **Comportamento observado:** 
+    validations:
+      required: true
+
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passos para Reproduzir
+      description: Liste a sequência exata para replicar o problema.
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidencias
+    attributes:
+      label: Evidências (Capturas de tela, Logs e Anexos)
+      description: Arraste imagens para esta caixa, anexe arquivos ou cole logs entre blocos de código (```).
+    validations:
+      required: false
