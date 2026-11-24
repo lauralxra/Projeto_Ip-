@@ -1,3 +1,19 @@
+# [1.1.0-dev.32](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.31...v1.1.0-dev.32) (2026-11-24)
+
+
+### Bug Fixes
+
+* **dashboard:** remover botao nao previsto e fixar valores visiveis na exportacao de PDF e PNG ([f07108f](https://github.com/lauralxra/Projeto_Ip-/commit/f07108fb8ae26d68cfea4ab043e72e3f2fc6b150))
+* resolucao de bugs homologados de RC1 e RC2 (BUG-010 a BUG-026) ([fec707f](https://github.com/lauralxra/Projeto_Ip-/commit/fec707fca20446a46387c7a95852f0fb175d7f00))
+
+
+### Features
+
+* **dashboard:** exibir rotulos de dados nos graficos para visualizacao e exportacao em PDF/PNG ([e930ef2](https://github.com/lauralxra/Projeto_Ip-/commit/e930ef243ba7c98300534c33d464f253f409ee25))
+* mudado bug_report na dev para não ter conflito se der merge com a main ([24d20b7](https://github.com/lauralxra/Projeto_Ip-/commit/24d20b796cb9dce9091438363894e00e8bf32f8b))
+* mudado bug_report na dev para não ter conflito se der merge com a main ([901a832](https://github.com/lauralxra/Projeto_Ip-/commit/901a83284832df6466170bbfde90f6426f1afb78))
+* update bug_report md to bug_report yml ([1cc4813](https://github.com/lauralxra/Projeto_Ip-/commit/1cc4813e948f64c2e8f229eb3ef2fb7e5d8bb801))
+
 # [1.1.0-dev.31](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.30...v1.1.0-dev.31) (2026-11-21)
 
 
