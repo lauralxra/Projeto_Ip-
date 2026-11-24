@@ -1,3 +1,11 @@
+# [1.1.0-dev.33](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.32...v1.1.0-dev.33) (2026-11-24)
+
+
+### Bug Fixes
+
+* **frontend:** proteger histórico e sincronizar núcleos ([4af7c69](https://github.com/lauralxra/Projeto_Ip-/commit/4af7c693b574e9d0b9002442f7d7ea5d4a97d7de))
+* **programas:** contar indicadores ativos e filtrar meta anual ([13ff82c](https://github.com/lauralxra/Projeto_Ip-/commit/13ff82c961def8593df22b068e0655839bfc7934))
+
 # [1.1.0-dev.32](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.31...v1.1.0-dev.32) (2026-11-24)
 
 
