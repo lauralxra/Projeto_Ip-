@@ -1,7 +1,8 @@
 name: Relatório de Bug
 description: Registre um erro encontrado durante as rodadas de teste.
 title: "[BUG] "
-labels: ["bug", "status: novo"]
+labels: ["bug"]
+type: "Bug"
 body:
   - type: input
     id: identificador
