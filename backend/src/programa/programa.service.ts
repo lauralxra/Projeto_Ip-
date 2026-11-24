@@ -44,7 +44,9 @@ const SELECT_PROGRAMA = {
   },
   _count: {
     select: {
-      indicadores: { where: { deletedAt: null } },
+      indicadores: {
+        where: { deletedAt: null, status: StatusRegistro.ATIVO },
+      },
     },
   },
   createdAt: true,

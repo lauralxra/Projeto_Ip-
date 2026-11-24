@@ -34,6 +34,7 @@ const USER_B = '0b1c2d3e-4f5a-4b6c-9d8e-0f1a2b3c4d5e';
 type Chamada = {
   where: Record<string, unknown>;
   data?: Record<string, unknown>;
+  select?: Record<string, unknown>;
 };
 const argumento = (mock: jest.Mock, chamada = 0) =>
   (mock.mock.calls[chamada] as [Chamada])[0];
@@ -275,6 +276,18 @@ describe('ProgramaService', () => {
       expect(argumento(prisma.programa.findMany).where).toEqual({
         deletedAt: null,
         status: StatusRegistro.ATIVO,
+      });
+    });
+
+    it('conta apenas indicadores ativos e não excluídos para cada programa', async () => {
+      await service.findAll({}, admin);
+
+      expect(argumento(prisma.programa.findMany).select._count).toEqual({
+        select: {
+          indicadores: {
+            where: { deletedAt: null, status: StatusRegistro.ATIVO },
+          },
+        },
       });
     });
 

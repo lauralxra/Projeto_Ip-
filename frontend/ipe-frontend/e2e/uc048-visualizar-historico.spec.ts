@@ -73,13 +73,10 @@ test.describe('[UC048] - Visualizar Histórico de Registros e Alterações', () 
     // Valida que o link "Histórico" não é exibido no menu de navegação para perfil não autorizado
     await expect(page.locator('nav a:has-text("Histórico")')).toHaveCount(0);
 
-    // Acessa a URL direta da rota de Histórico
+    // Acessar a URL direta também deve ser bloqueado pela proteção da rota.
     await page.goto('/historico');
-    await page.waitForLoadState('networkidle');
-
-    // Valida que o alerta de permissão negada é exibido na tela
-    const bannerErro = page.locator('text=permissão');
-    await expect(bannerErro).toBeVisible();
+    await expect(page).toHaveURL(/.*dashboard/);
+    await expect(page.locator('h1:has-text("Histórico")')).toHaveCount(0);
   });
 
   test('CT-048.04: Filtrar registros históricos por tipo de entidade', async ({

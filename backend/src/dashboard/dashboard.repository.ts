@@ -99,7 +99,7 @@ export class DashboardRepository {
           where: {
             ano,
             deletedAt: null,
-            ...(trimestreMeta ? { trimestre: trimestreMeta } : {}),
+            trimestre: trimestreMeta,
           },
           select: { valorMeta: true },
           orderBy: { createdAt: 'desc' },
