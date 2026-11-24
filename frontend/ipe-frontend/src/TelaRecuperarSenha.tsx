@@ -10,9 +10,12 @@ type Etapa = 'email' | 'codigo' | 'senha' | 'concluido';
 
 // O backend só gera um código novo a cada 60 s por conta
 const ESPERA_REENVIO_S = 60;
+const REGEX_EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const estiloCampo =
   'w-full px-4 py-3 bg-[#eef1f5] border border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-[#9d3878] transition-all';
+const estiloCampoErro =
+  'bg-[#f8d7da]/25 border-[#7a1f2b] ring-2 ring-[#7a1f2b]/25 focus:border-[#7a1f2b]';
 const estiloBotao =
   'w-full py-3.5 px-4 bg-[#9d3878] hover:bg-[#832b62] text-white font-medium rounded-full text-sm shadow-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed';
 
@@ -20,7 +23,7 @@ const TEXTOS: Record<Exclude<Etapa, 'concluido'>, string> = {
   email:
     'Não se preocupe! Informe seu e-mail cadastrado na plataforma e enviaremos um código para redefinir sua senha.',
   codigo:
-    'Se o e-mail estiver cadastrado, você receberá um código de 6 dígitos válido por 15 minutos. Confira também a caixa de spam.',
+    'Enviamos um código de 6 dígitos válido por 15 minutos para o seu e-mail cadastrado. Confira também a caixa de spam.',
   senha:
     'Crie a nova senha: mínimo de 8 caracteres, sem ser só números nem uma senha comum.',
 };
@@ -71,10 +74,18 @@ export default function TelaRecuperarSenha() {
 
   const enviarEmail = (e: React.FormEvent) => {
     e.preventDefault();
+    const emailNormalizado = email.trim().toLowerCase();
+
+    if (!REGEX_EMAIL_VALIDO.test(emailNormalizado)) {
+      setErro('O e-mail informado não é válido.');
+      return;
+    }
+
+    setEmail(emailNormalizado);
     void executar(async () => {
       await apiFetch('/auth/recovery/request', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: emailNormalizado }),
       });
       setEtapa('codigo');
       setEsperaReenvio(ESPERA_REENVIO_S);
@@ -89,7 +100,7 @@ export default function TelaRecuperarSenha() {
       });
       setCodigo('');
       setEsperaReenvio(ESPERA_REENVIO_S);
-      setAviso('Se o e-mail estiver cadastrado, um novo código foi enviado.');
+      setAviso('Um novo código foi enviado para o seu e-mail.');
     });
   };
 
@@ -139,12 +150,16 @@ export default function TelaRecuperarSenha() {
           id={id}
           type={mostrarSenha ? 'text' : 'password'}
           value={valor}
-          onChange={(e) => aoMudar(e.target.value)}
+          onChange={(e) => {
+            if (erro) setErro(null);
+            aoMudar(e.target.value);
+          }}
           required
           minLength={8}
           maxLength={72}
           autoComplete="new-password"
-          className={`${estiloCampo} pr-11`}
+          aria-invalid={Boolean(erro)}
+          className={`${estiloCampo} pr-11 ${erro ? estiloCampoErro : ''}`}
         />
         <button
           type="button"
@@ -220,12 +235,16 @@ export default function TelaRecuperarSenha() {
                 id="recuperar-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  if (erro) setErro(null);
+                  setEmail(e.target.value);
+                }}
                 placeholder="Digite seu e-mail..."
                 required
                 maxLength={150}
                 autoComplete="email"
-                className={estiloCampo}
+                aria-invalid={Boolean(erro)}
+                className={`${estiloCampo} ${erro ? estiloCampoErro : ''}`}
               />
             </div>
             <button type="submit" disabled={enviando} className={estiloBotao}>
@@ -249,13 +268,17 @@ export default function TelaRecuperarSenha() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={codigo}
-                onChange={(e) =>
-                  setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
+                onChange={(e) => {
+                  if (erro) setErro(null);
+                  setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6));
+                }}
                 placeholder="000000"
                 required
                 pattern="\d{6}"
-                className={`${estiloCampo} tracking-[0.5em] text-center font-semibold`}
+                aria-invalid={Boolean(erro)}
+                className={`${estiloCampo} tracking-[0.5em] text-center font-semibold ${
+                  erro ? estiloCampoErro : ''
+                }`}
               />
             </div>
             <button

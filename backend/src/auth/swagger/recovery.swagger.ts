@@ -1,14 +1,19 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 
-const MENSAGEM_GENERICA = {
-  message: 'Se o e-mail estiver cadastrado, você receberá o código.',
+const MENSAGEM_SUCESSO = {
+  message: 'Código de recuperação enviado para o e-mail informado.',
 };
+
+const EMAIL_NAO_ENCONTRADO = ApiNotFoundResponse({
+  description: 'E-mail não cadastrado no sistema (FE01 / CT-002.02).',
+});
 
 const CODIGO_INVALIDO = ApiBadRequestResponse({
   description:
@@ -33,11 +38,12 @@ export function RecoveryRequestSwagger() {
     ApiOperation({
       summary: 'Solicitar código de recuperação de senha (UC02)',
       description:
-        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa e invalida códigos anteriores. A resposta é sempre a mesma, exista ou não a conta.' +
+        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa cadastrada e invalida códigos anteriores (RN01, RN02, FE01).' +
         LIMITE_POR_CONTA,
     }),
-    ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
+    ApiOkResponse({ schema: { example: MENSAGEM_SUCESSO } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    EMAIL_NAO_ENCONTRADO,
     LIMITE_POR_IP,
   );
 }
@@ -47,11 +53,12 @@ export function RecoveryResendSwagger() {
     ApiOperation({
       summary: 'Reenviar código de recuperação de senha (UC02, RN07)',
       description:
-        'Gera um novo código e invalida o anterior. A resposta é sempre a mesma, exista ou não a conta.' +
+        'Gera um novo código para uma conta ativa cadastrada e invalida o anterior.' +
         LIMITE_POR_CONTA,
     }),
-    ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
+    ApiOkResponse({ schema: { example: MENSAGEM_SUCESSO } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    EMAIL_NAO_ENCONTRADO,
     LIMITE_POR_IP,
   );
 }
