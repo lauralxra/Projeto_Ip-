@@ -14,7 +14,6 @@ import {
   X,
   Camera,
   Palette,
-  Tag,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -215,7 +214,6 @@ export default function TelaDashboard() {
   const [coresGraficos, setCoresGraficos] = useState<Record<string, string>>(
     {},
   );
-  const [exibirValores, setExibirValores] = useState(true);
   const [exportando, setExportando] = useState<string | null>(null);
 
   const exportarCSV = () => {
@@ -339,9 +337,7 @@ export default function TelaDashboard() {
       dashboard.style.height = 'auto';
       dashboard.style.overflow = 'visible';
 
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => resolve()),
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, 350));
 
       const filterNoExport = (node: HTMLElement) => {
         if (
@@ -532,9 +528,7 @@ export default function TelaDashboard() {
       dashboard.style.height = `${alturaCompleta}px`;
       dashboard.style.overflow = 'visible';
 
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => resolve()),
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, 350));
 
       const imagem = await toPng(dashboard, {
         pixelRatio: 2,
@@ -1080,29 +1074,6 @@ export default function TelaDashboard() {
                 </div>
               </div>
 
-              {/* Alternador de Rótulos / Valores nos Gráficos */}
-              <button
-                type="button"
-                onClick={() => setExibirValores((prev) => !prev)}
-                title={
-                  exibirValores
-                    ? 'Ocultar valores impressos nos gráficos'
-                    : 'Exibir valores impressos nos gráficos'
-                }
-                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 sm:py-2.5 rounded-lg border transition-colors cursor-pointer shadow-xs ${
-                  exibirValores
-                    ? 'bg-[#fcf2f7] border-[#832b62] text-[#832b62]'
-                    : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <Tag size={13} />
-                <span>
-                  {exibirValores
-                    ? 'Valores nos Gráficos: Ativo'
-                    : 'Mostrar Valores'}
-                </span>
-              </button>
-
               {/* Botão Exportar com Opções */}
               <div id="menu-exportacao" className="relative">
                 <button
@@ -1498,7 +1469,7 @@ export default function TelaDashboard() {
                       {(tiposGraficos[indicador.id] || 'area') === 'area' && (
                         <AreaChart
                           data={dadosHistoricoTrimestres}
-                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                          margin={{ top: 22, right: 18, left: -10, bottom: 0 }}
                         >
                           <defs>
                             <linearGradient
@@ -1530,17 +1501,22 @@ export default function TelaDashboard() {
                             stroke={corAtual}
                             strokeWidth={3}
                             fill={`url(#corIndicador-${indicador.id})`}
+                            isAnimationActive={false}
+                            dot={{
+                              r: 4,
+                              fill: corAtual,
+                              stroke: '#ffffff',
+                              strokeWidth: 2,
+                            }}
                           >
-                            {exibirValores && (
-                              <LabelList
-                                dataKey="valor"
-                                position="top"
-                                offset={8}
-                                fill="#4a1836"
-                                fontSize={11}
-                                fontWeight={600}
-                              />
-                            )}
+                            <LabelList
+                              dataKey="valor"
+                              position="top"
+                              offset={8}
+                              fill="#4a1836"
+                              fontSize={11}
+                              fontWeight={600}
+                            />
                           </Area>
                         </AreaChart>
                       )}
@@ -1548,7 +1524,7 @@ export default function TelaDashboard() {
                       {tiposGraficos[indicador.id] === 'linha' && (
                         <LineChart
                           data={dadosHistoricoTrimestres}
-                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                          margin={{ top: 22, right: 18, left: -10, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="periodo" fontSize={12} />
@@ -1559,17 +1535,22 @@ export default function TelaDashboard() {
                             dataKey="valor"
                             stroke={corAtual}
                             strokeWidth={3}
+                            isAnimationActive={false}
+                            dot={{
+                              r: 4,
+                              fill: corAtual,
+                              stroke: '#ffffff',
+                              strokeWidth: 2,
+                            }}
                           >
-                            {exibirValores && (
-                              <LabelList
-                                dataKey="valor"
-                                position="top"
-                                offset={8}
-                                fill="#4a1836"
-                                fontSize={11}
-                                fontWeight={600}
-                              />
-                            )}
+                            <LabelList
+                              dataKey="valor"
+                              position="top"
+                              offset={8}
+                              fill="#4a1836"
+                              fontSize={11}
+                              fontWeight={600}
+                            />
                           </Line>
                         </LineChart>
                       )}
@@ -1577,7 +1558,7 @@ export default function TelaDashboard() {
                       {tiposGraficos[indicador.id] === 'coluna' && (
                         <BarChart
                           data={dadosHistoricoTrimestres}
-                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                          margin={{ top: 22, right: 18, left: -10, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="periodo" fontSize={12} />
@@ -1587,17 +1568,16 @@ export default function TelaDashboard() {
                             dataKey="valor"
                             fill={corAtual}
                             radius={[5, 5, 0, 0]}
+                            isAnimationActive={false}
                           >
-                            {exibirValores && (
-                              <LabelList
-                                dataKey="valor"
-                                position="top"
-                                offset={6}
-                                fill="#4a1836"
-                                fontSize={11}
-                                fontWeight={600}
-                              />
-                            )}
+                            <LabelList
+                              dataKey="valor"
+                              position="top"
+                              offset={6}
+                              fill="#4a1836"
+                              fontSize={11}
+                              fontWeight={600}
+                            />
                           </Bar>
                         </BarChart>
                       )}
@@ -1617,12 +1597,9 @@ export default function TelaDashboard() {
                             innerRadius={
                               tiposGraficos[indicador.id] === 'rosca' ? 45 : 0
                             }
-                            label={
-                              exibirValores
-                                ? ({ name, value }) => `${name}: ${value}`
-                                : false
-                            }
-                            labelLine={exibirValores}
+                            isAnimationActive={false}
+                            label={({ name, value }) => `${name}: ${value}`}
+                            labelLine={true}
                           >
                             {dadosHistoricoTrimestres.map((_, index) => (
                               <Cell
@@ -1771,17 +1748,16 @@ export default function TelaDashboard() {
                         name="Programas"
                         fill={corProgramas}
                         radius={[4, 4, 0, 0]}
+                        isAnimationActive={false}
                       >
-                        {exibirValores && (
-                          <LabelList
-                            dataKey="programas"
-                            position="top"
-                            offset={6}
-                            fill="#4a1836"
-                            fontSize={11}
-                            fontWeight={600}
-                          />
-                        )}
+                        <LabelList
+                          dataKey="programas"
+                          position="top"
+                          offset={6}
+                          fill="#4a1836"
+                          fontSize={11}
+                          fontWeight={600}
+                        />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
