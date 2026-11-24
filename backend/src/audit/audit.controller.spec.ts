@@ -26,4 +26,12 @@ describe('AuditController', () => {
 
     expect(service.findAll).toHaveBeenCalledWith(filtros);
   });
+
+  it('deve restringir acesso aos perfis ADMINISTRADOR e EQUIPE_GESTAO (BUG-025 / UC48)', () => {
+    const roles: unknown = Reflect.getMetadata(
+      'roles',
+      AuditController.prototype.findAll,
+    );
+    expect(roles).toEqual(['ADMINISTRADOR', 'EQUIPE_GESTAO']);
+  });
 });
