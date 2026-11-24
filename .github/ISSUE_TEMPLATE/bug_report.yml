@@ -7,8 +7,8 @@ body:
     id: identificador
     attributes:
       label: Identificador Único
-      description: Código interno do plano de testes (ex. BUG-001). O GitHub também gerará um número #ID automático.
-      placeholder: "BUG-001"
+      description: Código interno do plano de testes (ex. BUG-TC01.1). O GitHub também gerará um número #ID automático.
+      placeholder: "BUG-TC01.1"
     validations:
       required: true
 
@@ -53,10 +53,11 @@ body:
       label: Status Atual
       options:
         - Novo
+        - Conhecido
         - Em análise
         - Em correção
-        - Aguardando validação
         - Corrigido
+        - Incorrigível
       default: 0
     validations:
       required: true
@@ -67,9 +68,9 @@ body:
       label: Ambiente
       description: Sistema operacional, navegador/versão do app e hardware utilizado.
       value: |
-        - **Sistema Operacional:** 
-        - **Software / Navegador:** 
-        - **Hardware:** 
+        - Sistema Operacional: 
+        - Software / Navegador: 
+        - Hardware: 
     validations:
       required: true
 
@@ -79,8 +80,8 @@ body:
       label: Descrição do Erro (Esperado vs. Observado)
       description: Detalhe o que deveria acontecer e o que realmente ocorreu.
       value: |
-        - **Comportamento esperado:** 
-        - **Comportamento observado:** 
+        - Comportamento esperado: 
+        - Comportamento observado: 
     validations:
       required: true
 
