@@ -37,4 +37,22 @@ describe('DashboardRepository', () => {
     expect(args.orderBy).toEqual([{ nome: 'asc' }, { id: 'asc' }]);
     expect(args.select.registros.orderBy).toEqual({ trimestre: 'asc' });
   });
+
+  it('busca somente a meta anual quando nenhum trimestre foi filtrado', async () => {
+    await repository.findIndicadores({
+      where: { deletedAt: null },
+      registros: { deletedAt: null, ano: 2026 },
+      ano: 2026,
+      trimestreMeta: null,
+    });
+
+    const [args] = prisma.indicador.findMany.mock.calls[0] as [
+      { select: { metas: { where: Record<string, unknown> } } },
+    ];
+    expect(args.select.metas.where).toEqual({
+      ano: 2026,
+      deletedAt: null,
+      trimestre: null,
+    });
+  });
 });
