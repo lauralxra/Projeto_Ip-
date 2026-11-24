@@ -14,6 +14,7 @@ import {
   X,
   Camera,
   Palette,
+  Tag,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -31,6 +32,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from 'recharts';
 import { UsuarioAtual } from './dados/usuarios';
 import * as XLSX from 'xlsx';
@@ -213,6 +215,7 @@ export default function TelaDashboard() {
   const [coresGraficos, setCoresGraficos] = useState<Record<string, string>>(
     {},
   );
+  const [exibirValores, setExibirValores] = useState(true);
   const [exportando, setExportando] = useState<string | null>(null);
 
   const exportarCSV = () => {
@@ -1077,6 +1080,29 @@ export default function TelaDashboard() {
                 </div>
               </div>
 
+              {/* Alternador de Rótulos / Valores nos Gráficos */}
+              <button
+                type="button"
+                onClick={() => setExibirValores((prev) => !prev)}
+                title={
+                  exibirValores
+                    ? 'Ocultar valores impressos nos gráficos'
+                    : 'Exibir valores impressos nos gráficos'
+                }
+                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 sm:py-2.5 rounded-lg border transition-colors cursor-pointer shadow-xs ${
+                  exibirValores
+                    ? 'bg-[#fcf2f7] border-[#832b62] text-[#832b62]'
+                    : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Tag size={13} />
+                <span>
+                  {exibirValores
+                    ? 'Valores nos Gráficos: Ativo'
+                    : 'Mostrar Valores'}
+                </span>
+              </button>
+
               {/* Botão Exportar com Opções */}
               <div id="menu-exportacao" className="relative">
                 <button
@@ -1470,7 +1496,10 @@ export default function TelaDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <>
                       {(tiposGraficos[indicador.id] || 'area') === 'area' && (
-                        <AreaChart data={dadosHistoricoTrimestres}>
+                        <AreaChart
+                          data={dadosHistoricoTrimestres}
+                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                        >
                           <defs>
                             <linearGradient
                               id={`corIndicador-${indicador.id}`}
@@ -1501,12 +1530,26 @@ export default function TelaDashboard() {
                             stroke={corAtual}
                             strokeWidth={3}
                             fill={`url(#corIndicador-${indicador.id})`}
-                          />
+                          >
+                            {exibirValores && (
+                              <LabelList
+                                dataKey="valor"
+                                position="top"
+                                offset={8}
+                                fill="#4a1836"
+                                fontSize={11}
+                                fontWeight={600}
+                              />
+                            )}
+                          </Area>
                         </AreaChart>
                       )}
 
                       {tiposGraficos[indicador.id] === 'linha' && (
-                        <LineChart data={dadosHistoricoTrimestres}>
+                        <LineChart
+                          data={dadosHistoricoTrimestres}
+                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="periodo" fontSize={12} />
                           <YAxis fontSize={12} />
@@ -1516,12 +1559,26 @@ export default function TelaDashboard() {
                             dataKey="valor"
                             stroke={corAtual}
                             strokeWidth={3}
-                          />
+                          >
+                            {exibirValores && (
+                              <LabelList
+                                dataKey="valor"
+                                position="top"
+                                offset={8}
+                                fill="#4a1836"
+                                fontSize={11}
+                                fontWeight={600}
+                              />
+                            )}
+                          </Line>
                         </LineChart>
                       )}
 
                       {tiposGraficos[indicador.id] === 'coluna' && (
-                        <BarChart data={dadosHistoricoTrimestres}>
+                        <BarChart
+                          data={dadosHistoricoTrimestres}
+                          margin={{ top: 20, right: 15, left: -10, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="periodo" fontSize={12} />
                           <YAxis fontSize={12} />
@@ -1530,7 +1587,18 @@ export default function TelaDashboard() {
                             dataKey="valor"
                             fill={corAtual}
                             radius={[5, 5, 0, 0]}
-                          />
+                          >
+                            {exibirValores && (
+                              <LabelList
+                                dataKey="valor"
+                                position="top"
+                                offset={6}
+                                fill="#4a1836"
+                                fontSize={11}
+                                fontWeight={600}
+                              />
+                            )}
+                          </Bar>
                         </BarChart>
                       )}
 
@@ -1545,11 +1613,16 @@ export default function TelaDashboard() {
                             nameKey="periodo"
                             cx="50%"
                             cy="50%"
-                            outerRadius={85}
+                            outerRadius={80}
                             innerRadius={
-                              tiposGraficos[indicador.id] === 'rosca' ? 50 : 0
+                              tiposGraficos[indicador.id] === 'rosca' ? 45 : 0
                             }
-                            label
+                            label={
+                              exibirValores
+                                ? ({ name, value }) => `${name}: ${value}`
+                                : false
+                            }
+                            labelLine={exibirValores}
                           >
                             {dadosHistoricoTrimestres.map((_, index) => (
                               <Cell
@@ -1655,7 +1728,7 @@ export default function TelaDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosProgramasPorNucleo}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                      margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
@@ -1698,7 +1771,18 @@ export default function TelaDashboard() {
                         name="Programas"
                         fill={corProgramas}
                         radius={[4, 4, 0, 0]}
-                      />
+                      >
+                        {exibirValores && (
+                          <LabelList
+                            dataKey="programas"
+                            position="top"
+                            offset={6}
+                            fill="#4a1836"
+                            fontSize={11}
+                            fontWeight={600}
+                          />
+                        )}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
