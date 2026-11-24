@@ -1,6 +1,6 @@
 name: Relatório de Bug
 description: Registre um erro encontrado durante as rodadas de teste.
-title: "[BUG] "
+title: "[BUG] TC00.0 - Descrição do bug"
 labels: ["bug"]
 type: "Bug"
 body:
