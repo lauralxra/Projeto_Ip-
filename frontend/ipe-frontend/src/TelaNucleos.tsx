@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Archive,
   CheckCircle2,
+  Eye,
   MoreVertical,
   Pencil,
   Plus,
@@ -24,12 +25,14 @@ import { definirNucleosDoUsuario } from './api/usuarioAtual';
 
 function MenuAcoesNucleo({
   ehAtivo,
+  onVisualizar,
   onEditar,
   onDesativar,
   onReativar,
   onExcluir,
 }: {
   ehAtivo: boolean;
+  onVisualizar: () => void;
   onEditar: () => void;
   onDesativar: () => void;
   onReativar: () => void;
@@ -66,6 +69,18 @@ function MenuAcoesNucleo({
 
       {aberto && (
         <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <button
+            type="button"
+            onClick={() => {
+              setAberto(false);
+              onVisualizar();
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#fcf2f7] hover:text-[#832b62] transition-colors cursor-pointer text-left"
+          >
+            <Eye size={14} className="text-slate-600" />
+            <span>Visualizar Núcleo</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -199,6 +214,58 @@ export default function TelaNucleos() {
 
     return matchStatus && matchBusca;
   });
+
+  // UC023: visualização somente leitura (dados atualizados por GET /nucleos/:id)
+  const [nucleoVisualizado, setNucleoVisualizado] = useState<Nucleo | null>(
+    null,
+  );
+  const [criadoEmVisualizado, setCriadoEmVisualizado] = useState<string | null>(
+    null,
+  );
+  const [carregandoVisualizacao, setCarregandoVisualizacao] = useState(false);
+  const [erroVisualizacao, setErroVisualizacao] = useState<string | null>(null);
+
+  const abrirVisualizarModal = async (nucleo: Nucleo) => {
+    setNucleoVisualizado(nucleo);
+    setCriadoEmVisualizado(null);
+    setErroVisualizacao(null);
+    setCarregandoVisualizacao(true);
+    try {
+      const detalhes = await apiFetch<NucleoApi & { createdAt?: string }>(
+        `/nucleos/${nucleo.id}`,
+      );
+      // Ignora a resposta se o modal já foi fechado ou outro núcleo foi aberto
+      setNucleoVisualizado((atual) =>
+        atual?.id === nucleo.id ? nucleoDaApi(detalhes) : atual,
+      );
+      setCriadoEmVisualizado(detalhes.createdAt ?? null);
+    } catch (erro) {
+      setErroVisualizacao(
+        'Não foi possível atualizar os dados do núcleo: ' +
+          mensagemDeErro(erro),
+      );
+    } finally {
+      setCarregandoVisualizacao(false);
+    }
+  };
+
+  const fecharVisualizarModal = () => {
+    setNucleoVisualizado(null);
+    setErroVisualizacao(null);
+  };
+
+  const visualizacaoAberta = nucleoVisualizado !== null;
+  useEffect(() => {
+    if (!visualizacaoAberta) return;
+    const fecharComEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setNucleoVisualizado(null);
+        setErroVisualizacao(null);
+      }
+    };
+    document.addEventListener('keydown', fecharComEsc);
+    return () => document.removeEventListener('keydown', fecharComEsc);
+  }, [visualizacaoAberta]);
 
   // Ações
   const abrirCriarModal = () => {
@@ -523,7 +590,18 @@ export default function TelaNucleos() {
             return (
               <div
                 key={nucleo.id}
-                className={`rounded-2xl p-4 sm:p-6 relative flex items-start sm:items-center gap-4 sm:gap-5 border shadow-xs hover:shadow-md transition-shadow ${
+                role="button"
+                tabIndex={0}
+                aria-label={`Visualizar núcleo ${nucleo.nome}`}
+                onClick={() => void abrirVisualizarModal(nucleo)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void abrirVisualizarModal(nucleo);
+                  }
+                }}
+                className={`rounded-2xl p-4 sm:p-6 relative flex items-start sm:items-center gap-4 sm:gap-5 border shadow-xs hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#832b62] ${
                   ehAtivo
                     ? 'bg-[#f2eff4] border-slate-200/60'
                     : 'bg-[#f2eff4]/75 border-[#832b62]/20'
@@ -531,9 +609,14 @@ export default function TelaNucleos() {
               >
                 {/* Menu de Ações no Canto Superior Direito (RN01: apenas Administradora) */}
                 {UsuarioAtual.tipo == 'ADM' ? (
-                  <div className="absolute top-3.5 right-3.5 z-10">
+                  <div
+                    className="absolute top-3.5 right-3.5 z-10"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
                     <MenuAcoesNucleo
                       ehAtivo={ehAtivo}
+                      onVisualizar={() => void abrirVisualizarModal(nucleo)}
                       onEditar={() => abrirEditarModal(nucleo)}
                       onDesativar={() => abrirDesativarModal(nucleo)}
                       onReativar={() => handleReativarNucleo(nucleo)}
@@ -698,6 +781,154 @@ export default function TelaNucleos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL UC023: VISUALIZAR NÚCLEO (somente leitura) --- */}
+      {nucleoVisualizado && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+          onClick={fecharVisualizarModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-visualizar-nucleo"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto"
+          >
+            <h2
+              id="titulo-visualizar-nucleo"
+              className="text-2xl font-bold text-slate-900 mb-6"
+            >
+              Visualizar Núcleo
+            </h2>
+
+            {erroVisualizacao && (
+              <p
+                role="alert"
+                className="mb-4 px-3 py-2.5 rounded-xl text-xs font-medium bg-[#f8d7da] text-[#7a1f2b]"
+              >
+                {erroVisualizacao}
+              </p>
+            )}
+
+            <div className="flex gap-4 items-center mb-5">
+              <div
+                className={`size-24 rounded-2xl ${nucleoVisualizado.corBg} ${nucleoVisualizado.corIcone} flex items-center justify-center shrink-0 overflow-hidden`}
+              >
+                {nucleoVisualizado.icone ? (
+                  <img
+                    alt={nucleoVisualizado.nome}
+                    className="size-full object-cover"
+                    src={nucleoVisualizado.icone}
+                  />
+                ) : (
+                  <span className="font-bold tracking-wider text-sm">
+                    {nucleoVisualizado.logoTexto}
+                  </span>
+                )}
+              </div>
+
+              <dl className="flex-1 min-w-0 space-y-3">
+                <div>
+                  <dt className="text-xs font-bold text-slate-700 mb-1">
+                    Nome
+                  </dt>
+                  <dd className="text-sm text-slate-800 break-words">
+                    {nucleoVisualizado.nome}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold text-slate-700 mb-1">
+                    Sigla
+                  </dt>
+                  <dd className="text-sm font-semibold text-[#832b62]">
+                    {nucleoVisualizado.sigla}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <dl className="space-y-4">
+              <div>
+                <dt className="text-xs font-bold text-slate-700 mb-1">
+                  Descrição
+                </dt>
+                <dd className="bg-slate-100 rounded-2xl p-3 text-sm text-slate-700 whitespace-pre-line break-words">
+                  {nucleoVisualizado.descricao || (
+                    <span className="text-slate-400 italic">
+                      Sem descrição cadastrada.
+                    </span>
+                  )}
+                </dd>
+              </div>
+
+              <div className="flex gap-6 flex-wrap">
+                <div>
+                  <dt className="text-xs font-bold text-slate-700 mb-1">
+                    Status
+                  </dt>
+                  <dd>
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+                        (nucleoVisualizado.status ?? 'ATIVO') === 'ATIVO'
+                          ? 'bg-[#d5e4d1] text-[#24421e]'
+                          : 'bg-[#ffdfbf] text-[#5c3310]'
+                      }`}
+                    >
+                      {(nucleoVisualizado.status ?? 'ATIVO') === 'ATIVO'
+                        ? 'Ativo'
+                        : 'Inativo/Arquivado'}
+                    </span>
+                  </dd>
+                </div>
+                {criadoEmVisualizado && (
+                  <div>
+                    <dt className="text-xs font-bold text-slate-700 mb-1">
+                      Cadastrado em
+                    </dt>
+                    <dd className="text-sm text-slate-700">
+                      {new Date(criadoEmVisualizado).toLocaleDateString(
+                        'pt-BR',
+                      )}
+                    </dd>
+                  </div>
+                )}
+              </div>
+            </dl>
+
+            {carregandoVisualizacao && (
+              <p className="mt-4 text-xs text-slate-400">
+                Atualizando dados...
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 pt-6">
+              <button
+                type="button"
+                autoFocus
+                onClick={fecharVisualizarModal}
+                className="flex-1 py-2.5 rounded-full border border-slate-800 text-slate-800 font-medium text-xs hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+              {UsuarioAtual.tipo === 'ADM' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nucleo = nucleoVisualizado;
+                    fecharVisualizarModal();
+                    abrirEditarModal(nucleo);
+                  }}
+                  className="flex-1 py-2.5 rounded-full bg-[#3a182d] text-white font-medium text-xs hover:bg-[#2a1120] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Pencil size={14} />
+                  <span>Editar</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
