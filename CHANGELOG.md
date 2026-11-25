@@ -1,3 +1,10 @@
+# [1.1.0-dev.35](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.34...v1.1.0-dev.35) (2026-11-25)
+
+
+### Features
+
+* ir_para_login_caso_user_deslogue ([642770b](https://github.com/lauralxra/Projeto_Ip-/commit/642770b867429b5a6082f31c79f338c8bd01b0a7))
+
 # [1.1.0-dev.34](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.33...v1.1.0-dev.34) (2026-11-25)
 
 
