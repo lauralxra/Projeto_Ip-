@@ -1,3 +1,10 @@
+# [1.1.0-dev.40](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.39...v1.1.0-dev.40) (2026-11-25)
+
+
+### Bug Fixes
+
+* **programas:** impedir exclusão de programa com status ativo ([e67ef47](https://github.com/lauralxra/Projeto_Ip-/commit/e67ef479b0ca1eec450f4f9dbfe8453159d6086e))
+
 # [1.1.0-dev.39](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.38...v1.1.0-dev.39) (2026-11-25)
 
 
