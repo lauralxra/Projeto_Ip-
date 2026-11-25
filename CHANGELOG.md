@@ -1,3 +1,10 @@
+# [1.1.0-dev.39](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.38...v1.1.0-dev.39) (2026-11-25)
+
+
+### Bug Fixes
+
+* **frontend:** redirecionar ao login apos logout em outra aba (uc013) ([ccb6d6d](https://github.com/lauralxra/Projeto_Ip-/commit/ccb6d6d55d45713ca8ea4b30c40ae81e066c40a9))
+
 # [1.1.0-dev.38](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.37...v1.1.0-dev.38) (2026-11-25)
 
 
