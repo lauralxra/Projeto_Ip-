@@ -348,6 +348,13 @@ export class ProgramaService {
       throw new NotFoundException('Programa não encontrado.');
     }
 
+    // Só programas inativos ou arquivados podem ser excluídos
+    if (programa.status === StatusRegistro.ATIVO) {
+      throw new BadRequestException(
+        'Não é possível excluir um programa ativo. Archive-o antes de excluir.',
+      );
+    }
+
     const { _count: vinculos, ...dados } = programa;
     const impeditivos = [
       vinculos.indicadores > 0 && 'indicadores',
