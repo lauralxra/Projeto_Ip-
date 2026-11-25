@@ -17,10 +17,11 @@ export function User() {
   const [naoLidas, setNaoLidas] = useState(0);
 
   // uso da UserBar para checar se o usuario ainda tá logado.
-  useEffect(() => { // no caso de erros esquisitos, apagar todo esse useEffect
+  useEffect(() => {
+    // no caso de erros esquisitos, apagar todo esse useEffect
     const verificarAutenticacao = () => {
       const token = localStorage.getItem('access_token');
-      
+
       if (!token) {
         // replace: true impede que a rota protegida fique no histórico do botão "Voltar"
         navigate('/login', { replace: true });
