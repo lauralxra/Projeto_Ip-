@@ -132,13 +132,15 @@ function MenuAcoesPrograma({
   }, [aberto]);
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    // Impede que cliques no menu cheguem ao card, que abre a edição ao ser clicado
+    <div
+      className="relative inline-block text-left"
+      ref={menuRef}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setAberto(!aberto);
-        }}
+        onClick={() => setAberto(!aberto)}
         className="p-1 text-[#3c3b3b] hover:text-[#832b62] hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
         title="Opções do programa"
         aria-label="Opções do programa"
