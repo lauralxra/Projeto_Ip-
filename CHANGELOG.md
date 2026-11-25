@@ -1,3 +1,11 @@
+# [1.1.0-dev.34](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.33...v1.1.0-dev.34) (2026-11-25)
+
+
+### Bug Fixes
+
+* **auth:** ajustar mensagem e limite de codigos na recuperacao de senha (uc02) ([d3a64df](https://github.com/lauralxra/Projeto_Ip-/commit/d3a64df1c1ecbffb951a34c69ecb5297eea10399))
+* **auth:** rejeitar e-mail nao cadastrado na recuperacao de senha (uc02) ([b01d79d](https://github.com/lauralxra/Projeto_Ip-/commit/b01d79d43dec9a2d68fdb68e9b33ada1104cfd28))
+
 # [1.1.0-dev.33](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.32...v1.1.0-dev.33) (2026-11-24)
 
 
