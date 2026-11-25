@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Trash2, X } from 'lucide-react';
+import { CheckCircle2, CloudOff, RotateCw, Trash2, X } from 'lucide-react';
 import { apiFetch, mensagemDeErro } from './api/cliente';
 import { UsuarioAtual } from './dados/usuarios';
 import type { PerfilApi } from './api/mapeadores';
@@ -66,6 +66,8 @@ export function UserbarPopupNotificacao({
   >([]);
   const [carregando, setCarregando] = useState(false);
   const [erroCarregamento, setErroCarregamento] = useState(false);
+  // Falha só no histórico do ADM (aba "Enviadas"), sem afetar a aba "Recebidas"
+  const [erroEnviadas, setErroEnviadas] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState<{
     tipo: 'sucesso' | 'erro';
@@ -112,6 +114,7 @@ export function UserbarPopupNotificacao({
   const carregarNotificacoes = async () => {
     setCarregando(true);
     setErroCarregamento(false);
+    setErroEnviadas(false);
     try {
       // 1. Minhas notificações recebidas (GET /notificacoes)
       const resRecebidas = await apiFetch<{ itens: NotificacaoRecebida[] }>(
@@ -126,8 +129,10 @@ export function UserbarPopupNotificacao({
             '/notificacoes/admin?limite=50',
           );
           setNotificacoesEnviadas(resAdmin.itens || []);
-        } catch {
-          // ignora se falhar
+        } catch (erro) {
+          // TC14.5: falha não pode parecer "nenhuma notificação enviada"
+          console.error('Erro ao carregar notificações enviadas:', erro);
+          setErroEnviadas(true);
         }
 
         try {
@@ -147,10 +152,40 @@ export function UserbarPopupNotificacao({
     } catch (erro) {
       console.error('Erro ao carregar notificações:', erro);
       setErroCarregamento(true);
+      // Sem a lista principal, o histórico do ADM também não foi buscado
+      if (isAdm) setErroEnviadas(true);
     } finally {
       setCarregando(false);
     }
   };
+
+  // TC14.5: mensagem amigável de falha de carregamento com nova tentativa
+  const avisoFalhaCarregamento = (
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center flex-1 py-12 px-4 text-center"
+    >
+      <div className="size-[52px] rounded-full bg-[#f8d7da]/60 text-[#7a1f2b] flex items-center justify-center mb-3">
+        <CloudOff size={24} />
+      </div>
+      <p className="text-[#3b142f] text-[14px] font-semibold">
+        Não foi possível carregar as notificações
+      </p>
+      <p className="text-[#888888] text-[12px] mt-1 max-w-[280px]">
+        O servidor está instável no momento ou sua conexão caiu. Aguarde alguns
+        instantes e tente novamente.
+      </p>
+      <button
+        type="button"
+        onClick={() => void carregarNotificacoes()}
+        disabled={carregando}
+        className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#A13680] hover:bg-[#832b62] text-white text-[12px] font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <RotateCw size={14} className={carregando ? 'animate-spin' : ''} />
+        {carregando ? 'Tentando reconectar...' : 'Tentar novamente'}
+      </button>
+    </div>
+  );
 
   useEffect(() => {
     carregarNotificacoes();
@@ -688,17 +723,12 @@ export function UserbarPopupNotificacao({
             {/* Lista de Notificações Recebidas */}
             {abaAtiva === 'recebidas' && (
               <div className="flex flex-col w-full gap-[12px] overflow-y-auto flex-1 pr-1">
-                {carregando && notificacoes.length === 0 ? (
+                {erroCarregamento ? (
+                  avisoFalhaCarregamento
+                ) : carregando && notificacoes.length === 0 ? (
                   <div className="flex flex-col items-center justify-center flex-1 py-10">
                     <p className="text-[#888888] text-[13px]">
                       Carregando notificações...
-                    </p>
-                  </div>
-                ) : erroCarregamento ? (
-                  <div className="flex flex-col items-center justify-center flex-1 py-12 text-center">
-                    <p className="text-[#7a1f2b] text-[14px] font-medium">
-                      Não foi possível carregar as notificações. Tente
-                      novamente.
                     </p>
                   </div>
                 ) : notificacoes.length === 0 ? (
@@ -844,7 +874,9 @@ export function UserbarPopupNotificacao({
             {/* Lista de Notificações Enviadas (Apenas ADM) */}
             {abaAtiva === 'enviadas' && isAdm && (
               <div className="flex flex-col w-full gap-[12px] overflow-y-auto flex-1 pr-1">
-                {carregando && notificacoesEnviadas.length === 0 ? (
+                {erroEnviadas ? (
+                  avisoFalhaCarregamento
+                ) : carregando && notificacoesEnviadas.length === 0 ? (
                   <div className="flex flex-col items-center justify-center flex-1 py-10">
                     <p className="text-[#888888] text-[13px]">
                       Carregando histórico...

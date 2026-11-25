@@ -5,6 +5,7 @@ import { encerrarSessaoLocal } from '../routes/sessao';
 // foram encerradas, ex.: senha recuperada em outro aparelho). Outros 401, como
 // "Senha atual incorreta", não derrubam a sessão.
 const MENSAGENS_SESSAO_INVALIDA = [
+  'Token de acesso não informado.',
   'Sessão encerrada. Faça login novamente.',
   'Token de acesso inválido ou expirado.',
 ];
@@ -51,14 +52,19 @@ export async function apiFetch<T>(
   if (!resposta.ok) {
     const mensagem = (dados as { message?: string | string[] } | null)?.message;
 
+    // BUG-UC13.4: também cobre a requisição feita sem token (logout em outra aba)
     if (
       resposta.status === 401 &&
-      token &&
       typeof mensagem === 'string' &&
       MENSAGENS_SESSAO_INVALIDA.includes(mensagem)
     ) {
       encerrarSessaoLocal();
-      window.location.assign('/login');
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login');
+        // A página vai ser trocada: não propaga o erro, para a tela não
+        // exibir um alerta antes do redirecionamento
+        return new Promise<T>(() => {});
+      }
     }
 
     throw new ErroApi(

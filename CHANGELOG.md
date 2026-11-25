@@ -1,3 +1,68 @@
+# [1.1.0-dev.41](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.40...v1.1.0-dev.41) (2026-11-25)
+
+
+### Features
+
+* teste com usuario na navbar ([6e8f970](https://github.com/lauralxra/Projeto_Ip-/commit/6e8f970f6ed3713c175552fa30888b9da139e34f))
+
+# [1.1.0-dev.40](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.39...v1.1.0-dev.40) (2026-11-25)
+
+
+### Bug Fixes
+
+* **programas:** impedir exclusão de programa com status ativo ([e67ef47](https://github.com/lauralxra/Projeto_Ip-/commit/e67ef479b0ca1eec450f4f9dbfe8453159d6086e))
+
+# [1.1.0-dev.39](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.38...v1.1.0-dev.39) (2026-11-25)
+
+
+### Bug Fixes
+
+* **frontend:** redirecionar ao login apos logout em outra aba (uc013) ([ccb6d6d](https://github.com/lauralxra/Projeto_Ip-/commit/ccb6d6d55d45713ca8ea4b30c40ae81e066c40a9))
+
+# [1.1.0-dev.38](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.37...v1.1.0-dev.38) (2026-11-25)
+
+
+### Bug Fixes
+
+* **perfil:** listar nucleos associados no painel de perfil (uc012) ([224005c](https://github.com/lauralxra/Projeto_Ip-/commit/224005c21840052337727412b0732e0ea02913c3))
+
+# [1.1.0-dev.37](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.36...v1.1.0-dev.37) (2026-11-25)
+
+
+### Bug Fixes
+
+* **notificacoes:** exibir falha de carregamento com nova tentativa (uc014) ([45526a4](https://github.com/lauralxra/Projeto_Ip-/commit/45526a4befcb9eea4c65fd30bd77ee646030d761))
+
+# [1.1.0-dev.36](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.35...v1.1.0-dev.36) (2026-11-25)
+
+
+### Features
+
+* **nucleos:** visualizar nucleo em modo somente leitura (uc023) ([dd7f622](https://github.com/lauralxra/Projeto_Ip-/commit/dd7f62245fb75ae7a31c8482dfde12be42dd93aa))
+
+# [1.1.0-dev.35](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.34...v1.1.0-dev.35) (2026-11-25)
+
+
+### Features
+
+* ir_para_login_caso_user_deslogue ([642770b](https://github.com/lauralxra/Projeto_Ip-/commit/642770b867429b5a6082f31c79f338c8bd01b0a7))
+
+# [1.1.0-dev.34](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.33...v1.1.0-dev.34) (2026-11-25)
+
+
+### Bug Fixes
+
+* **auth:** ajustar mensagem e limite de codigos na recuperacao de senha (uc02) ([d3a64df](https://github.com/lauralxra/Projeto_Ip-/commit/d3a64df1c1ecbffb951a34c69ecb5297eea10399))
+* **auth:** rejeitar e-mail nao cadastrado na recuperacao de senha (uc02) ([b01d79d](https://github.com/lauralxra/Projeto_Ip-/commit/b01d79d43dec9a2d68fdb68e9b33ada1104cfd28))
+
+# [1.1.0-dev.33](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.32...v1.1.0-dev.33) (2026-11-24)
+
+
+### Bug Fixes
+
+* **frontend:** proteger histórico e sincronizar núcleos ([4af7c69](https://github.com/lauralxra/Projeto_Ip-/commit/4af7c693b574e9d0b9002442f7d7ea5d4a97d7de))
+* **programas:** contar indicadores ativos e filtrar meta anual ([13ff82c](https://github.com/lauralxra/Projeto_Ip-/commit/13ff82c961def8593df22b068e0655839bfc7934))
+
 # [1.1.0-dev.32](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.31...v1.1.0-dev.32) (2026-11-24)
 
 

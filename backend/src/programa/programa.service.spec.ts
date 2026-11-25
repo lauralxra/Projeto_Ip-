@@ -578,9 +578,13 @@ describe('ProgramaService', () => {
   });
 
   describe('remove', () => {
-    const comVinculos = (indicadores: number, acoes: number) => ({
+    const comVinculos = (
+      indicadores: number,
+      acoes: number,
+      status: StatusRegistro = StatusRegistro.ARQUIVADO,
+    ) => ({
       nome: 'Programa Atual',
-      status: StatusRegistro.ATIVO,
+      status,
       nucleoId: NUCLEO_ID,
       _count: { indicadores, acoes },
     });
@@ -598,11 +602,35 @@ describe('ProgramaService', () => {
           acao: AcaoAuditoria.EXCLUIR_LOGICO,
           dadosAntigos: {
             nome: 'Programa Atual',
-            status: StatusRegistro.ATIVO,
+            status: StatusRegistro.ARQUIVADO,
             nucleoId: NUCLEO_ID,
           },
         }),
       );
+    });
+
+    it('exclui programa inativo', async () => {
+      prisma.programa.findFirst.mockResolvedValue(
+        comVinculos(0, 0, StatusRegistro.INATIVO),
+      );
+
+      await service.remove(PROGRAMA_ID, autor);
+
+      expect(prisma.programa.updateMany).toHaveBeenCalled();
+    });
+
+    it('retorna 400 ao tentar excluir programa ativo', async () => {
+      prisma.programa.findFirst.mockResolvedValue(
+        comVinculos(0, 0, StatusRegistro.ATIVO),
+      );
+
+      const chamada = service.remove(PROGRAMA_ID, autor);
+      await expect(chamada).rejects.toThrow(BadRequestException);
+      await expect(chamada).rejects.toThrow(
+        'Não é possível excluir um programa ativo. Archive-o antes de excluir.',
+      );
+      expect(prisma.programa.updateMany).not.toHaveBeenCalled();
+      expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
 
     it('não exclui programa com indicadores ou ações vigentes', async () => {

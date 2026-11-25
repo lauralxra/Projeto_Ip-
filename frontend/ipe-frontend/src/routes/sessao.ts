@@ -1,4 +1,4 @@
-const CHAVE_TOKEN = 'access_token';
+export const CHAVE_TOKEN = 'access_token';
 const CHAVE_PERFIL = 'user_role';
 const CHAVE_USUARIO = 'user_data';
 const CHAVE_NUCLEOS = 'user_nucleos';
