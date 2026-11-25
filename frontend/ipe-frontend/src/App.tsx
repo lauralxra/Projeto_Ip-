@@ -10,6 +10,7 @@ import TelaUsuarios from './TelaUsuarios';
 import TelaProgramas from './TelaProgramas';
 import TelaHistorico from './TelaHistorico';
 import { lerUsuarioSessao } from './routes/sessao';
+import RotaProtegida from './routes';
 
 function RotaHistoricoProtegida() {
   const usuario = lerUsuarioSessao();
@@ -38,16 +39,19 @@ export default function App() {
         <Route path="/recuperar-senha" element={<TelaRecuperarSenha />} />
         <Route path="/redefinir-senha" element={<TelaRedefinirSenha />} />
 
-        <Route path="/dashboard" element={<TelaDashboard />} />
-        <Route path="/nucleos" element={<TelaNucleos />} />
-        <Route path="/programas" element={<TelaProgramas />} />
-        <Route
-          path="/programas/arquivados"
-          element={<TelaProgramas modoInicial="ARQUIVADO" />}
-        />
-        <Route path="/indicadores" element={<TelaIndicadores />} />
-        <Route path="/historico" element={<RotaHistoricoProtegida />} />
-        <Route path="/usuarios" element={<TelaUsuarios />} />
+        {/* Rotas internas: exigem sessão válida (sem token, volta ao login) */}
+        <Route element={<RotaProtegida />}>
+          <Route path="/dashboard" element={<TelaDashboard />} />
+          <Route path="/nucleos" element={<TelaNucleos />} />
+          <Route path="/programas" element={<TelaProgramas />} />
+          <Route
+            path="/programas/arquivados"
+            element={<TelaProgramas modoInicial="ARQUIVADO" />}
+          />
+          <Route path="/indicadores" element={<TelaIndicadores />} />
+          <Route path="/historico" element={<RotaHistoricoProtegida />} />
+          <Route path="/usuarios" element={<TelaUsuarios />} />
+        </Route>
 
         {/* caso a URL não exista */}
         <Route path="*" element={<Navigate to="/login" replace />} />
