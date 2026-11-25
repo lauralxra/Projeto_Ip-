@@ -12,7 +12,7 @@ const MENSAGEM_SUCESSO = {
 };
 
 const EMAIL_NAO_ENCONTRADO = ApiNotFoundResponse({
-  description: 'E-mail não cadastrado no sistema (FE01 / CT-002.02).',
+  description: 'E-mail não cadastrado (FE01 / CT-002.02).',
 });
 
 const CODIGO_INVALIDO = ApiBadRequestResponse({
@@ -27,11 +27,11 @@ const TENTATIVAS_EXCEDIDAS = ApiTooManyRequestsResponse({
 
 const LIMITE_POR_IP = ApiTooManyRequestsResponse({
   description:
-    'Mais de 20 requisições de recuperação de senha pelo mesmo IP em 15 minutos.',
+    'Mais de 20 requisições de recuperação de senha pelo mesmo IP em 15 minutos, ou limite de códigos da conta atingido (intervalo mínimo de 60 segundos ou 3 códigos por hora).',
 });
 
 const LIMITE_POR_CONTA =
-  ' Por conta, gera no máximo 3 códigos por hora, com intervalo mínimo de 60 segundos; acima disso responde igual, sem gerar código nem enviar e-mail.';
+  ' Por conta, gera no máximo 3 códigos por hora, com intervalo mínimo de 60 segundos; acima disso responde 429, sem gerar código nem enviar e-mail.';
 
 export function RecoveryRequestSwagger() {
   return applyDecorators(

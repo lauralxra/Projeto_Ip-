@@ -94,7 +94,7 @@ describe('AuthService — recuperação de senha (UC02)', () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
-        new NotFoundException('E-mail não cadastrado no sistema.'),
+        new NotFoundException('E-mail não cadastrado.'),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
@@ -132,20 +132,23 @@ describe('AuthService — recuperação de senha (UC02)', () => {
       expect(data.codigoHash).toBe(`hash:${codigo}`);
     });
 
-    it('não gera código novo antes de 60 segundos do anterior', async () => {
+    it('responde 429 e não gera código novo antes de 60 segundos do anterior', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: USER_ID, email: EMAIL });
       prisma.passwordResetToken.findMany.mockResolvedValue([
         { createdAt: new Date(Date.now() - 20 * 1000) },
       ]);
 
-      await expect(service.solicitarRecuperacao(EMAIL)).resolves.toEqual(
-        MENSAGEM,
+      await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
+        new HttpException(
+          'Um código foi enviado há menos de 1 minuto. Aguarde para solicitar outro.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
     });
 
-    it('não gera mais de 3 códigos por hora, impedindo chutar o código pedindo outro', async () => {
+    it('responde 429 e não gera mais de 3 códigos por hora, impedindo chutar o código pedindo outro', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: USER_ID, email: EMAIL });
       prisma.passwordResetToken.findMany.mockResolvedValue([
         { createdAt: new Date(Date.now() - 5 * 60 * 1000) },
@@ -153,8 +156,11 @@ describe('AuthService — recuperação de senha (UC02)', () => {
         { createdAt: new Date(Date.now() - 20 * 60 * 1000) },
       ]);
 
-      await expect(service.solicitarRecuperacao(EMAIL)).resolves.toEqual(
-        MENSAGEM,
+      await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
+        new HttpException(
+          'Limite de 3 códigos por hora atingido. Use o último código recebido ou tente novamente mais tarde.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
