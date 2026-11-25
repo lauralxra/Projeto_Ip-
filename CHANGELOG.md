@@ -1,3 +1,10 @@
+# [1.1.0-dev.36](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.35...v1.1.0-dev.36) (2026-11-25)
+
+
+### Features
+
+* **nucleos:** visualizar nucleo em modo somente leitura (uc023) ([dd7f622](https://github.com/lauralxra/Projeto_Ip-/commit/dd7f62245fb75ae7a31c8482dfde12be42dd93aa))
+
 # [1.1.0-dev.35](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.34...v1.1.0-dev.35) (2026-11-25)
 
 
