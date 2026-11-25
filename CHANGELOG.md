@@ -1,3 +1,10 @@
+# [1.1.0-dev.37](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.36...v1.1.0-dev.37) (2026-11-25)
+
+
+### Bug Fixes
+
+* **notificacoes:** exibir falha de carregamento com nova tentativa (uc014) ([45526a4](https://github.com/lauralxra/Projeto_Ip-/commit/45526a4befcb9eea4c65fd30bd77ee646030d761))
+
 # [1.1.0-dev.36](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.35...v1.1.0-dev.36) (2026-11-25)
 
 
