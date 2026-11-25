@@ -1,3 +1,10 @@
+# [1.1.0-dev.41](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.40...v1.1.0-dev.41) (2026-11-25)
+
+
+### Features
+
+* teste com usuario na navbar ([6e8f970](https://github.com/lauralxra/Projeto_Ip-/commit/6e8f970f6ed3713c175552fa30888b9da139e34f))
+
 # [1.1.0-dev.40](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.39...v1.1.0-dev.40) (2026-11-25)
 
 
