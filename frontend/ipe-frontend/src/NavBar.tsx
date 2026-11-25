@@ -168,7 +168,7 @@ export function NavBar() {
 
         {/* Rodapé Mobile: Usuário & Logout */}
         <div className="border-t border-white/10 pt-4 flex flex-col gap-3">
-          {/*mobileAberto && usuario && (
+          {usuario && (
             <div className="flex items-center gap-3 px-1">
               <div className="w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">
                 {usuario.nome?.charAt(0) || 'U'}
@@ -182,7 +182,7 @@ export function NavBar() {
                 </p>
               </div>
             </div>
-          )*/}
+          )}
           <button
             type="button"
             onClick={handleLogout}
@@ -255,7 +255,7 @@ export function NavBar() {
 
         {/* Rodapé Desktop */}
         <div className="border-t border-white/10 pt-4 flex flex-col gap-3 w-full">
-          {usuario && !colapsado && (
+          {/*usuario && !colapsado && (
             <div className="flex items-center gap-3 px-1">
               <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-xs shrink-0 uppercase">
                 {usuario.nome?.charAt(0) || 'U'}
@@ -269,7 +269,7 @@ export function NavBar() {
                 </p>
               </div>
             </div>
-          )}
+          )*/}
 
           <button
             type="button"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-//import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { UserbarPopupUser } from './UserbarPopupUser';
 import { UserbarPopupNotificacao } from './UserbarPopupNotificacao';
@@ -8,13 +8,54 @@ import { urlDaImagem } from './api/mapeadores';
 import { apiFetch } from './api/cliente';
 
 export function User() {
-  //const navigate = useNavigate();
+  const navigate = useNavigate();
   const [popupUser, setPopupUser] = useState(false);
   const [popUserIsClosing, setUserClosing] = useState(false);
   const [, setVersaoUsuario] = useState(0);
   const [popupNotif, setPopupNotif] = useState(false);
   const [popupNotifIsClosing, setPopupNotifIsClosing] = useState(false);
   const [naoLidas, setNaoLidas] = useState(0);
+
+  // uso da UserBar para checar se o usuario ainda tá logado.
+  useEffect(() => {
+    // no caso de erros esquisitos, apagar todo esse useEffect
+    const verificarAutenticacao = () => {
+      const token = localStorage.getItem('access_token');
+
+      if (!token) {
+        // replace: true impede que a rota protegida fique no histórico do botão "Voltar"
+        navigate('/login', { replace: true });
+      }
+    };
+
+    // 1. Checa assim que a barra é renderizada
+    verificarAutenticacao();
+
+    // 2. Checa quando o usuário aperta "Voltar" ou "Avançar" no navegador (mesmo com cache)
+    const aoVoltarPagina = (event: PageTransitionEvent) => {
+      if (event.persisted || !localStorage.getItem('access_token')) {
+        verificarAutenticacao();
+      }
+    };
+
+    // 3. Checa se o token foi removido em outra aba ou janela
+    const aoMudarStorage = (event: StorageEvent) => {
+      if (event.key === 'access_token' && !event.newValue) {
+        verificarAutenticacao();
+      }
+    };
+
+    window.addEventListener('pageshow', aoVoltarPagina);
+    window.addEventListener('popstate', verificarAutenticacao);
+    window.addEventListener('storage', aoMudarStorage);
+
+    return () => {
+      window.removeEventListener('pageshow', aoVoltarPagina);
+      window.removeEventListener('popstate', verificarAutenticacao);
+      window.removeEventListener('storage', aoMudarStorage);
+    };
+  }, [navigate]);
+  // fim da checagem de usuário
 
   useEffect(() => {
     const atualizar = () => setVersaoUsuario((v) => v + 1);
