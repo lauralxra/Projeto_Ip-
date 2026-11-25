@@ -47,7 +47,7 @@ test.describe('Regressão e Validação de Correções da RC2', () => {
       await expect(page.locator('input[type="email"]')).toBeVisible();
     });
 
-    test('CT-002.02: Solicitação para e-mail inexistente responde de forma uniforme (OWASP)', async ({
+    test('CT-002.02: Solicitação para e-mail inexistente exibe mensagem de e-mail não cadastrado (BUG-009 / FE01)', async ({
       page,
     }) => {
       await page.goto('/recuperar-senha');
@@ -56,10 +56,13 @@ test.describe('Regressão e Validação de Correções da RC2', () => {
         .fill('usuario.inexistente.qa@ipe.org.br');
       await page.locator('button:has-text("Enviar código")').click();
 
-      // Resposta uniforme de segurança (avança para tela de código sem expor se o e-mail existe)
-      await expect(page.locator('label[for="recuperar-codigo"]')).toBeVisible({
-        timeout: 10000,
-      });
+      // Exibe mensagem de erro na tela e sinaliza campo conforme CT-002.02
+      const alerta = page.locator('text=E-mail não cadastrado');
+      await expect(alerta).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('input#recuperar-email')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
     });
   });
 
@@ -77,18 +80,25 @@ test.describe('Regressão e Validação de Correções da RC2', () => {
       await perfilBtn.click();
 
       // Opção "Núcleos Associados" deve estar visível no menu
-      const itemNucleos = page.locator('text=Núcleos Associados');
+      const itemNucleos = page.locator('[data-testid="nucleos-associados"]');
       await expect(itemNucleos).toBeVisible({ timeout: 5000 });
 
-      // Clicar em Núcleos Associados leva para /nucleos
-      await itemNucleos.click();
+      // O accordion de núcleos associados já renderiza a seção na abertura do perfil (UC12 / PR #390)
+      const listaNucleos = page.locator('#lista-nucleos-associados');
+      await expect(listaNucleos).toBeVisible({ timeout: 5000 });
+
+      // Clicar em um dos núcleos vinculados redireciona para /nucleos
+      const linkNucleoItem = listaNucleos.locator('button').first();
+      await expect(linkNucleoItem).toBeVisible({ timeout: 5000 });
+      await linkNucleoItem.click();
+
       await page.waitForURL('**/nucleos', { timeout: 10000 });
       await expect(page).toHaveURL(/.*nucleos/);
     });
   });
 
   test.describe('[UC014] - Visualizar Notificação com Tratamento de Falha (BUG-011)', () => {
-    test('CT-014.05: Falha na API de notificações exibe mensagem amigável de erro', async ({
+    test('CT-014.05: Falha na API de notificações exibe mensagem amigável de erro com retry', async ({
       page,
     }) => {
       await loginViaUI(page);
@@ -108,11 +118,13 @@ test.describe('Regressão e Validação de Correções da RC2', () => {
       await expect(sinoBtn).toBeVisible({ timeout: 5000 });
       await sinoBtn.click();
 
-      // Valida que a mensagem amigável é exibida
-      const msgErro = page.locator(
-        'text=Não foi possível carregar as notificações. Tente novamente.',
+      // Valida que o alerta amigável e o botão de retry são exibidos (TC14.5 / PR #389)
+      const alerta = page.locator(
+        'div[role="alert"]:has-text("Não foi possível carregar as notificações")',
       );
-      await expect(msgErro).toBeVisible({ timeout: 5000 });
+      await expect(alerta).toBeVisible({ timeout: 5000 });
+      const btnRetry = page.locator('button:has-text("Tentar novamente")');
+      await expect(btnRetry).toBeVisible({ timeout: 5000 });
     });
   });
 

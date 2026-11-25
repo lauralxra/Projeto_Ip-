@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -167,17 +167,13 @@ describe('AuthService — Login, Bloqueio de Tentativas e Anti-enumeração (UC0
     });
   });
 
-  describe('UC02 — Proteção contra Enumeração de Usuários (BUG-009 / CT-002.02)', () => {
-    it('responde mensagem idêntica para e-mail inexistente sem vazar status (OWASP)', async () => {
+  describe('UC02 — Validação de E-mail na Recuperação de Senha (BUG-009 / CT-002.02)', () => {
+    it('rejeita com 404 NotFoundException para e-mail inexistente no sistema', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
-      const resposta = await service.solicitarRecuperacao(
-        'inexistente@ipe.org.br',
-      );
-
-      expect(resposta).toEqual({
-        message: 'Se o e-mail estiver cadastrado, você receberá o código.',
-      });
+      await expect(
+        service.solicitarRecuperacao('inexistente@ipe.org.br'),
+      ).rejects.toThrow(new NotFoundException('E-mail não cadastrado.'));
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
     });
