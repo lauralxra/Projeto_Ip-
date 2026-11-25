@@ -1,11 +1,17 @@
 import { createPortal } from 'react-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Imagens, Svg } from './config/assets';
 import { TelaUsuarioUserPopup } from './TelaUsuarioUserPopup';
 import { UsuarioAtual, type Usuario } from './dados/usuarios';
+import type { Nucleo } from './dados/nucleos';
 import { apiFetch, mensagemDeErro } from './api/cliente';
-import { SENHA_OCULTA, urlDaImagem } from './api/mapeadores';
+import {
+  nucleoDaApi,
+  SENHA_OCULTA,
+  urlDaImagem,
+  type NucleoApi,
+} from './api/mapeadores';
 import {
   enviarFotoUsuario,
   pedirSenhaAtual,
@@ -226,6 +232,162 @@ function IconSair() {
 }
 
 /* =========================
+   Núcleos associados (UC12 / BUG-TC12.1)
+========================= */
+
+// ADM e Equipe de Comunicação têm acesso global e não usam vínculo por núcleo;
+// para eles a rota /users/me/nucleos responde 403 (RN02)
+const PERFIS_ACESSO_GLOBAL = ['ADM', 'EC'];
+
+function NucleosAssociados({ itemMenu }: { itemMenu: string }) {
+  const navigate = useNavigate();
+  const acessoGlobal = PERFIS_ACESSO_GLOBAL.includes(UsuarioAtual.tipo);
+  const [aberto, setAberto] = useState(true);
+  const [nucleos, setNucleos] = useState<Nucleo[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [tentativa, setTentativa] = useState(0);
+
+  useEffect(() => {
+    if (acessoGlobal) return;
+    let ativo = true;
+    setErro(null);
+    apiFetch<NucleoApi[]>('/users/me/nucleos')
+      .then((itens) => {
+        if (ativo) setNucleos(itens.map(nucleoDaApi));
+      })
+      .catch((e: unknown) => {
+        if (ativo) setErro(mensagemDeErro(e));
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [acessoGlobal, tentativa]);
+
+  const resumo = acessoGlobal
+    ? 'Acesso a todos os núcleos'
+    : erro
+      ? 'Não foi possível carregar'
+      : nucleos === null
+        ? 'Carregando...'
+        : nucleos.length === 0
+          ? 'Nenhum núcleo vinculado'
+          : `${nucleos.length} ${nucleos.length === 1 ? 'núcleo vinculado' : 'núcleos vinculados'}`;
+
+  return (
+    <div className="w-full" data-testid="nucleos-associados">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        aria-controls="lista-nucleos-associados"
+        className={`${itemMenu} text-[#664666]`}
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
+          <IconNucleos />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold">Núcleos Associados</p>
+          <p className="mt-1 text-xs text-[#99919b]">{resumo}</p>
+        </div>
+
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          className={`shrink-0 text-[#b7a8b8] transition-transform duration-200 ${
+            aberto ? 'rotate-90' : ''
+          }`}
+        >
+          <path
+            d="M9 18L15 12L9 6"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {aberto && (
+        <div
+          id="lista-nucleos-associados"
+          className="mt-1 flex flex-col gap-1.5 px-2"
+        >
+          {acessoGlobal ? (
+            <p className="px-2 py-2 text-xs text-[#99919b]">
+              Seu perfil tem acesso a todos os núcleos da plataforma.
+            </p>
+          ) : erro ? (
+            <div className="px-2 py-2 text-xs">
+              <p className="text-[#7a1f2b]">
+                Não foi possível carregar seus núcleos.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setNucleos(null);
+                  setTentativa((t) => t + 1);
+                }}
+                className="mt-1 font-semibold text-[#A13680] hover:underline cursor-pointer"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : nucleos === null ? (
+            <p className="px-2 py-2 text-xs text-[#99919b]">
+              Carregando núcleos...
+            </p>
+          ) : nucleos.length === 0 ? (
+            <p className="px-2 py-2 text-xs text-[#99919b]">
+              Você ainda não está vinculado a nenhum núcleo.
+            </p>
+          ) : (
+            <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
+              {nucleos.map((nucleo) => (
+                <li key={nucleo.id}>
+                  <button
+                    type="button"
+                    onClick={() => void navigate('/nucleos')}
+                    title={`Ver ${nucleo.nome} na tela de Núcleos`}
+                    className="flex w-full items-center gap-3 rounded-xl border border-[#f0e6f0] bg-[#fcf8fc] px-3 py-2.5 text-left transition-colors hover:bg-[#f5edf5] cursor-pointer"
+                  >
+                    <div
+                      className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full ${nucleo.corBg} ${nucleo.corIcone}`}
+                    >
+                      {nucleo.icone ? (
+                        <img
+                          alt=""
+                          className="size-full object-cover"
+                          src={nucleo.icone}
+                        />
+                      ) : (
+                        <span className="text-[10px] font-bold">
+                          {nucleo.logoTexto}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-[#664666]">
+                        {nucleo.nome}
+                      </p>
+                      <p className="text-[11px] font-medium text-[#A13680]">
+                        {nucleo.sigla}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================
    Opções do usuário
 ========================= */
 
@@ -328,40 +490,7 @@ function OptExtras({
           </button>
 
           {/* Núcleos associados (UC12) */}
-          <a
-            href="/nucleos"
-            className={`${itemMenu} text-[#664666]`}
-            data-testid="link-nucleos-associados"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f3eaf3] text-[#A13680]">
-              <IconNucleos />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold">Núcleos Associados</p>
-              <p className="mt-1 text-xs text-[#99919b]">
-                {UsuarioAtual.nucleos?.length
-                  ? UsuarioAtual.nucleos.map((n) => n.sigla).join(', ')
-                  : 'Consultar núcleos vinculados'}
-              </p>
-            </div>
-
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="shrink-0 text-[#b7a8b8]"
-            >
-              <path
-                d="M9 18L15 12L9 6"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
+          <NucleosAssociados itemMenu={itemMenu} />
         </div>
       </div>
 
