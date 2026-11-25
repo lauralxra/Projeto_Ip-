@@ -1,3 +1,10 @@
+# [1.1.0-dev.38](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.37...v1.1.0-dev.38) (2026-11-25)
+
+
+### Bug Fixes
+
+* **perfil:** listar nucleos associados no painel de perfil (uc012) ([224005c](https://github.com/lauralxra/Projeto_Ip-/commit/224005c21840052337727412b0732e0ea02913c3))
+
 # [1.1.0-dev.37](https://github.com/lauralxra/Projeto_Ip-/compare/v1.1.0-dev.36...v1.1.0-dev.37) (2026-11-25)
 
 
