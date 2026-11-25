@@ -1,14 +1,19 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 
-const MENSAGEM_GENERICA = {
-  message: 'Se o e-mail estiver cadastrado, você receberá o código.',
+const MENSAGEM_SUCESSO = {
+  message: 'Código de recuperação enviado para o e-mail informado.',
 };
+
+const EMAIL_NAO_ENCONTRADO = ApiNotFoundResponse({
+  description: 'E-mail não cadastrado (FE01 / CT-002.02).',
+});
 
 const CODIGO_INVALIDO = ApiBadRequestResponse({
   description:
@@ -22,22 +27,23 @@ const TENTATIVAS_EXCEDIDAS = ApiTooManyRequestsResponse({
 
 const LIMITE_POR_IP = ApiTooManyRequestsResponse({
   description:
-    'Mais de 20 requisições de recuperação de senha pelo mesmo IP em 15 minutos.',
+    'Mais de 20 requisições de recuperação de senha pelo mesmo IP em 15 minutos, ou limite de códigos da conta atingido (intervalo mínimo de 60 segundos ou 3 códigos por hora).',
 });
 
 const LIMITE_POR_CONTA =
-  ' Por conta, gera no máximo 3 códigos por hora, com intervalo mínimo de 60 segundos; acima disso responde igual, sem gerar código nem enviar e-mail.';
+  ' Por conta, gera no máximo 3 códigos por hora, com intervalo mínimo de 60 segundos; acima disso responde 429, sem gerar código nem enviar e-mail.';
 
 export function RecoveryRequestSwagger() {
   return applyDecorators(
     ApiOperation({
       summary: 'Solicitar código de recuperação de senha (UC02)',
       description:
-        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa e invalida códigos anteriores. A resposta é sempre a mesma, exista ou não a conta.' +
+        'Envia um código de 6 dígitos, válido por 15 minutos, ao e-mail de uma conta ativa cadastrada e invalida códigos anteriores (RN01, RN02, FE01).' +
         LIMITE_POR_CONTA,
     }),
-    ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
+    ApiOkResponse({ schema: { example: MENSAGEM_SUCESSO } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    EMAIL_NAO_ENCONTRADO,
     LIMITE_POR_IP,
   );
 }
@@ -47,11 +53,12 @@ export function RecoveryResendSwagger() {
     ApiOperation({
       summary: 'Reenviar código de recuperação de senha (UC02, RN07)',
       description:
-        'Gera um novo código e invalida o anterior. A resposta é sempre a mesma, exista ou não a conta.' +
+        'Gera um novo código para uma conta ativa cadastrada e invalida o anterior.' +
         LIMITE_POR_CONTA,
     }),
-    ApiOkResponse({ schema: { example: MENSAGEM_GENERICA } }),
+    ApiOkResponse({ schema: { example: MENSAGEM_SUCESSO } }),
     ApiBadRequestResponse({ description: 'E-mail em formato inválido.' }),
+    EMAIL_NAO_ENCONTRADO,
     LIMITE_POR_IP,
   );
 }

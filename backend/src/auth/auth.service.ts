@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
@@ -44,7 +45,12 @@ const RECUPERACAO_MAX_TENTATIVAS = 5;
 const RECUPERACAO_INTERVALO_MINIMO_MS = 60 * 1000;
 const RECUPERACAO_MAX_CODIGOS_POR_HORA = 3;
 const RECUPERACAO_MENSAGEM =
-  'Se o e-mail estiver cadastrado, você receberá o código.';
+  'Código de recuperação enviado para o e-mail informado.';
+const EMAIL_NAO_CADASTRADO = 'E-mail não cadastrado.';
+const AGUARDE_NOVO_CODIGO =
+  'Um código foi enviado há menos de 1 minuto. Aguarde para solicitar outro.';
+const LIMITE_CODIGOS_POR_HORA =
+  'Limite de 3 códigos por hora atingido. Use o último código recebido ou tente novamente mais tarde.';
 // Mesma resposta para e-mail inexistente, sem código, código errado ou expirado
 const CODIGO_INVALIDO = 'Código inválido ou expirado.';
 
@@ -185,28 +191,27 @@ export class AuthService {
   }
 
   // UC02 passo 1 (e reenvio, RN07): gera um novo código e invalida os anteriores.
-  // A resposta é sempre a mesma, exista ou não a conta, para não revelar e-mails cadastrados.
+  // RN01/RN02 e FE01 (CT-002.02): apenas contas cadastradas e ativas podem solicitar recuperação;
+  // e-mails não cadastrados recebem 404 explícito para impedir avanço indevido na tela.
   async solicitarRecuperacao(email: string) {
-    // RN01/RN02: só contas ativas e não excluídas recebem código
+    const emailNormalizado = email.trim().toLowerCase();
+
     const user = await this.prisma.user.findFirst({
-      where: { email, deletedAt: null, ativo: true },
+      where: { email: emailNormalizado, deletedAt: null, ativo: true },
       select: { id: true, email: true },
     });
 
+    if (!user) {
+      throw new NotFoundException(EMAIL_NAO_CADASTRADO);
+    }
+
+    // Acima do limite responde 429, sem gerar código nem enviar e-mail:
+    // não serve para lotar a caixa de entrada de ninguém nem para chutar códigos
+    await this.garantirLimiteDeCodigos(user.id);
+
     // Código de 6 dígitos com gerador criptográfico (zeros à esquerda são válidos)
     const codigo = randomInt(0, 1_000_000).toString().padStart(6, '0');
-    // O hash é calculado mesmo sem conta, para o tempo de resposta não denunciar o e-mail
     const codigoHash = await bcrypt.hash(codigo, BCRYPT_ROUNDS);
-
-    if (!user) {
-      return { message: RECUPERACAO_MENSAGEM };
-    }
-
-    // Acima do limite responde igual, sem gerar código nem enviar e-mail:
-    // não denuncia a conta e não serve para lotar a caixa de entrada de ninguém
-    if (await this.limiteDeCodigosAtingido(user.id)) {
-      return { message: RECUPERACAO_MENSAGEM };
-    }
 
     const expiraEm = new Date(
       Date.now() + RECUPERACAO_VALIDADE_MINUTOS * 60 * 1000,
@@ -222,7 +227,7 @@ export class AuthService {
       }),
     ]);
 
-    // Sem await: a espera pelo SMTP denunciaria que o e-mail existe.
+    // Sem await: a resposta não fica presa à lentidão do SMTP.
     // Falha no envio fica só no log; o usuário pode pedir o reenvio.
     this.mail.sendPasswordReset(user.email, codigo).catch((error: unknown) => {
       this.logger.warn(
@@ -304,7 +309,7 @@ export class AuthService {
     return { message: 'Senha redefinida com sucesso.' };
   }
 
-  private async limiteDeCodigosAtingido(userId: string): Promise<boolean> {
+  private async garantirLimiteDeCodigos(userId: string): Promise<void> {
     const agora = Date.now();
     const recentes = await this.prisma.passwordResetToken.findMany({
       where: { userId, createdAt: { gte: new Date(agora - 60 * 60 * 1000) } },
@@ -312,11 +317,21 @@ export class AuthService {
       select: { createdAt: true },
     });
 
-    if (recentes.length >= RECUPERACAO_MAX_CODIGOS_POR_HORA) return true;
-    return (
+    if (recentes.length >= RECUPERACAO_MAX_CODIGOS_POR_HORA) {
+      throw new HttpException(
+        LIMITE_CODIGOS_POR_HORA,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    if (
       recentes.length > 0 &&
       agora - recentes[0].createdAt.getTime() < RECUPERACAO_INTERVALO_MINIMO_MS
-    );
+    ) {
+      throw new HttpException(
+        AGUARDE_NOVO_CODIGO,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   // Confere o código do token mais recente não usado. A tentativa é reservada antes

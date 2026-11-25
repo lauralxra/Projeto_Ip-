@@ -1,10 +1,18 @@
-import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  NotFoundException,
+} from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { AcaoAuditoria } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { AuthService } from './auth.service';
+import { RequestRecoveryDto } from './dto/request-recovery.dto';
 
 // bcrypt real deixaria a suíte lenta (e sujeita a timeout); aqui o "hash" é previsível
 jest.mock('bcrypt', () => ({
@@ -79,17 +87,26 @@ describe('AuthService — recuperação de senha (UC02)', () => {
 
   describe('solicitarRecuperacao', () => {
     const MENSAGEM = {
-      message: 'Se o e-mail estiver cadastrado, você receberá o código.',
+      message: 'Código de recuperação enviado para o e-mail informado.',
     };
 
-    it('responde igual para e-mail não cadastrado, sem gerar código nem enviar e-mail', async () => {
+    it('rejeita com 404 e-mail não cadastrado no sistema, sem gerar código nem enviar e-mail (BUG-009 / CT-002.02 / FE01)', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.solicitarRecuperacao(EMAIL)).resolves.toEqual(
-        MENSAGEM,
+      await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
+        new NotFoundException('E-mail não cadastrado.'),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('rejeita formato de e-mail inválido sem domínio completo (ex.: qualquercoisa@email) no RequestRecoveryDto', async () => {
+      const dto = plainToInstance(RequestRecoveryDto, {
+        email: 'qualquercoisa@email',
+      });
+      const erros = await validate(dto);
+
+      expect(erros.map((e) => e.property)).toEqual(['email']);
     });
 
     it('invalida códigos anteriores, grava só o hash e envia um código de 6 dígitos', async () => {
@@ -115,20 +132,23 @@ describe('AuthService — recuperação de senha (UC02)', () => {
       expect(data.codigoHash).toBe(`hash:${codigo}`);
     });
 
-    it('não gera código novo antes de 60 segundos do anterior', async () => {
+    it('responde 429 e não gera código novo antes de 60 segundos do anterior', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: USER_ID, email: EMAIL });
       prisma.passwordResetToken.findMany.mockResolvedValue([
         { createdAt: new Date(Date.now() - 20 * 1000) },
       ]);
 
-      await expect(service.solicitarRecuperacao(EMAIL)).resolves.toEqual(
-        MENSAGEM,
+      await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
+        new HttpException(
+          'Um código foi enviado há menos de 1 minuto. Aguarde para solicitar outro.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
     });
 
-    it('não gera mais de 3 códigos por hora, impedindo chutar o código pedindo outro', async () => {
+    it('responde 429 e não gera mais de 3 códigos por hora, impedindo chutar o código pedindo outro', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: USER_ID, email: EMAIL });
       prisma.passwordResetToken.findMany.mockResolvedValue([
         { createdAt: new Date(Date.now() - 5 * 60 * 1000) },
@@ -136,8 +156,11 @@ describe('AuthService — recuperação de senha (UC02)', () => {
         { createdAt: new Date(Date.now() - 20 * 60 * 1000) },
       ]);
 
-      await expect(service.solicitarRecuperacao(EMAIL)).resolves.toEqual(
-        MENSAGEM,
+      await expect(service.solicitarRecuperacao(EMAIL)).rejects.toThrow(
+        new HttpException(
+          'Limite de 3 códigos por hora atingido. Use o último código recebido ou tente novamente mais tarde.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
       );
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
