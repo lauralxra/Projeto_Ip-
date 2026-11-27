@@ -1,6 +1,5 @@
 import {
   CanActivate,
-  ConflictException,
   ExecutionContext,
   ForbiddenException,
   INestApplication,
