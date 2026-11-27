@@ -148,7 +148,9 @@ describe('ImportacaoService', () => {
     it('rejeita a linha e nunca cria indicador', async () => {
       prisma.indicador.findFirst.mockResolvedValue(null);
 
-      await importar(`${CABECALHO}\nIndicador Digitado Errado,NEI,Aceleração,2025,Q1,10`);
+      await importar(
+        `${CABECALHO}\nIndicador Digitado Errado,NEI,Aceleração,2025,Q1,10`,
+      );
 
       expect(prisma.indicador.create).not.toHaveBeenCalled();
       expect(prisma.indicadorRegistro.create).not.toHaveBeenCalled();
@@ -167,7 +169,9 @@ describe('ImportacaoService', () => {
     });
 
     it('busca pelo nome só dentro do núcleo e do programa informados', async () => {
-      await importar(`${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`);
+      await importar(
+        `${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`,
+      );
 
       expect(prisma.indicador.findFirst).toHaveBeenCalledWith({
         where: expect.objectContaining({
@@ -181,7 +185,9 @@ describe('ImportacaoService', () => {
 
   describe('gravação e auditoria', () => {
     it('cria o registro em preenchimento e audita a criação', async () => {
-      await importar(`${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`);
+      await importar(
+        `${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`,
+      );
 
       expect(prisma.indicadorRegistro.create).toHaveBeenCalledWith({
         data: {
@@ -282,7 +288,9 @@ describe('ImportacaoService', () => {
         registroEm(StatusAprovacao.EM_PREENCHIMENTO, 'INATIVO'),
       );
 
-      await importar(`${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`);
+      await importar(
+        `${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`,
+      );
 
       expect(prisma.indicadorRegistro.updateMany).not.toHaveBeenCalled();
       expect(resultado().erros[0].mensagem).toBe(
@@ -295,7 +303,9 @@ describe('ImportacaoService', () => {
         registroEm(StatusAprovacao.APROVADO),
       );
 
-      await importar(`${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`);
+      await importar(
+        `${CABECALHO}\nStartups Aceleradas,NEI,Aceleração,2025,Q1,10`,
+      );
 
       expect(prisma.indicadorRegistro.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
