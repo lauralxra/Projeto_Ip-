@@ -2,18 +2,24 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 import {
-  EscopoIndicador,
+  AcaoAuditoria,
   Indicador,
   Nucleo,
   Programa,
   Role,
+  StatusAprovacao,
   StatusImportacao,
-  TipoDadoIndicador,
   TrimestreEnum,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import {
+  alterarValorRegistro,
+  bloqueioDeAlteracao,
+} from '../registro/regras-registro';
 
 type LinhaCsv = {
   numero: number;
@@ -24,16 +30,27 @@ type LinhaCsv = {
   nucleoNome?: string;
   programaId?: string;
   programaNome?: string;
-  unidadeMedida?: string | null;
   ano: number;
   trimestre: TrimestreEnum;
   valorRealizado: number | null;
   meta?: number | null;
 };
 
+// Cabeçalhos são comparados sem acento, maiúsculas, espaços ou "_":
+// "Núcleo", "NUCLEO" e "nome_do_nucleo" viram "nucleo" / "nomedonucleo"
+export const normalizarCabecalho = (texto: string) =>
+  texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[\s_]/g, '');
+
 @Injectable()
 export class ImportacaoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async importarCsv(
     arquivoNome: string,
@@ -84,11 +101,11 @@ export class ImportacaoService {
       (linhas[0].match(/,/g) ?? []).length
         ? ';'
         : ',';
-    const cabecalho = separar(linhas[0], delimitador).map((c) =>
-      c.toLowerCase().replace(/[\s_]/g, ''),
-    );
-    const indice = (nomes: string[]) =>
-      cabecalho.findIndex((c) => nomes.includes(c));
+    const cabecalho = separar(linhas[0], delimitador).map(normalizarCabecalho);
+    const indice = (nomes: string[]) => {
+      const aceitos = nomes.map(normalizarCabecalho);
+      return cabecalho.findIndex((c) => aceitos.includes(c));
+    };
 
     const colunas = {
       indicadorId: indice(['indicadorid', 'idindicador']),
@@ -119,9 +136,6 @@ export class ImportacaoService {
         'nome_do_programa',
         'programa_nome',
       ]),
-      unidadeMedida: indice(['unidademedida', 'unidade', 'unidade_medida']),
-      escopo: indice(['escopo']),
-      tipoDado: indice(['tipodado', 'tipo_dado']),
       ano: indice(['ano']),
       trimestre: indice(['trimestre', 'periodo']),
       valor: indice(['valorrealizado', 'valor']),
@@ -138,19 +152,19 @@ export class ImportacaoService {
 
     if (!temIndicadorReferenciado && !temIndicadorNomeOuCodigo) {
       throw new BadRequestException(
-        'Cabeçalho obrigatório: deve conter pelo menos um identificador do indicador (indicadorId, nomeIndicador ou codigoIndicador), além de nucleo, programa, ano, trimestre e valorRealizado. A unidade de medida é opcional.',
+        'Cabeçalho obrigatório: deve conter pelo menos um identificador do indicador (indicadorId, nomeIndicador ou codigoIndicador), além de nucleo, programa, ano, trimestre e valorRealizado.',
       );
     }
 
     if (!temNucleoReferenciado || !temProgramaReferenciado) {
       throw new BadRequestException(
-        'Cabeçalho obrigatório: deve conter nucleo e programa (ou nucleoId e programaId), além de ano, trimestre e valorRealizado. A unidade de medida é opcional.',
+        'Cabeçalho obrigatório: deve conter nucleo e programa (ou nucleoId e programaId), além de ano, trimestre e valorRealizado.',
       );
     }
 
     if (colunas.ano < 0 || colunas.trimestre < 0 || colunas.valor < 0) {
       throw new BadRequestException(
-        'Cabeçalho obrigatório: ano, trimestre e valorRealizado. Campos obrigatórios adicionais: nucleo e programa. A unidade de medida é opcional.',
+        'Cabeçalho obrigatório: ano, trimestre e valorRealizado. Campos obrigatórios adicionais: nucleo e programa.',
       );
     }
 
@@ -188,10 +202,6 @@ export class ImportacaoService {
         colunas.programaNome >= 0
           ? campos[colunas.programaNome]?.trim() || undefined
           : undefined;
-      const unidadeMedida =
-        colunas.unidadeMedida >= 0
-          ? campos[colunas.unidadeMedida]?.trim() || 'unidade'
-          : 'unidade';
       const anoTexto = campos[colunas.ano];
       const ano = Number(anoTexto);
       const trimestre = campos[
@@ -250,7 +260,6 @@ export class ImportacaoService {
         nucleoNome,
         programaId,
         programaNome,
-        unidadeMedida,
         ano,
         trimestre,
         valorRealizado,
@@ -280,19 +289,20 @@ export class ImportacaoService {
     });
 
     let linhasOk = 0;
-    const cacheIndicadores = new Map<string, Indicador>();
+    const ehAdministrador = role === Role.ADMINISTRADOR;
+    const semPermissao = 'Sem permissão para este núcleo.';
 
     for (const linha of validas) {
-      try {
-        let nucleoVinculado: Nucleo | null = null;
+      const erro = (mensagem: string) =>
+        erros.push({ linha: linha.numero, mensagem });
 
+      try {
+        // 1) Núcleo: precisa existir, estar ativo e ser do usuário (RN02).
+        //    A permissão é checada antes de qualquer gravação.
+        let nucleoVinculado: Nucleo | null = null;
         if (linha.nucleoId) {
           nucleoVinculado = await this.prisma.nucleo.findFirst({
-            where: {
-              id: linha.nucleoId,
-              deletedAt: null,
-              status: 'ATIVO',
-            },
+            where: { id: linha.nucleoId, deletedAt: null, status: 'ATIVO' },
           });
         } else if (linha.nucleoNome) {
           nucleoVinculado = await this.prisma.nucleo.findFirst({
@@ -306,25 +316,26 @@ export class ImportacaoService {
             },
           });
         }
-
-        if (linha.nucleoNome && !nucleoVinculado) {
-          erros.push({
-            linha: linha.numero,
-            mensagem:
-              'Núcleo não encontrado ou inativo. Cadastre o núcleo antes de importar os indicadores.',
-          });
+        if (!nucleoVinculado) {
+          erro(
+            'Núcleo não encontrado ou inativo. Cadastre o núcleo antes de importar os indicadores.',
+          );
+          continue;
+        }
+        if (!ehAdministrador && !nucleosPermitidos.has(nucleoVinculado.id)) {
+          erro(semPermissao);
           continue;
         }
 
+        // 2) Programa: precisa existir, estar ativo e pertencer ao núcleo
         let programaVinculado: Programa | null = null;
-
         if (linha.programaId) {
           programaVinculado = await this.prisma.programa.findFirst({
             where: {
               id: linha.programaId,
               deletedAt: null,
               status: 'ATIVO',
-              ...(nucleoVinculado ? { nucleoId: nucleoVinculado.id } : {}),
+              nucleoId: nucleoVinculado.id,
             },
           });
         } else if (linha.programaNome) {
@@ -333,131 +344,62 @@ export class ImportacaoService {
               nome: { equals: linha.programaNome, mode: 'insensitive' },
               deletedAt: null,
               status: 'ATIVO',
-              ...(nucleoVinculado ? { nucleoId: nucleoVinculado.id } : {}),
+              nucleoId: nucleoVinculado.id,
             },
           });
         }
-
-        if (linha.programaNome && !programaVinculado) {
-          erros.push({
-            linha: linha.numero,
-            mensagem:
-              'Programa não encontrado, inativo ou incompatível com o núcleo. Cadastre o programa antes de importar os indicadores.',
-          });
+        if (!programaVinculado) {
+          erro(
+            'Programa não encontrado, inativo ou incompatível com o núcleo. Cadastre o programa antes de importar os indicadores.',
+          );
           continue;
         }
 
-        if (
-          nucleoVinculado &&
-          programaVinculado &&
-          programaVinculado.nucleoId &&
-          nucleoVinculado.id !== programaVinculado.nucleoId
-        ) {
-          erros.push({
-            linha: linha.numero,
-            mensagem: 'Núcleo e programa informados são incompatíveis.',
-          });
-          continue;
-        }
-
+        // 3) Indicador: só busca; a importação nunca cria indicadores
+        const referencia =
+          linha.indicadorNome || linha.indicadorCodigo || linha.indicadorId;
         let indicador: Indicador | null = null;
-
         if (linha.indicadorId) {
           indicador = await this.prisma.indicador.findFirst({
+            where: { id: linha.indicadorId, deletedAt: null, status: 'ATIVO' },
+          });
+        } else if (linha.indicadorCodigo) {
+          indicador = await this.prisma.indicador.findFirst({
             where: {
-              id: linha.indicadorId,
+              codigo: linha.indicadorCodigo,
               deletedAt: null,
               status: 'ATIVO',
             },
           });
         }
-
-        const nome =
-          linha.indicadorNome?.trim() ||
-          linha.indicadorCodigo?.trim() ||
-          'Indicador importado';
-        const codigo = linha.indicadorCodigo?.trim() || null;
-
-        const chaveCache = linha.indicadorId
-          ? `id:${linha.indicadorId}`
-          : codigo
-            ? `cod:${codigo.toLowerCase()}`
-            : `nome:${nome.toLowerCase()}|n:${nucleoVinculado?.id ?? 'inst'}|p:${programaVinculado?.id ?? 'semprog'}`;
-
-        if (!indicador && cacheIndicadores.has(chaveCache)) {
-          indicador = cacheIndicadores.get(chaveCache) ?? null;
+        if (!indicador && !linha.indicadorId && linha.indicadorNome) {
+          indicador = await this.prisma.indicador.findFirst({
+            where: {
+              nome: { equals: linha.indicadorNome, mode: 'insensitive' },
+              deletedAt: null,
+              status: 'ATIVO',
+              nucleoId: nucleoVinculado.id,
+              programaId: programaVinculado.id,
+            },
+          });
         }
-
-        if (!indicador && (linha.indicadorNome || linha.indicadorCodigo)) {
-          if (codigo) {
-            indicador = await this.prisma.indicador.findFirst({
-              where: {
-                codigo,
-                deletedAt: null,
-                status: 'ATIVO',
-              },
-            });
-          }
-
-          if (!indicador && linha.indicadorNome) {
-            indicador = await this.prisma.indicador.findFirst({
-              where: {
-                nome: { equals: nome, mode: 'insensitive' },
-                deletedAt: null,
-                status: 'ATIVO',
-                ...(nucleoVinculado
-                  ? { nucleoId: nucleoVinculado.id }
-                  : { nucleoId: null }),
-                ...(programaVinculado
-                  ? { programaId: programaVinculado.id }
-                  : {}),
-              },
-            });
-          }
-
-          if (!indicador) {
-            indicador = await this.prisma.indicador.create({
-              data: {
-                nome,
-                codigo,
-                descricao: null,
-                unidadeMedida: linha.unidadeMedida || 'unidade',
-                escopo:
-                  nucleoVinculado || programaVinculado
-                    ? EscopoIndicador.NUCLEO
-                    : EscopoIndicador.INSTITUCIONAL,
-                tipoDado: TipoDadoIndicador.NUMERICO,
-                nucleoId: nucleoVinculado?.id ?? null,
-                programaId: programaVinculado?.id ?? null,
-              },
-            });
-          }
-
-          if (indicador) {
-            cacheIndicadores.set(chaveCache, indicador);
-          }
-        }
-
         if (!indicador) {
-          erros.push({
-            linha: linha.numero,
-            mensagem: 'Indicador não encontrado ou inativo.',
-          });
+          erro(`Indicador não encontrado: ${referencia}`);
           continue;
         }
 
+        // Indicador buscado por id/código pode ser de outro núcleo: mesma regra
+        // do lançamento manual (institucional fica com a administração)
         if (
-          role !== Role.ADMINISTRADOR &&
-          indicador.nucleoId !== null &&
-          !nucleosPermitidos.has(indicador.nucleoId)
+          !ehAdministrador &&
+          (!indicador.nucleoId || !nucleosPermitidos.has(indicador.nucleoId))
         ) {
-          erros.push({
-            linha: linha.numero,
-            mensagem: 'Sem permissão para este núcleo.',
-          });
+          erro(semPermissao);
           continue;
         }
 
+        // 4) Registro existente: mesma regra de alterarValorRegistro, checada
+        //    antes de gravar o valor ou a meta
         const registroExistente = await this.prisma.indicadorRegistro.findFirst(
           {
             where: {
@@ -468,44 +410,69 @@ export class ImportacaoService {
             },
           },
         );
-
-        const dadosRegistro: {
-          valorRealizado: number | null;
-          importacaoId: string;
-          metaAplicada?: number;
-        } = {
-          valorRealizado: linha.valorRealizado,
-          importacaoId: importacao.id,
-        };
         if (
-          linha.meta !== null &&
-          linha.meta !== undefined &&
-          Number.isFinite(linha.meta)
+          registroExistente &&
+          bloqueioDeAlteracao(registroExistente, role) !== null
         ) {
-          dadosRegistro.metaAplicada = linha.meta;
+          const statusAtual =
+            registroExistente.status === 'INATIVO'
+              ? 'INATIVO'
+              : registroExistente.statusAprovacao;
+          erro(
+            `Indicador ${indicador.nome} está com status ${statusAtual} e não pode ser alterado via importação.`,
+          );
+          continue;
         }
 
+        const temMeta =
+          linha.meta !== null &&
+          linha.meta !== undefined &&
+          Number.isFinite(linha.meta);
+        const extras = {
+          importacaoId: importacao.id,
+          ...(temMeta && { metaAplicada: linha.meta as number }),
+        };
+
         if (registroExistente) {
-          await this.prisma.indicadorRegistro.update({
-            where: { id: registroExistente.id },
-            data: dadosRegistro,
-          });
+          // Grava, muda o status conforme o fluxo e audita (ATUALIZAR)
+          await alterarValorRegistro(
+            this.prisma,
+            this.audit,
+            registroExistente,
+            linha.valorRealizado,
+            { id: userId, role },
+            undefined,
+            { dados: extras, auditoria: { importacaoId: importacao.id } },
+          );
         } else {
-          await this.prisma.indicadorRegistro.create({
+          const criado = await this.prisma.indicadorRegistro.create({
             data: {
               indicadorId: indicador.id,
               ano: linha.ano,
               trimestre: linha.trimestre,
-              ...dadosRegistro,
+              valorRealizado: linha.valorRealizado,
+              statusAprovacao: StatusAprovacao.EM_PREENCHIMENTO,
+              responsavelId: userId,
+              ...extras,
+            },
+          });
+          await this.audit.registrarAcao({
+            userId,
+            acao: AcaoAuditoria.CRIAR,
+            entidade: 'IndicadorRegistro',
+            entidadeId: criado.id,
+            dadosNovos: {
+              indicadorId: indicador.id,
+              ano: linha.ano,
+              trimestre: linha.trimestre,
+              valorRealizado: linha.valorRealizado,
+              statusAprovacao: criado.statusAprovacao,
+              importacaoId: importacao.id,
             },
           });
         }
 
-        if (
-          linha.meta !== null &&
-          linha.meta !== undefined &&
-          Number.isFinite(linha.meta)
-        ) {
+        if (temMeta) {
           const metaExistente = await this.prisma.meta.findFirst({
             where: {
               indicadorId: indicador.id,
@@ -518,10 +485,7 @@ export class ImportacaoService {
           if (metaExistente) {
             await this.prisma.meta.update({
               where: { id: metaExistente.id },
-              data: {
-                valorMeta: linha.meta,
-                status: 'ATIVO',
-              },
+              data: { valorMeta: linha.meta as number, status: 'ATIVO' },
             });
           } else {
             await this.prisma.meta.create({
@@ -529,7 +493,7 @@ export class ImportacaoService {
                 indicadorId: indicador.id,
                 ano: linha.ano,
                 trimestre: linha.trimestre,
-                valorMeta: linha.meta,
+                valorMeta: linha.meta as number,
                 status: 'ATIVO',
               },
             });
@@ -537,13 +501,14 @@ export class ImportacaoService {
         }
 
         linhasOk++;
-      } catch (erro) {
-        console.error(`Erro ao importar linha ${linha.numero}:`, erro);
-        erros.push({
-          linha: linha.numero,
-          mensagem:
-            'Falha ao gravar o registro; verifique se os dados são válidos.',
-        });
+      } catch (falha) {
+        // Ex.: registro alterado por outra operação no meio da importação
+        if (falha instanceof HttpException) {
+          erro(falha.message);
+          continue;
+        }
+        console.error(`Erro ao importar linha ${linha.numero}:`, falha);
+        erro('Falha ao gravar o registro; verifique se os dados são válidos.');
       }
     }
 

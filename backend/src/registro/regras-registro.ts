@@ -46,27 +46,48 @@ export interface UsuarioDaAlteracao {
   role: Role;
 }
 
+// Por que o registro não pode ter o valor alterado por este perfil (null = pode).
+// Usado por alterarValorRegistro e pela importação, para as regras não divergirem.
+export function bloqueioDeAlteracao(
+  registro: Pick<RegistroParaAlterar, 'status' | 'statusAprovacao'>,
+  role: Role,
+): 'INATIVO' | 'ENVIADO_REVISAO' | null {
+  // RN06: dado inativo fica preservado; precisa ser reativado antes de mudar
+  if (registro.status === StatusRegistro.INATIVO) return 'INATIVO';
+  // RN02: o núcleo só edita enquanto o dado não foi enviado para revisão
+  if (
+    role !== Role.ADMINISTRADOR &&
+    !STATUS_EDITAVEIS_NUCLEO.includes(registro.statusAprovacao)
+  ) {
+    return 'ENVIADO_REVISAO';
+  }
+  return null;
+}
+
+// Campos extras gravados junto com o valor (ex.: importação em lote)
+export interface ExtrasAlteracao {
+  dados?: Prisma.IndicadorRegistroUpdateManyMutationInput;
+  auditoria?: Record<string, unknown>;
+}
+
 // Altera o valor realizado seguindo o fluxo de aprovação. A permissão de núcleo
 // (RN02) é verificada pelo chamador, que já carregou o indicador.
 export async function alterarValorRegistro(
   prisma: PrismaService,
   audit: AuditService,
   registro: RegistroParaAlterar,
-  valorRealizado: number,
+  valorRealizado: number | null,
   usuario: UsuarioDaAlteracao,
   ip?: string,
+  extras: ExtrasAlteracao = {},
 ): Promise<StatusAprovacao> {
-  // RN06: dado inativo fica preservado; precisa ser reativado antes de mudar
-  if (registro.status === StatusRegistro.INATIVO) {
+  const bloqueio = bloqueioDeAlteracao(registro, usuario.role);
+  if (bloqueio === 'INATIVO') {
     throw new ConflictException(
       'Este valor está inativo e não pode ser alterado. Peça ao administrador para reativá-lo.',
     );
   }
-
-  if (
-    usuario.role !== Role.ADMINISTRADOR &&
-    !STATUS_EDITAVEIS_NUCLEO.includes(registro.statusAprovacao)
-  ) {
+  if (bloqueio === 'ENVIADO_REVISAO') {
     throw new ConflictException(
       'Este valor já foi enviado para revisão e não pode mais ser alterado pelo núcleo.',
     );
@@ -89,6 +110,7 @@ export async function alterarValorRegistro(
       statusAprovacao: registro.statusAprovacao,
     },
     data: {
+      ...extras.dados,
       valorRealizado,
       responsavelId: usuario.id,
       statusAprovacao: novoStatus,
@@ -117,7 +139,11 @@ export async function alterarValorRegistro(
       valorRealizado: valorParaAuditoria(registro.valorRealizado),
       statusAprovacao: registro.statusAprovacao,
     },
-    dadosNovos: { valorRealizado, statusAprovacao: novoStatus },
+    dadosNovos: {
+      valorRealizado,
+      statusAprovacao: novoStatus,
+      ...extras.auditoria,
+    },
     ip,
   });
 
