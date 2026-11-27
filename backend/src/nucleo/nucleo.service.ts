@@ -231,40 +231,82 @@ export class NucleoService {
     return atualizado;
   }
 
+  // UC027: em vez de bloquear, arquiva programas e indicadores vinculados,
+  // desvincula os usuários e exclui o núcleo, tudo na mesma transação
+  // (inclusive a auditoria): se qualquer passo falhar, nada é alterado.
   async remove(id: string, autor: AutorAcao) {
-    const nucleo = await this.nucleoRepository.findAtivoComVinculos(id);
+    const nucleo = await this.nucleoRepository.findAtivoById(id);
     if (!nucleo) {
       throw new NotFoundException('Núcleo não encontrado.');
     }
 
-    const { _count: vinculos, ...dadosNucleo } = nucleo;
-    const impeditivos = [
-      vinculos.users > 0 && 'usuários',
-      vinculos.programas > 0 && 'programas',
-      vinculos.indicadores > 0 && 'indicadores',
-    ].filter(Boolean);
-    if (impeditivos.length > 0) {
-      throw new ConflictException(
-        `O núcleo não pode ser excluído pois possui ${impeditivos.join(', ')} vinculados.`,
-      );
-    }
+    const excluido = await this.nucleoRepository.excluirComVinculos(
+      id,
+      async (tx, resultado) => {
+        const arquivados = [
+          ...resultado.programasArquivados.map((item) => ({
+            entidade: 'Programa',
+            item,
+          })),
+          ...resultado.indicadoresArquivados.map((item) => ({
+            entidade: 'Indicador',
+            item,
+          })),
+        ];
+        for (const { entidade, item } of arquivados) {
+          await this.audit.registrarAcao(
+            {
+              userId: autor.id,
+              acao: AcaoAuditoria.ARQUIVAR,
+              entidade,
+              entidadeId: item.id,
+              dadosAntigos: { nome: item.nome, status: item.status },
+              dadosNovos: {
+                nome: item.nome,
+                status: StatusRegistro.ARQUIVADO,
+              },
+              ip: autor.ip,
+            },
+            tx,
+          );
+        }
 
-    const excluido = await this.nucleoRepository.softDelete(id);
+        await this.audit.registrarAcao(
+          {
+            userId: autor.id,
+            acao: AcaoAuditoria.EXCLUIR_LOGICO,
+            entidade: 'Nucleo',
+            entidadeId: id,
+            // Os vínculos desfeitos na exclusão ficam registrados aqui
+            dadosAntigos: {
+              ...nucleo,
+              createdAt: nucleo.createdAt.toISOString(),
+              usuarios: resultado.usuariosDesvinculados,
+            },
+            dadosNovos: {
+              excluido: true,
+              usuarios: [],
+              programasArquivados: resultado.programasArquivados.map(
+                (p) => p.id,
+              ),
+              indicadoresArquivados: resultado.indicadoresArquivados.map(
+                (i) => i.id,
+              ),
+            },
+            ip: autor.ip,
+          },
+          tx,
+        );
+        return true;
+      },
+    );
+
+    // Excluído por outra requisição entre a leitura e a transação
     if (!excluido) {
       throw new NotFoundException('Núcleo não encontrado.');
     }
 
-    await this.audit.registrarAcao({
-      userId: autor.id,
-      acao: AcaoAuditoria.EXCLUIR_LOGICO,
-      entidade: 'Nucleo',
-      entidadeId: id,
-      dadosAntigos: {
-        ...dadosNucleo,
-        createdAt: dadosNucleo.createdAt.toISOString(),
-      },
-      ip: autor.ip,
-    });
+    return { message: 'Núcleo excluído com sucesso.' };
   }
 
   async verificarPendencias(id: string) {

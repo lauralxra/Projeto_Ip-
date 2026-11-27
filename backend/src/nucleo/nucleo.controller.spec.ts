@@ -40,6 +40,7 @@ describe('NucleoController (HTTP)', () => {
     verificarPendencias: jest.Mock;
     search: jest.Mock;
     findOne: jest.Mock;
+    update: jest.Mock;
   };
   const payload = { nome: 'Núcleo de Educação Ambiental', sigla: 'nea' };
 
@@ -59,6 +60,7 @@ describe('NucleoController (HTTP)', () => {
       }),
       search: jest.fn().mockResolvedValue({ itens: [], total: 0 }),
       findOne: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
+      update: jest.fn().mockResolvedValue({ id: 'nucleo-uuid' }),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NucleoController],
@@ -162,12 +164,16 @@ describe('NucleoController (HTTP)', () => {
   describe('DELETE /nucleos/:id', () => {
     const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
-    it('ADMINISTRADOR exclui o núcleo e recebe 204', async () => {
+    it('ADMINISTRADOR exclui o núcleo e recebe 200 com a mensagem', async () => {
+      nucleoService.remove.mockResolvedValue({
+        message: 'Núcleo excluído com sucesso.',
+      });
+
       await request(app.getHttpServer())
         .delete(`/nucleos/${id}`)
         .set('x-test-role', Role.ADMINISTRADOR)
-        .expect(204)
-        .expect('');
+        .expect(200)
+        .expect({ message: 'Núcleo excluído com sucesso.' });
 
       expect(nucleoService.remove).toHaveBeenCalledWith(
         id,
@@ -212,18 +218,65 @@ describe('NucleoController (HTTP)', () => {
           error: 'Not Found',
         });
     });
+  });
 
-    it('núcleo com vínculos retorna 409', async () => {
-      nucleoService.remove.mockRejectedValue(
-        new ConflictException(
-          'O núcleo não pode ser excluído pois possui programas vinculados.',
-        ),
-      );
+  describe('PATCH /nucleos/:id', () => {
+    const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+    const alteracoes = { nome: 'Núcleo Atualizado' };
 
+    it('ADMINISTRADOR atualiza o núcleo e recebe 200', async () => {
       await request(app.getHttpServer())
-        .delete(`/nucleos/${id}`)
+        .patch(`/nucleos/${id}`)
         .set('x-test-role', Role.ADMINISTRADOR)
-        .expect(409);
+        .send(alteracoes)
+        .expect(200)
+        .expect({ id: 'nucleo-uuid' });
+
+      expect(nucleoService.update).toHaveBeenCalledWith(
+        id,
+        alteracoes,
+        expect.objectContaining({ id: 'autor-uuid' }),
+      );
+    });
+
+    it.each([
+      Role.DIRETORES_NUCLEOS,
+      Role.EQUIPE_GESTAO,
+      Role.EQUIPE_COMUNICACAO,
+    ])(
+      'perfil %s recebe 403 com a mensagem de permissão e nada é atualizado',
+      async (role) => {
+        const res = await request(app.getHttpServer())
+          .patch(`/nucleos/${id}`)
+          .set('x-test-role', role)
+          .send(alteracoes)
+          .expect(403);
+
+        expect(res.body.message).toBe(
+          'Você não possui permissão para atualizar o núcleo.',
+        );
+        expect(nucleoService.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('sem token retorna 401 e nada é atualizado', async () => {
+      await request(app.getHttpServer())
+        .patch(`/nucleos/${id}`)
+        .send(alteracoes)
+        .expect(401);
+
+      expect(nucleoService.update).not.toHaveBeenCalled();
+    });
+
+    it('outras rotas restritas mantêm a mensagem genérica do RolesGuard', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/nucleos/${id}/desativar`)
+        .set('x-test-role', Role.EQUIPE_GESTAO)
+        .expect(403);
+
+      expect(res.body.message).toBe(
+        'Você não tem permissão para acessar este recurso.',
+      );
     });
   });
 
