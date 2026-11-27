@@ -20,6 +20,14 @@ export const nucleoAssociadoSelect = {
   imagemUrl: true,
 } as const;
 
+type ItemArquivado = { id: string; nome: string; status: StatusRegistro };
+
+export type ResultadoExclusaoNucleo = {
+  programasArquivados: ItemArquivado[];
+  indicadoresArquivados: ItemArquivado[];
+  usuariosDesvinculados: string[];
+};
+
 @Injectable()
 export class NucleoRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -101,32 +109,66 @@ export class NucleoRepository {
     return this.prisma.nucleo.create({ data, select: nucleoSelect });
   }
 
-  // Conta apenas vínculos vigentes: programas e indicadores excluídos não impedem a exclusão
-  findAtivoComVinculos(id: string) {
-    return this.prisma.nucleo.findFirst({
-      where: { id, deletedAt: null },
-      select: {
-        ...nucleoSelect,
-        _count: {
-          select: {
-            // Usuários excluídos não impedem a exclusão (inclui vínculos antigos,
-            // anteriores à remoção automática na exclusão do usuário)
-            users: { where: { user: { deletedAt: null } } },
-            programas: { where: { deletedAt: null } },
-            indicadores: { where: { deletedAt: null } },
-          },
-        },
-      },
-    });
-  }
+  // Exclusão lógica (UC027) em uma única transação: arquiva os programas e
+  // indicadores vigentes do núcleo (como em UC031/UC041: só muda o status,
+  // preservando o histórico), remove os vínculos de usuários e exclui o núcleo.
+  // A exclusão do núcleo vem primeiro: o filtro em deletedAt trava a linha e
+  // evita processar duas vezes em requisições concorrentes.
+  // `aoExcluir` roda na mesma transação (ex.: auditoria); se falhar, nada é gravado.
+  excluirComVinculos<T>(
+    id: string,
+    aoExcluir: (
+      tx: Prisma.TransactionClient,
+      resultado: ResultadoExclusaoNucleo,
+    ) => Promise<T>,
+  ): Promise<T | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.nucleo.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      if (count === 0) return null;
 
-  // Exclusão lógica (UC027); o filtro em deletedAt evita excluir duas vezes em requisições concorrentes
-  async softDelete(id: string) {
-    const { count } = await this.prisma.nucleo.updateMany({
-      where: { id, deletedAt: null },
-      data: { deletedAt: new Date() },
+      const naoArquivado = {
+        nucleoId: id,
+        deletedAt: null,
+        status: { not: StatusRegistro.ARQUIVADO },
+      };
+
+      const programas = await tx.programa.findMany({
+        where: naoArquivado,
+        select: { id: true, nome: true, status: true },
+      });
+      if (programas.length > 0) {
+        await tx.programa.updateMany({
+          where: { id: { in: programas.map((p) => p.id) } },
+          data: { status: StatusRegistro.ARQUIVADO },
+        });
+      }
+
+      const indicadores = await tx.indicador.findMany({
+        where: naoArquivado,
+        select: { id: true, nome: true, status: true },
+      });
+      if (indicadores.length > 0) {
+        await tx.indicador.updateMany({
+          where: { id: { in: indicadores.map((i) => i.id) } },
+          data: { status: StatusRegistro.ARQUIVADO },
+        });
+      }
+
+      const vinculos = await tx.userNucleo.findMany({
+        where: { nucleoId: id },
+        select: { userId: true },
+      });
+      await tx.userNucleo.deleteMany({ where: { nucleoId: id } });
+
+      return aoExcluir(tx, {
+        programasArquivados: programas,
+        indicadoresArquivados: indicadores,
+        usuariosDesvinculados: vinculos.map((v) => v.userId),
+      });
     });
-    return count > 0;
   }
 
   async updateDados(id: string, data: Prisma.NucleoUpdateManyMutationInput) {

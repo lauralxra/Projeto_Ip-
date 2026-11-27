@@ -2,10 +2,9 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
-  ApiConflictResponse,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
-  ApiNoContentResponse,
+  ApiOkResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
@@ -20,8 +19,9 @@ export function DeleteNucleoSwagger() {
       summary: 'Excluir núcleo',
       description:
         'Exclui logicamente um núcleo, que deixa de ser retornado nas consultas. Restrito ao perfil ' +
-        'ADMINISTRADOR (RN26.01). Bloqueada enquanto houver usuários, programas ou indicadores ' +
-        'vinculados. A exclusão é registrada na auditoria (RNF15).',
+        'ADMINISTRADOR (RN26.01). Na mesma transação, arquiva (status ARQUIVADO) os programas e ' +
+        'indicadores vinculados e desvincula os usuários do núcleo. Cada arquivamento e a ' +
+        'exclusão são registrados na auditoria (RNF15).',
     }),
     ApiBearerAuth('JWT-auth'),
     ApiParam({
@@ -29,7 +29,12 @@ export function DeleteNucleoSwagger() {
       description: 'Identificador do núcleo (UUID)',
       format: 'uuid',
     }),
-    ApiNoContentResponse({ description: 'Núcleo excluído com sucesso.' }),
+    ApiOkResponse({
+      description: 'Núcleo excluído com sucesso.',
+      schema: {
+        example: { message: 'Núcleo excluído com sucesso.' },
+      },
+    }),
     ApiBadRequestResponse({
       description: 'O id informado não é um UUID válido.',
       type: AuthErrorResponseDto,
@@ -44,11 +49,6 @@ export function DeleteNucleoSwagger() {
     }),
     ApiNotFoundResponse({
       description: 'Núcleo inexistente ou já excluído.',
-      type: AuthErrorResponseDto,
-    }),
-    ApiConflictResponse({
-      description:
-        'O núcleo possui usuários, programas ou indicadores vinculados.',
       type: AuthErrorResponseDto,
     }),
     ApiInternalServerErrorResponse({

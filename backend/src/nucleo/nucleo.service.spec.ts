@@ -28,8 +28,7 @@ describe('NucleoService', () => {
     findAtivoById: jest.Mock;
     usuarioVinculado: jest.Mock;
     create: jest.Mock;
-    findAtivoComVinculos: jest.Mock;
-    softDelete: jest.Mock;
+    excluirComVinculos: jest.Mock;
     deactivate: jest.Mock;
     reactivate: jest.Mock;
     contarPendencias: jest.Mock;
@@ -54,8 +53,7 @@ describe('NucleoService', () => {
       findAtivoById: jest.fn(),
       usuarioVinculado: jest.fn(),
       create: jest.fn(),
-      findAtivoComVinculos: jest.fn(),
-      softDelete: jest.fn(),
+      excluirComVinculos: jest.fn(),
       deactivate: jest.fn(),
       reactivate: jest.fn(),
       contarPendencias: jest.fn(),
@@ -180,87 +178,126 @@ describe('NucleoService', () => {
       status: StatusRegistro.ATIVO,
       createdAt,
     };
-    const semVinculos = { users: 0, programas: 0, indicadores: 0 };
+    const tx = { marcador: 'tx' };
+    const semVinculos = {
+      programasArquivados: [],
+      indicadoresArquivados: [],
+      usuariosDesvinculados: [],
+    };
+
+    // Executa o callback da transação como o repository faria
+    const simularTransacao = (resultado: typeof semVinculos | object) =>
+      repository.excluirComVinculos.mockImplementation(
+        (_id: string, aoExcluir: (t: unknown, r: unknown) => unknown) =>
+          aoExcluir(tx, resultado),
+      );
 
     beforeEach(() => {
-      repository.findAtivoComVinculos.mockResolvedValue({
-        ...nucleo,
-        _count: semVinculos,
+      repository.findAtivoById.mockResolvedValue(nucleo);
+      simularTransacao(semVinculos);
+    });
+
+    it('exclui o núcleo sem vínculos e retorna a mensagem de sucesso', async () => {
+      await expect(service.remove('nucleo-uuid', autor)).resolves.toEqual({
+        message: 'Núcleo excluído com sucesso.',
       });
-      repository.softDelete.mockResolvedValue(true);
+      expect(repository.excluirComVinculos).toHaveBeenCalledWith(
+        'nucleo-uuid',
+        expect.any(Function),
+      );
     });
 
-    it('exclui logicamente o núcleo elegível', async () => {
-      await expect(
-        service.remove('nucleo-uuid', autor),
-      ).resolves.toBeUndefined();
-
-      expect(repository.softDelete).toHaveBeenCalledWith('nucleo-uuid');
-    });
-
-    it('registra a exclusão na auditoria com autor e dados antigos', async () => {
-      await service.remove('nucleo-uuid', autor);
-
-      expect(audit.registrarAcao).toHaveBeenCalledWith({
-        userId: 'admin-uuid',
-        acao: AcaoAuditoria.EXCLUIR_LOGICO,
-        entidade: 'Nucleo',
-        entidadeId: 'nucleo-uuid',
-        dadosAntigos: { ...nucleo, createdAt: createdAt.toISOString() },
-        ip: '203.0.113.7',
+    it('não bloqueia mais por vínculos: arquiva programas e indicadores e audita cada um na transação', async () => {
+      simularTransacao({
+        programasArquivados: [
+          { id: 'prog-1', nome: 'Programa A', status: StatusRegistro.ATIVO },
+        ],
+        indicadoresArquivados: [
+          { id: 'ind-1', nome: 'Indicador B', status: StatusRegistro.INATIVO },
+        ],
+        usuariosDesvinculados: ['user-1', 'user-2'],
       });
+
+      await expect(service.remove('nucleo-uuid', autor)).resolves.toEqual({
+        message: 'Núcleo excluído com sucesso.',
+      });
+
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        {
+          userId: 'admin-uuid',
+          acao: AcaoAuditoria.ARQUIVAR,
+          entidade: 'Programa',
+          entidadeId: 'prog-1',
+          dadosAntigos: { nome: 'Programa A', status: StatusRegistro.ATIVO },
+          dadosNovos: { nome: 'Programa A', status: StatusRegistro.ARQUIVADO },
+          ip: '203.0.113.7',
+        },
+        tx,
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        {
+          userId: 'admin-uuid',
+          acao: AcaoAuditoria.ARQUIVAR,
+          entidade: 'Indicador',
+          entidadeId: 'ind-1',
+          dadosAntigos: { nome: 'Indicador B', status: StatusRegistro.INATIVO },
+          dadosNovos: {
+            nome: 'Indicador B',
+            status: StatusRegistro.ARQUIVADO,
+          },
+          ip: '203.0.113.7',
+        },
+        tx,
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledWith(
+        {
+          userId: 'admin-uuid',
+          acao: AcaoAuditoria.EXCLUIR_LOGICO,
+          entidade: 'Nucleo',
+          entidadeId: 'nucleo-uuid',
+          dadosAntigos: {
+            ...nucleo,
+            createdAt: createdAt.toISOString(),
+            usuarios: ['user-1', 'user-2'],
+          },
+          dadosNovos: {
+            excluido: true,
+            usuarios: [],
+            programasArquivados: ['prog-1'],
+            indicadoresArquivados: ['ind-1'],
+          },
+          ip: '203.0.113.7',
+        },
+        tx,
+      );
+      expect(audit.registrarAcao).toHaveBeenCalledTimes(3);
     });
 
-    it('núcleo inexistente ou já excluído retorna 404 sem auditar', async () => {
-      repository.findAtivoComVinculos.mockResolvedValue(null);
+    it('falha na auditoria propaga o erro (a transação é desfeita)', async () => {
+      audit.registrarAcao.mockRejectedValue(new Error('falha no banco'));
+
+      await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
+        'falha no banco',
+      );
+    });
+
+    it('núcleo inexistente ou já excluído retorna 404 sem abrir a transação', async () => {
+      repository.findAtivoById.mockResolvedValue(null);
 
       await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
         new NotFoundException('Núcleo não encontrado.'),
       );
-      expect(repository.softDelete).not.toHaveBeenCalled();
+      expect(repository.excluirComVinculos).not.toHaveBeenCalled();
       expect(audit.registrarAcao).not.toHaveBeenCalled();
     });
 
     it('núcleo excluído por requisição concorrente retorna 404 sem auditar', async () => {
-      repository.softDelete.mockResolvedValue(false);
+      repository.excluirComVinculos.mockResolvedValue(null);
 
       await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
-        NotFoundException,
+        new NotFoundException('Núcleo não encontrado.'),
       );
       expect(audit.registrarAcao).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      [{ users: 2 }, 'usuários'],
-      [{ programas: 1 }, 'programas'],
-      [{ indicadores: 3 }, 'indicadores'],
-    ])(
-      'bloqueia com 409 quando há vínculos %o',
-      async (vinculos, descricao) => {
-        repository.findAtivoComVinculos.mockResolvedValue({
-          ...nucleo,
-          _count: { ...semVinculos, ...vinculos },
-        });
-
-        await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
-          new ConflictException(
-            `O núcleo não pode ser excluído pois possui ${descricao} vinculados.`,
-          ),
-        );
-        expect(repository.softDelete).not.toHaveBeenCalled();
-        expect(audit.registrarAcao).not.toHaveBeenCalled();
-      },
-    );
-
-    it('lista todos os vínculos impeditivos na mensagem', async () => {
-      repository.findAtivoComVinculos.mockResolvedValue({
-        ...nucleo,
-        _count: { users: 1, programas: 1, indicadores: 1 },
-      });
-
-      await expect(service.remove('nucleo-uuid', autor)).rejects.toThrow(
-        'O núcleo não pode ser excluído pois possui usuários, programas, indicadores vinculados.',
-      );
     });
   });
 

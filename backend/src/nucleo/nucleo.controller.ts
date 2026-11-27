@@ -18,7 +18,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiForbiddenResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { isUUID } from 'class-validator';
 import {
   opcoesUploadImagem,
@@ -39,7 +45,7 @@ import { DeleteNucleoSwagger } from './swagger/nucleo.delete.swagger';
 import { DeactivateNucleoSwagger } from './swagger/nucleo.deactivate.swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorators';
+import { Roles, RolesMessage } from '../auth/roles.decorators';
 import type { AuthenticatedRequest } from '../auth/interface/request.interface';
 
 @ApiTags('nucleo')
@@ -91,7 +97,11 @@ export class NucleoController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
+  @RolesMessage('Você não possui permissão para atualizar o núcleo.')
   @ApiBearerAuth('JWT-auth')
+  @ApiForbiddenResponse({
+    description: 'Você não possui permissão para atualizar o núcleo.',
+  })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateNucleoDto: UpdateNucleoDto,
@@ -105,7 +115,6 @@ export class NucleoController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMINISTRADOR)
   @DeleteNucleoSwagger()

@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from './roles.decorators';
+import { ROLES_KEY, ROLES_MESSAGE_KEY } from './roles.decorators';
 import { AuthenticatedRequest } from './interface/request.interface';
 
 @Injectable()
@@ -31,8 +31,12 @@ export class RolesGuard implements CanActivate {
     const hasRole = requiredRoles.some((role) => user.role === role);
 
     if (!hasRole) {
+      const mensagem = this.reflector.getAllAndOverride<string | undefined>(
+        ROLES_MESSAGE_KEY,
+        [context.getHandler(), context.getClass()],
+      );
       throw new ForbiddenException(
-        'Você não tem permissão para acessar este recurso.',
+        mensagem ?? 'Você não tem permissão para acessar este recurso.',
       );
     }
 
